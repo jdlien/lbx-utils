@@ -60,14 +60,61 @@ Options:
   -m, --margin         Margin between image and text in mm
 ```
 
+## Dependencies
+
+### Required
+
+- **Python 3.6+**: Both utilities require Python 3.6 or newer
+- **Standard libraries**: `os`, `re`, `sys`, `zipfile`, `xml`, `argparse`, `shutil`, `io`, `tempfile`, `pathlib`, `datetime`
+
+### Optional
+
+- **Pillow**: Used for image optimization and processing
+  - Enables proper BMP to PNG conversion
+  - Preserves transparency in extracted images
+- **lxml**: Provides enhanced XML parsing capabilities
+  - Significantly improves vertical centering functionality in change-lbx.py
+  - Offers better XML handling and manipulation
+- **colorama**: Adds colored terminal output
+  - Makes command output more readable with color-coding
+- **ImageMagick**: External program for advanced image conversion
+  - Required for best BMP to transparent PNG conversion
+  - Handles more complex image formats
+
 ## Installation
 
-1. Clone this repository
-2. Optional dependencies:
-   - Install Pillow for image optimization: `pip install pillow`
-   - Install colorama for colored output: `pip install colorama`
-   - Install lxml for better XML handling: `pip install lxml`
-   - Install ImageMagick for advanced image conversion
+1. Clone this repository:
+
+   ```
+   git clone https://github.com/yourusername/lbx-utils.git
+   cd lbx-utils
+   ```
+
+2. Install required Python dependencies:
+
+   ```
+   # Install all dependencies (recommended)
+   pip install -r requirements.txt
+
+   # OR install individually
+   # Basic installation with minimal features
+   pip install pillow
+
+   # Full installation with all features
+   pip install pillow lxml colorama
+   ```
+
+3. Install ImageMagick (optional):
+
+   - **macOS**: `brew install imagemagick`
+   - **Ubuntu/Debian**: `sudo apt-get install imagemagick`
+   - **Windows**: Download and install from [ImageMagick website](https://imagemagick.org/script/download.php)
+
+4. Make scripts executable (on Unix-based systems):
+   ```
+   chmod +x parse-lbx.py
+   chmod +x change-lbx.py
+   ```
 
 ## License
 
