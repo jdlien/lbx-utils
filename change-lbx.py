@@ -66,29 +66,70 @@ from rich.console import Console
 from rich.progress import Progress
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
-from colorama import init, Fore, Style
+import colorama
+from colorama import Fore, Style
 import typer
 
 # Initialize colorama for cross-platform colored output
-init(autoreset=True)
+colorama.init(autoreset=True)
 
 # Initialize Typer app and Rich console
 app = typer.Typer(help="Brother P-touch LBX Label File Modifier", add_completion=False)
 console = Console()
 
 # Constants
+# Label dimensions and measurements
 TRUE_LEFT_EDGE = 5.6  # The true printable left edge in Brother P-touch labels is 5.6pt
+DEFAULT_HEIGHT = 2834.4  # Default height for all label sizes
+DEFAULT_BG_X = 5.6  # Default background X position
+TEXT_MARGIN_OFFSET = 4.3  # Text Y position is consistently offset from margin by 4.3pt
+
+# XML namespaces
+NS = {
+    'pt': 'http://schemas.brother.info/ptouch/2007/lbx/main',
+    'style': 'http://schemas.brother.info/ptouch/2007/lbx/style',
+    'text': 'http://schemas.brother.info/ptouch/2007/lbx/text',
+    'image': 'http://schemas.brother.info/ptouch/2007/lbx/image'
+}
+
+# Label size format codes
+FORMAT_CODES = {
+    9: '258',
+    12: '259',
+    18: '260',
+    24: '261'
+}
+
+# Label size configurations (width, margin, background dimensions in points)
+LABEL_CONFIGS = {
+    9: {
+        'width': 25.6,
+        'margin_y': 2.8,  # Used for marginLeft and marginRight, which control vertical positioning
+        'bg_width': 66.4,
+        'bg_height': 20.0
+    },
+    12: {
+        'width': 33.6,
+        'margin_y': 2.8,
+        'bg_width': 66.4,
+        'bg_height': 28.0
+    },
+    18: {
+        'width': 51.2,
+        'margin_y': 3.2,
+        'bg_width': 66.4,
+        'bg_height': 28.0
+    },
+    24: {
+        'width': 68.0,
+        'margin_y': 8.4,
+        'bg_width': 115.3,
+        'bg_height': 51.2
+    }
+}
 
 def parse_unit(value: str) -> float:
-    """
-    Parse a value with unit (like '10pt') into a float.
-
-    Args:
-        value: String value with unit
-
-    Returns:
-        float: Parsed value without unit
-    """
+    """Convert a value with unit (e.g. '10pt') to a float."""
     if not value:
         return 0.0
 
@@ -106,63 +147,20 @@ def get_label_config(label_size: int) -> Dict[str, Any]:
     Returns:
         Dictionary with label configuration parameters
     """
-    # Define constants that apply to all label sizes
-    DEFAULT_HEIGHT = 2834.4
-    DEFAULT_BG_X = 5.6
-    DEFAULT_BG_Y = None  # Will be set to margin value
+    # Get base config from LABEL_CONFIGS, defaulting to 12mm if size not found
+    base_config = LABEL_CONFIGS.get(label_size, LABEL_CONFIGS[12])
 
-    # Define format codes for each size
-    FORMAT_CODES = {
-        9: '258',
-        12: '259',
-        18: '260',
-        24: '261'
-    }
-
-    # Calculate width based on the mm size
-    # These multipliers match observed values from actual LBX files
-    if label_size == 9:
-        width = 25.6
-        margin = 2.8
-        bg_width = 66.4
-    elif label_size == 12:
-        width = 33.6
-        margin = 2.8
-        bg_width = 66.4
-    elif label_size == 18:
-        width = 51.2
-        margin = 3.2
-        bg_width = 66.4
-    elif label_size == 24:
-        width = 68.0
-        margin = 8.4
-        bg_width = 115.3
-    else:
-        # Default to 12mm if not found
-        width = 33.6
-        margin = 2.8
-        bg_width = 66.4
-        label_size = 12  # Normalize to 12mm for format code
-
-    # Calculate background height (roughly proportional to width minus margins)
-    if label_size <= 12:
-        bg_height = 20.0
-    elif label_size == 18:
-        bg_height = 28.0
-    else:  # 24mm
-        bg_height = 51.2
-
-    # Create the configuration dictionary with calculated values
+    # Create config with derived/additional fields
     config = {
-        'width': width,
+        'width': base_config['width'],
         'height': DEFAULT_HEIGHT,
-        'marginLeft': margin,
-        'marginRight': margin,
-        'bg_width': bg_width,
-        'bg_height': bg_height,
+        'marginLeft': base_config['margin_y'],  # Affects vertical positioning in landscape
+        'marginRight': base_config['margin_y'],  # Affects vertical positioning in landscape
+        'bg_width': base_config['bg_width'],
+        'bg_height': base_config['bg_height'],
         'bg_x': DEFAULT_BG_X,
-        'bg_y': margin if DEFAULT_BG_Y is None else DEFAULT_BG_Y,
-        'format': FORMAT_CODES.get(label_size, '259')  # Default to 12mm format if not found
+        'bg_y': base_config['margin_y'],  # bg_y is always set to margin value
+        'format': FORMAT_CODES.get(label_size, FORMAT_CODES[12])  # Default to 12mm format if not found
     }
 
     return config
@@ -179,7 +177,7 @@ def update_label_size(root: Element, label_size: int, verbose: bool = False) -> 
     # Get label configuration
     label_config = get_label_config(label_size)
 
-    paper_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}paper')
+    paper_elem = root.find('.//style:paper', namespaces=NS)
     if paper_elem is not None:
         # Get original margin before updating it
         original_margin = float(paper_elem.get('marginLeft', '0pt').replace('pt', ''))
@@ -223,7 +221,7 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
     log_message(f"Adjusting object Y positions by [bold blue]{offset}pt[/] to match new margins", verbose)
 
     # Update background element Y position
-    bg_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}backGround')
+    bg_elem = root.find('.//style:backGround', namespaces=NS)
     if bg_elem is not None:
         old_y = float(bg_elem.get('y', '0pt').replace('pt', ''))
         new_y = old_y + offset
@@ -231,7 +229,7 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
         log_message(f"Updated background Y position from [bold blue]{old_y}pt[/] to [bold blue]{new_y}pt[/]", verbose)
 
     # Get all object elements
-    object_styles = root.findall('.//{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle')
+    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
 
     for obj in object_styles:
         # Get parent element to determine if it's text or image
@@ -259,7 +257,7 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
 
             # For images, also update the orgPos Y position
             if is_image and parent is not None:
-                org_pos = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos')
+                org_pos = parent.find('.//image:orgPos', namespaces=NS)
                 if org_pos is not None:
                     old_org_y = float(org_pos.get('y', '0pt').replace('pt', ''))
                     new_org_y = old_org_y + offset
@@ -276,7 +274,7 @@ def update_background(root: Element, label_config: Dict[str, Any], verbose: bool
         label_config: Label configuration dictionary
         verbose: Whether to show verbose output
     """
-    bg_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}backGround')
+    bg_elem = root.find('.//style:backGround', namespaces=NS)
     if bg_elem is not None:
         bg_elem.set('width', f"{label_config['bg_width']}pt")
         bg_elem.set('height', f"{label_config['bg_height']}pt")
@@ -299,7 +297,7 @@ def update_font_size(root: Element, font_size: int, verbose: bool = False) -> No
     org_size = font_size * 3.6
 
     # Modify font sizes in text elements
-    font_ext_elems = root.findall('.//{http://schemas.brother.info/ptouch/2007/lbx/text}fontExt')
+    font_ext_elems = root.findall('.//text:fontExt', namespaces=NS)
     for font_elem in font_ext_elems:
         font_elem.set('size', f"{font_size}pt")
         font_elem.set('orgSize', f"{org_size}pt")
@@ -317,7 +315,7 @@ def classify_elements(root: Element) -> Tuple[List[Element], List[Element]]:
         Tuple of (image_elements, text_elements)
     """
     # Get all objects
-    object_styles = root.findall('.//{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle')
+    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
 
     # Collect images and text elements
     image_elements = []
@@ -404,7 +402,7 @@ def scale_images(image_elements: List[Element], image_scale: float, label_size: 
         parent = element.getparent()
         if parent is not None and str(parent.tag).endswith('}image'):
             # Update orgPos element
-            org_pos = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos')
+            org_pos = parent.find('.//image:orgPos', namespaces=NS)
             if org_pos is not None:
                 org_pos.set('x', f"{new_x}pt")
                 org_pos.set('y', f"{new_y}pt")
@@ -413,9 +411,9 @@ def scale_images(image_elements: List[Element], image_scale: float, label_size: 
                 log_message(f"Updated image orgPos to [bold blue]{new_width}x{new_height}pt[/]", verbose)
 
             # Update trimming dimensions
-            image_style = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}imageStyle')
+            image_style = parent.find('.//image:imageStyle', namespaces=NS)
             if image_style is not None:
-                trimming = image_style.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}trimming')
+                trimming = image_style.find('.//image:trimming', namespaces=NS)
                 if trimming is not None:
                     # Get original trimming dimensions
                     trim_width = parse_unit(trimming.get('trimOrgWidth', '0pt'))
@@ -472,13 +470,13 @@ def center_elements_vertically(root: Element, label_width: float, verbose: bool 
         verbose: Whether to show verbose output
     """
     # Get the background element to determine the printable area
-    bg_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}backGround')
+    bg_elem = root.find('.//style:backGround', namespaces=NS)
     if bg_elem is None:
         log_message("[yellow]Warning: No background element found, skipping vertical centering[/]", verbose)
         return
 
     # Get the paper element to determine label size
-    paper_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}paper')
+    paper_elem = root.find('.//style:paper', namespaces=NS)
     if paper_elem is None:
         log_message("[yellow]Warning: No paper element found, skipping vertical centering[/]", verbose)
         return
@@ -501,7 +499,7 @@ def center_elements_vertically(root: Element, label_width: float, verbose: bool 
     center_of_background = bg_y + (bg_height / 2)
 
     # Get all objects that need centering
-    object_styles = root.findall('.//{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle')
+    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
 
     if not object_styles:
         log_message("[yellow]Warning: No objects found to center[/]", verbose)
@@ -539,7 +537,7 @@ def center_elements_vertically(root: Element, label_width: float, verbose: bool 
         # Also update corresponding image orgPos if exists
         parent = obj.getparent()
         if parent is not None and str(parent.tag).endswith('}image'):
-            org_pos = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos')
+            org_pos = parent.find('.//image:orgPos', namespaces=NS)
             if org_pos is not None:
                 org_pos.set('y', f"{new_y}pt")
                 log_message(f"Updated image orgPos y to [bold blue]{new_y}pt[/]", verbose)
@@ -606,7 +604,7 @@ def apply_compatibility_tweaks(root: Element, label_size: int, verbose: bool = F
         log_message(f"Updated document version to [bold blue]1.9[/] and generator to [bold blue]com.jdlien.lbx-utils[/]", verbose)
 
     # Update printer compatibility for wider tape formats
-    paper_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}paper')
+    paper_elem = root.find('.//style:paper', namespaces=NS)
     if paper_elem is not None:
         # The PT-P710BT supports larger tape sizes up to 24mm
         large_format_printer_id = "30256"  # ID for PT-P710BT
@@ -656,7 +654,7 @@ def get_current_label_size(root: Element) -> Optional[int]:
     Returns:
         Label size in mm or None if it couldn't be determined
     """
-    paper_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}paper')
+    paper_elem = root.find('.//style:paper', namespaces=NS)
     if paper_elem is None:
         return None
 
@@ -702,7 +700,7 @@ def get_text_elements(root: Element) -> List[Element]:
     text_elements = []
 
     # Find all object styles
-    object_styles = root.findall('.//{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle')
+    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
 
     for element in object_styles:
         # Check if the parent is a text element
@@ -726,7 +724,7 @@ def get_image_elements(root: Element) -> List[Element]:
     image_elements = []
 
     # Find all object styles
-    object_styles = root.findall('.//{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle')
+    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
 
     for element in object_styles:
         # Check if the parent is an image element
@@ -758,7 +756,7 @@ def update_font_sizes(text_elements: List[Element], target_font_size: float, ver
             continue
 
         # Update main fontExt element
-        font_ext = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/text}fontExt')
+        font_ext = parent.find('.//text:fontExt', namespaces=NS)
         if font_ext is not None:
             current_size = parse_unit(font_ext.get('size', '9pt'))
             current_org_size = parse_unit(font_ext.get('orgSize', '32.4pt'))
@@ -774,7 +772,7 @@ def update_font_sizes(text_elements: List[Element], target_font_size: float, ver
                 log_message(f"Updated main font size from [bold blue]{current_size:.1f}pt[/] to [bold blue]{target_font_size}pt[/]", verbose)
 
         # Update textStyle orgPoint
-        text_style = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/text}textStyle')
+        text_style = parent.find('.//text:textStyle', namespaces=NS)
         if text_style is not None:
             current_org_point = parse_unit(text_style.get('orgPoint', '9pt'))
             text_style.set('orgPoint', f"{target_font_size}pt")
@@ -782,8 +780,8 @@ def update_font_sizes(text_elements: List[Element], target_font_size: float, ver
                 log_message(f"Updated textStyle orgPoint from [bold blue]{current_org_point:.1f}pt[/] to [bold blue]{target_font_size}pt[/]", verbose)
 
         # Update all stringItem fontExt elements
-        for string_item in parent.findall('.//{http://schemas.brother.info/ptouch/2007/lbx/text}stringItem'):
-            string_font_ext = string_item.find('.//{http://schemas.brother.info/ptouch/2007/lbx/text}fontExt')
+        for string_item in parent.findall('.//text:stringItem', namespaces=NS):
+            string_font_ext = string_item.find('.//text:fontExt', namespaces=NS)
             if string_font_ext is not None:
                 current_size = parse_unit(string_font_ext.get('size', '9pt'))
                 current_org_size = parse_unit(string_font_ext.get('orgSize', '32.4pt'))
