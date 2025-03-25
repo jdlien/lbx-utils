@@ -134,16 +134,7 @@ class MessageClass(Enum):
 def log_message(message: str, msg_class: MessageClass = MessageClass.INFO) -> None:
     """
     Log a message to the console with appropriate styling based on message class.
-
-    Args:
-        message: Message to log
-        msg_class: Class of message (error, warning, success, or info)
-
-    Message classes:
-    - ERROR: Always shown, indicates failure (red)
-    - WARNING: Always shown, indicates potential issues (yellow)
-    - SUCCESS: Always shown, indicates successful operations (green)
-    - INFO: Only shown in verbose mode, general information (default color)
+    Uses Rich's markup syntax to style numbers and units consistently.
     """
     # Define styles for different message classes
     styles = {
@@ -157,9 +148,25 @@ def log_message(message: str, msg_class: MessageClass = MessageClass.INFO) -> No
     if msg_class == MessageClass.INFO and not config.verbose:
         return
 
-    # Apply appropriate style and print
+    # Apply message class style
     style = styles[msg_class]
-    console.print(f"{style}{message}[/]" if style else message)
+
+    # First, style numbers with units (pt, mm)
+    styled_message = re.sub(
+        r'(\d+\.?\d*)(pt|mm)',
+        r'[bold cyan]\1[/][cyan]\2[/]',
+        message
+    )
+
+    # Then, style standalone decimal numbers
+    styled_message = re.sub(
+        r'(\d+\.\d+)',
+        r'[bold cyan]\1[/]',
+        styled_message
+    )
+
+    # Print with the combined styles
+    console.print(f"{style}{styled_message}[/]" if style else styled_message, highlight=False)
 
 def parse_unit(value: str) -> float:
     """Convert a value with unit (e.g. '10pt') to a float."""
@@ -318,23 +325,42 @@ def update_background(root: Element, label_config: Dict[str, Any]) -> None:
         log_message(f"Updated background dimensions: {current_width}pt × {label_config['bg_height']}pt")
 
 
-def update_font_size(root: Element, font_size: int) -> None:
+def update_font_size(root: Element, font_size: int, min_weight: Optional[int] = None, max_weight: Optional[int] = None) -> None:
     """
     Update font size in text elements of an LBX file.
 
     Args:
-        root: Root element of the XML tree
+        root: Element of the XML tree
         font_size: New font size in pt
+        min_weight: Optional minimum font weight to match (inclusive)
+        max_weight: Optional maximum font weight to match (inclusive)
     """
     # Convert standard typographic points to Brother's internal units
     org_size = font_size * config.BROTHER_UNITS_MULTIPLIER
 
-    # Modify font sizes in text elements
-    font_ext_elems = root.findall('.//text:fontExt', namespaces=config.NS)
-    for font_elem in font_ext_elems:
-        font_elem.set('size', f"{font_size}pt")
-        font_elem.set('orgSize', f"{org_size}pt")
-        log_message(f"Updated font size to {font_size}pt (orgSize: {org_size}pt)")
+    # Find all ptFontInfo elements that contain both logFont and fontExt
+    font_infos = root.findall('.//text:ptFontInfo', namespaces=config.NS)
+    for font_info in font_infos:
+        # Get the logFont element within this ptFontInfo
+        log_font = font_info.find('.//text:logFont', namespaces=config.NS)
+        if log_font is not None:
+            # Get the weight attribute
+            weight = int(log_font.get('weight', '400'))
+
+            # Check if weight is within the specified range
+            weight_matches = True
+            if min_weight is not None and weight < min_weight:
+                weight_matches = False
+            if max_weight is not None and weight > max_weight:
+                weight_matches = False
+
+            if weight_matches:
+                # Update all fontExt elements within this ptFontInfo
+                font_exts = font_info.findall('.//text:fontExt', namespaces=config.NS)
+                for font_elem in font_exts:
+                    font_elem.set('size', f"{font_size}pt")
+                    font_elem.set('orgSize', f"{org_size}pt")
+                    log_message(f"Updated font size to {font_size}pt (orgSize: {org_size}pt) for weight {weight}")
 
 
 def classify_elements(root: Element) -> Tuple[List[Element], List[Element]]:
@@ -810,6 +836,37 @@ def update_font_sizes(text_elements: List[Element], target_font_size: float) -> 
                     log_message(f"Updated string item font size from {current_size:.1f}pt to {target_font_size}pt")
 
 
+def tweak_text(root: Element) -> None:
+    """
+    Apply text tweaks to the content of pt:data elements.
+    Currently supports:
+    - Converting 'x' to '×' when it appears between numbers (e.g., "2x3" -> "2×3")
+    """
+    # Find all pt:data elements
+    data_elements = root.findall('.//pt:data', namespaces=config.NS)
+
+    for data_elem in data_elements:
+        if data_elem.text is None:
+            continue
+
+        # Convert 'x' to '×' when between numbers
+        # This regex matches:
+        # - A number
+        # - Optional whitespace
+        # - The letter 'x'
+        # - Optional whitespace
+        # - Another number
+        text = data_elem.text
+        # This approach is tricky because we'd have to update the charLen attribute of each stringItem element
+        # new_text = re.sub(r'(\d+)\s*x\s*(\d+)', r'\1×\2', text)
+        # Instead, we'll just directly replace the x with the × character
+        new_text = re.sub(r'(\d+\s)*x(\s*\d+)', r'\1×\2', text)
+
+        if new_text != text:
+            data_elem.text = new_text
+            log_message(f"Converted 'x' to '×' in text: {text} -> {new_text}")
+
+
 def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any]) -> None:
     """
     Modify a Brother P-touch LBX file with the given options.
@@ -846,7 +903,7 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
         text_margin_pt = text_margin * 2.8
 
         # Skip if the label size is the same and no other changes
-        if label_size == current_label_size and not options.get('font_size') and not options.get('image_scale'):
+        if label_size == current_label_size and not options.get('font_size') and not options.get('bold_font_size') and not options.get('image_scale'):
             log_message("No changes necessary - input and output sizes are the same", msg_class=MessageClass.WARNING)
             if options.get('force'):
                 log_message("Force option specified - continuing anyway", msg_class=MessageClass.WARNING)
@@ -863,15 +920,23 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
         text_elements = get_text_elements(root)
         image_elements = get_image_elements(root)
 
-        # Get the target font size and image scale
+        # Get the target font sizes and image scale
         target_font_size = options.get('font_size')
+        bold_font_size = options.get('bold_font_size')
         image_scale = options.get('image_scale', 1.0)
 
         # Apply changes if needed
-        if target_font_size is not None or image_scale != 1.0:
-            # Update font size if specified
+        if target_font_size is not None or bold_font_size is not None or image_scale != 1.0:
+            # Update font sizes if specified
             if target_font_size is not None:
-                update_font_sizes(text_elements, target_font_size)
+                # Update regular text (weights up to 599)
+                update_font_size(root, target_font_size, max_weight=599)
+                log_message(f"Updated regular text to {target_font_size}pt")
+
+            if bold_font_size is not None:
+                # Update bold text (weights 600 and above)
+                update_font_size(root, bold_font_size, min_weight=600)
+                log_message(f"Updated bold text to {bold_font_size}pt")
 
             # Scale images if requested
             if image_scale != 1.0:
@@ -893,9 +958,16 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
             # Position text elements after images (will preserve positions due to image_scale=1.0)
             position_text(text_elements, max_image_right_edge, label_size, text_margin_pt, image_scale)
 
+        # Apply text tweaks if requested
+        if options.get('text_tweaks', False):
+            log_message("Applying text tweaks...")
+            tweak_text(root)
+        else:
+            log_message("Skipping text tweaks (not requested)")
+
         # Save the modified file
         save_lbx(tree, xml_path, output_file_path, temp_dir)
-        log_message(f"Created modified LBX file: {output_file_path}", msg_class=MessageClass.SUCCESS)
+        log_message(f"Created LBX file: {output_file_path}", msg_class=MessageClass.SUCCESS)
 
         # Open the file if requested (macOS only)
         if options.get('open_file', False) and platform.system() == 'Darwin':
@@ -910,11 +982,13 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
 def main(
     input_file: str = typer.Argument(..., help="Input .lbx file to modify"),
     output_file: str = typer.Argument(..., help="Path for the modified output file"),
-    font_size: int = typer.Option(8, "--font-size", "-f", help="Font size in points"),
     label_size: int = typer.Option(12, "--label-size", "-l", help="Label tape size in mm (9, 12, 18, or 24)"),
+    font_size: int = typer.Option(8, "--font-size", "-f", help="Font size in points for all text"),
+    bold_font_size: Optional[int] = typer.Option(None, "--bold-font-size", "-b", help="Font size in points for bold text (weight >= 600)"),
     center_vertically: bool = typer.Option(False, "--center-vertically", "-c", help="Center elements vertically on the label"),
     image_scale: float = typer.Option(1.0, "--image-scale", "-s", help="Scale factor for images, e.g. 1.5 for 150%"),
     text_margin: float = typer.Option(1.0, "--text-margin", "-m", help="Margin between image and text in mm"),
+    text_tweaks: bool = typer.Option(False, "--text-tweaks", "-t", help="Apply text tweaks (e.g., convert 'x' to '×' between numbers)"),
     open_file: bool = typer.Option(False, "--open", "-o", help="Open the modified file in P-touch Editor after creation (macOS only)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed logging output")
 ) -> int:
@@ -930,10 +1004,12 @@ def main(
         # Pass options as a dictionary to the new modify_lbx function
         modify_lbx(input_file, output_file, {
             'font_size': font_size,
+            'bold_font_size': bold_font_size,
             'label_size': label_size,
             'center_vertically': center_vertically,
             'image_scale': image_scale,
             'text_margin': text_margin,
+            'text_tweaks': text_tweaks,
             'open_file': open_file,
             'force': False,  # Default value for force option
             'verbose': verbose  # Add verbose flag to options
