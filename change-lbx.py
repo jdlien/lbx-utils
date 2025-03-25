@@ -182,7 +182,7 @@ def update_label_size(root: Element, label_size: int, verbose: bool = False) -> 
     paper_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}paper')
     if paper_elem is not None:
         # Get original margin before updating it
-        original_margin = float(paper_elem.get('marginLeft').replace('pt', ''))
+        original_margin = float(paper_elem.get('marginLeft', '0pt').replace('pt', ''))
         new_margin = label_config['marginLeft']
 
         # Update paper element attributes
@@ -225,7 +225,7 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
     # Update background element Y position
     bg_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}backGround')
     if bg_elem is not None:
-        old_y = float(bg_elem.get('y').replace('pt', ''))
+        old_y = float(bg_elem.get('y', '0pt').replace('pt', ''))
         new_y = old_y + offset
         bg_elem.set('y', f"{new_y}pt")
         log_message(f"Updated background Y position from [bold blue]{old_y}pt[/] to [bold blue]{new_y}pt[/]", verbose)
@@ -236,12 +236,12 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
     for obj in object_styles:
         # Get parent element to determine if it's text or image
         parent = obj.getparent()
-        is_image = parent is not None and parent.tag.endswith('}image')
-        is_text = parent is not None and parent.tag.endswith('}text')
+        is_image = parent is not None and str(parent.tag).endswith('}image')
+        is_text = parent is not None and str(parent.tag).endswith('}text')
 
         # Update Y position
         if 'y' in obj.attrib:
-            old_y = float(obj.get('y').replace('pt', ''))
+            old_y = float(obj.get('y', '0pt').replace('pt', ''))
 
             # For text elements: maintain the 4.3pt offset from margin
             if is_text:
@@ -258,10 +258,10 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
             log_message(f"Updated {obj_type} Y position from [bold blue]{old_y}pt[/] to [bold blue]{new_y}pt[/]", verbose)
 
             # For images, also update the orgPos Y position
-            if is_image:
+            if is_image and parent is not None:
                 org_pos = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos')
                 if org_pos is not None:
-                    old_org_y = float(org_pos.get('y').replace('pt', ''))
+                    old_org_y = float(org_pos.get('y', '0pt').replace('pt', ''))
                     new_org_y = old_org_y + offset
                     org_pos.set('y', f"{new_org_y}pt")
                     log_message(f"Updated image orgPos Y from [bold blue]{old_org_y}pt[/] to [bold blue]{new_org_y}pt[/]", verbose)
@@ -326,8 +326,8 @@ def classify_elements(root: Element) -> Tuple[List[Element], List[Element]]:
     for element in object_styles:
         # Determine if element is an image or text
         parent = element.getparent()
-        is_image = parent is not None and parent.tag.endswith('}image')
-        is_text = parent is not None and parent.tag.endswith('}text')
+        is_image = parent is not None and str(parent.tag).endswith('}image')
+        is_text = parent is not None and str(parent.tag).endswith('}text')
 
         if is_image:
             image_elements.append(element)
@@ -402,7 +402,7 @@ def scale_images(image_elements: List[Element], image_scale: float, label_size: 
 
         # Get the parent image element
         parent = element.getparent()
-        if parent is not None and parent.tag.endswith('}image'):
+        if parent is not None and str(parent.tag).endswith('}image'):
             # Update orgPos element
             org_pos = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos')
             if org_pos is not None:
@@ -484,7 +484,7 @@ def center_elements_vertically(root: Element, label_width: float, verbose: bool 
         return
 
     # Get the label width to determine size
-    paper_width = float(paper_elem.get('width').replace('pt', ''))
+    paper_width = float(paper_elem.get('width', '0pt').replace('pt', ''))
 
     # Map paper widths to background heights for centering
     # These heights match what P-Touch Editor uses for vertical centering
@@ -497,7 +497,7 @@ def center_elements_vertically(root: Element, label_width: float, verbose: bool 
 
     # Get the background height based on paper width
     bg_height = width_to_height.get(paper_width, 28.0)  # Default to 12mm height if not found
-    bg_y = float(bg_elem.get('y').replace('pt', ''))
+    bg_y = float(bg_elem.get('y', '0pt').replace('pt', ''))
     center_of_background = bg_y + (bg_height / 2)
 
     # Get all objects that need centering
@@ -514,8 +514,8 @@ def center_elements_vertically(root: Element, label_width: float, verbose: bool 
     # Center each object individually
     for obj in object_styles:
         # Get current object position and dimensions
-        orig_y = float(obj.get('y').replace('pt', ''))
-        obj_height = float(obj.get('height').replace('pt', ''))
+        orig_y = float(obj.get('y', '0pt').replace('pt', ''))
+        obj_height = float(obj.get('height', '0pt').replace('pt', ''))
 
         # Calculate the center of the current object
         center_of_object = orig_y + (obj_height / 2)
@@ -538,7 +538,7 @@ def center_elements_vertically(root: Element, label_width: float, verbose: bool 
 
         # Also update corresponding image orgPos if exists
         parent = obj.getparent()
-        if parent is not None and parent.tag.endswith('}image'):
+        if parent is not None and str(parent.tag).endswith('}image'):
             org_pos = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos')
             if org_pos is not None:
                 org_pos.set('y', f"{new_y}pt")
@@ -597,7 +597,7 @@ def apply_compatibility_tweaks(root: Element, label_size: int, verbose: bool = F
         verbose: Whether to show verbose output
     """
     # Update the XML document version and generator
-    if root.tag.endswith('}document'):
+    if str(root.tag).endswith('}document'):
         # Set version to 1.9 which is used by modern P-touch Editor
         root.set('version', '1.9')
 
@@ -616,7 +616,7 @@ def apply_compatibility_tweaks(root: Element, label_size: int, verbose: bool = F
         if label_size >= 18:
             # Check if already set to a compatible printer
             current_printer_id = paper_elem.get('printerID')
-            current_printer_name = paper_elem.get('printerName')
+            current_printer_name = paper_elem.get('printerName', '')
 
             if current_printer_id != large_format_printer_id or not current_printer_name.startswith("Brother PT-P7"):
                 paper_elem.set('printerID', large_format_printer_id)
@@ -676,7 +676,7 @@ def get_current_label_size(root: Element) -> Optional[int]:
         return format_to_size[format_code]
 
     # If format code not found, estimate from width
-    width = float(paper_elem.get('width').replace('pt', ''))
+    width = float(paper_elem.get('width', '0pt').replace('pt', ''))
 
     # Approximate conversion from points to mm size
     if width <= 25.6:
@@ -707,7 +707,7 @@ def get_text_elements(root: Element) -> List[Element]:
     for element in object_styles:
         # Check if the parent is a text element
         parent = element.getparent()
-        if parent is not None and parent.tag.endswith('}text'):
+        if parent is not None and str(parent.tag).endswith('}text'):
             text_elements.append(element)
 
     return text_elements
@@ -731,7 +731,7 @@ def get_image_elements(root: Element) -> List[Element]:
     for element in object_styles:
         # Check if the parent is an image element
         parent = element.getparent()
-        if parent is not None and parent.tag.endswith('}image'):
+        if parent is not None and str(parent.tag).endswith('}image'):
             image_elements.append(element)
 
     return image_elements
