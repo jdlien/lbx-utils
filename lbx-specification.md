@@ -150,7 +150,68 @@ The Y-coordinate patterns show that:
 
 This corresponds directly to the margin values in the `style:paper` element.
 
-## 6. Conversion Requirements
+## 6. Font Size Adjustments
+
+### 6.1 XML Elements and Attributes
+
+When adjusting font sizes in a label, several XML elements and attributes need to be updated to maintain proper text rendering:
+
+1. Main Font Element (`text:fontExt`):
+
+   ```xml
+   <text:fontExt size="14pt" orgSize="50.4pt"/>
+   ```
+
+   - `size`: The target font size in points
+   - `orgSize`: Should be 3.6 times the font size (e.g., 14pt → 50.4pt)
+
+2. Text Style Element (`text:textStyle`):
+
+   ```xml
+   <text:textStyle orgPoint="14pt"/>
+   ```
+
+   - `orgPoint`: Should match the target font size
+
+3. String Item Font Elements (`text:stringItem/text:fontExt`):
+   ```xml
+   <text:stringItem>
+     <text:fontExt size="14pt" orgSize="50.4pt"/>
+   </text:stringItem>
+   ```
+   - `size`: Should match the target font size
+   - `orgSize`: Should be 3.6 times the font size
+
+### 6.2 Important Considerations
+
+1. **Ratio Preservation**: The `orgSize` attribute should always be 3.6 times the font size. This ratio is consistent across all font elements.
+
+2. **Multiple Font Elements**: Each text element may have multiple font elements that need updating:
+
+   - The main `text:fontExt` element
+   - The `text:textStyle` element's `orgPoint`
+   - Any `text:stringItem` elements with their own `fontExt` elements
+
+3. **Consistency**: All font size-related attributes should be updated together to maintain proper text rendering and spacing.
+
+4. **Default Values**: If no font size is specified, the default is typically 9pt with an `orgSize` of 32.4pt.
+
+### 6.3 Example
+
+Here's a complete example of a text element with all font-related attributes properly set for 14pt:
+
+```xml
+<text:text>
+  <text:fontExt size="14pt" orgSize="50.4pt"/>
+  <text:textStyle orgPoint="14pt"/>
+  <text:stringItem>
+    <text:fontExt size="14pt" orgSize="50.4pt"/>
+    <text:string>Sample Text</text:string>
+  </text:stringItem>
+</text:text>
+```
+
+## 7. Conversion Requirements
 
 When converting between label sizes:
 
@@ -162,26 +223,26 @@ When converting between label sizes:
 6. Adjust font sizes based on scaling factors
 7. Maintain or update XML version/generator attributes
 
-## 7. Common Issues and Solutions
+## 8. Common Issues and Solutions
 
-### 7.1 Size Recognition Problems
+### 8.1 Size Recognition Problems
 
 - **Issue**: Application shows incorrect size despite `format` code change
 - **Solution**: Verify all attributes in the `paper` element match the expected values for the target size
 - **Solution**: Ensure all object Y-positions have been updated to match the margin of the target size
 
-### 7.2 Object Visibility
+### 8.2 Object Visibility
 
 - **Issue**: Elements positioned outside printable area
 - **Solution**: Ensure objects stay within the proper margins for each tape size
 
-### 7.3 TZ Tape Compatibility
+### 8.3 TZ Tape Compatibility
 
 - **Issue**: The label size may be restricted to the label sizes supported by the model of printer specified in the printerID="30256" and/or printerName="Brother PT-P710BT" attributes. E.g., for 24mm tape, you'll need a larger printer like the Brother PT-P710BT.
 
 - **Solution**: Update the printerName to a larger printer model.
 
-## 8. Implementation Notes
+## 9. Implementation Notes
 
 For optimal compatibility:
 

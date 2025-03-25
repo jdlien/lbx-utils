@@ -395,13 +395,35 @@ def scale_images(image_elements: List[ET.Element], image_scale: float, label_siz
         element.set('width', f"{new_width}pt")
         element.set('height', f"{new_height}pt")
 
-        # Also update the parent orgPos element if it exists
+        # Get the parent image element
         parent = element.getparent()
-        if parent is not None and parent.tag == 'orgPos':
-            parent.set('x', f"{new_x}pt")
-            parent.set('y', f"{new_y}pt")
-            parent.set('width', f"{new_width}pt")
-            parent.set('height', f"{new_height}pt")
+        if parent is not None and parent.tag.endswith('}image'):
+            # Update orgPos element
+            org_pos = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos')
+            if org_pos is not None:
+                org_pos.set('x', f"{new_x}pt")
+                org_pos.set('y', f"{new_y}pt")
+                org_pos.set('width', f"{new_width}pt")
+                org_pos.set('height', f"{new_height}pt")
+                console.print(f"Updated image orgPos to [bold blue]{new_width}x{new_height}pt[/]")
+
+            # Update trimming dimensions
+            image_style = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}imageStyle')
+            if image_style is not None:
+                trimming = image_style.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}trimming')
+                if trimming is not None:
+                    # Get original trimming dimensions
+                    trim_width = parse_unit(trimming.get('trimOrgWidth', '0pt'))
+                    trim_height = parse_unit(trimming.get('trimOrgHeight', '0pt'))
+
+                    # Scale trimming dimensions
+                    new_trim_width = trim_width * image_scale
+                    new_trim_height = trim_height * image_scale
+
+                    # Update trimming dimensions
+                    trimming.set('trimOrgWidth', f"{new_trim_width}pt")
+                    trimming.set('trimOrgHeight', f"{new_trim_height}pt")
+                    console.print(f"Updated image trimming dimensions from [bold blue]{trim_width}x{trim_height}pt[/] to [bold blue]{new_trim_width}x{new_trim_height}pt[/]")
 
     return max_right_edge
 
@@ -822,18 +844,15 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
         text_elements = get_text_elements(root)
         image_elements = get_image_elements(root)
 
-        # Determine the font size multiplier
-        font_size_multiplier = options.get('font_size', 1.0)
-
-        # Determine the image scale factor
+        # Get the target font size and image scale
+        target_font_size = options.get('font_size')
         image_scale = options.get('image_scale', 1.0)
 
-        # If any scaling is being applied
-        if font_size_multiplier != 1.0 or image_scale != 1.0:
-            # Update default font size if requested
-            if font_size_multiplier != 1.0:
-                console.print(f"Scaling font sizes by factor: [bold blue]{font_size_multiplier}[/]")
-                update_font_sizes(text_elements, font_size_multiplier)
+        # Apply changes if needed
+        if target_font_size is not None or image_scale != 1.0:
+            # Update font size if specified
+            if target_font_size is not None:
+                update_font_sizes(text_elements, target_font_size)
 
             # Scale images if requested
             if image_scale != 1.0:
@@ -849,7 +868,7 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
             if options.get('center_vertically', False):
                 center_elements_vertically(root, label_size)
         else:
-            console.print("[bold green]No scaling applied - keeping original font sizes and image dimensions[/]")
+            console.print("[bold green]No changes needed - keeping original font sizes and image dimensions[/]")
             # Still need to find max_image_right_edge for text positioning
             max_image_right_edge = scale_images(image_elements, image_scale, label_size)
             # Position text elements after images (will preserve positions due to image_scale=1.0)
