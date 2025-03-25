@@ -77,47 +77,89 @@ colorama.init(autoreset=True)
 app = typer.Typer(help="Brother P-touch LBX Label File Modifier", add_completion=False)
 console = Console()
 
-# Constants
-# Label dimensions and measurements
-TRUE_LEFT_EDGE = 5.6  # The true printable left edge in Brother P-touch labels is 5.6pt
-DEFAULT_HEIGHT = 2834.4  # Default height for all label sizes
-TEXT_MARGIN_OFFSET = 4.3  # Text Y position is consistently offset from margin by 4.3pt
+# Global configuration
+class Config:
+    """Global configuration for the application."""
+    def __init__(self):
+        # Runtime settings
+        self.verbose: bool = False
 
-# XML namespaces
-NS = {
-    'pt': 'http://schemas.brother.info/ptouch/2007/lbx/main',
-    'style': 'http://schemas.brother.info/ptouch/2007/lbx/style',
-    'text': 'http://schemas.brother.info/ptouch/2007/lbx/text',
-    'image': 'http://schemas.brother.info/ptouch/2007/lbx/image'
-}
+        # Unit conversion constants
+        self.MM_TO_PT: float = 2.8  # Millimeters to points conversion
+        self.BROTHER_UNITS_MULTIPLIER: float = 72/20  # Typography points to Brother units
 
-# Label size format codes
-FORMAT_CODES = {
-    9: '258',
-    12: '259',
-    18: '260',
-    24: '261'
-}
+        # Printer constants
+        self.TRUE_LEFT_EDGE: float = 5.6  # True printable left edge in points
+        self.DEFAULT_HEIGHT: float = 2834.4  # Default height for all label sizes
+        self.TEXT_MARGIN_OFFSET: float = 4.3  # Text Y position offset from margin
 
-# Label size configurations (width, margin in points)
-LABEL_CONFIGS = {
-    9: {
-        'width': 25.6,
-        'margin_y': 2.8,  # For marginLeft and marginRight, which affect vertical positioning
-    },
-    12: {
-        'width': 33.6,
-        'margin_y': 2.8,
-    },
-    18: {
-        'width': 51.2,
-        'margin_y': 3.2,
-    },
-    24: {
-        'width': 68.0,
-        'margin_y': 8.4,
+        # Printer compatibility settings
+        self.LARGE_FORMAT_PRINTER_ID: str = "30256"
+        self.LARGE_FORMAT_PRINTER_NAME: str = "Brother PT-P710BT"
+
+        # Label tape format codes (mm size to format code)
+        self.FORMAT_CODES: dict = {
+            9: '258',
+            12: '259',
+            18: '260',
+            24: '261'
+        }
+
+        # Label tape configurations
+        self.LABEL_CONFIGS: dict = {
+            9: {'width': 25.6, 'margin_y': 2.8},
+            12: {'width': 33.6, 'margin_y': 2.8},
+            18: {'width': 51.2, 'margin_y': 3.2},
+            24: {'width': 68.0, 'margin_y': 8.4}
+        }
+
+        # XML namespaces
+        self.NS: dict = {
+            'pt': 'http://schemas.brother.info/ptouch/2007/lbx/main',
+            'style': 'http://schemas.brother.info/ptouch/2007/lbx/style',
+            'text': 'http://schemas.brother.info/ptouch/2007/lbx/text',
+            'image': 'http://schemas.brother.info/ptouch/2007/lbx/image'
+        }
+
+config = Config()
+
+# Message classes for logging
+from enum import Enum, auto
+class MessageClass(Enum):
+    ERROR = auto()      # Always shown, indicates failure
+    WARNING = auto()    # Always shown, indicates potential issues
+    SUCCESS = auto()    # Always shown, indicates successful operations
+    INFO = auto()       # Only shown in verbose mode, general information
+
+def log_message(message: str, msg_class: MessageClass = MessageClass.INFO) -> None:
+    """
+    Log a message to the console with appropriate styling based on message class.
+
+    Args:
+        message: Message to log
+        msg_class: Class of message (error, warning, success, or info)
+
+    Message classes:
+    - ERROR: Always shown, indicates failure (red)
+    - WARNING: Always shown, indicates potential issues (yellow)
+    - SUCCESS: Always shown, indicates successful operations (green)
+    - INFO: Only shown in verbose mode, general information (default color)
+    """
+    # Define styles for different message classes
+    styles = {
+        MessageClass.ERROR: "[bold red]",
+        MessageClass.WARNING: "[yellow]",
+        MessageClass.SUCCESS: "[green]",
+        MessageClass.INFO: ""
     }
-}
+
+    # Only show INFO messages in verbose mode
+    if msg_class == MessageClass.INFO and not config.verbose:
+        return
+
+    # Apply appropriate style and print
+    style = styles[msg_class]
+    console.print(f"{style}{message}[/]" if style else message)
 
 def parse_unit(value: str) -> float:
     """Convert a value with unit (e.g. '10pt') to a float."""
@@ -139,26 +181,26 @@ def get_label_config(label_size: int) -> Dict[str, Any]:
         Dictionary with label configuration parameters
     """
     # Get base config from LABEL_CONFIGS, defaulting to 12mm if size not found
-    base_config = LABEL_CONFIGS.get(label_size, LABEL_CONFIGS[12])
+    base_config = config.LABEL_CONFIGS.get(label_size, config.LABEL_CONFIGS[12])
 
     # Calculate background height as width minus margins
     bg_height = base_config['width'] - (base_config['margin_y'] * 2)
 
     # Create config with derived/additional fields
-    config = {
+    config_dict = {
         'width': base_config['width'],
-        'height': DEFAULT_HEIGHT,
+        'height': config.DEFAULT_HEIGHT,
         'marginLeft': base_config['margin_y'],  # Affects vertical positioning in landscape
         'marginRight': base_config['margin_y'],  # Affects vertical positioning in landscape
         'bg_height': bg_height,
         'bg_y': base_config['margin_y'],  # bg_y is always set to margin value
-        'format': FORMAT_CODES.get(label_size, FORMAT_CODES[12])  # Default to 12mm format if not found
+        'format': config.FORMAT_CODES.get(label_size, config.FORMAT_CODES[12])  # Default to 12mm format if not found
     }
 
-    return config
+    return config_dict
 
 
-def update_label_tape_size(root: Element, label_size: int, verbose: bool = False) -> None:
+def update_label_tape_size(root: Element, label_size: int) -> None:
     """
     Update the label size to a different "width" of tape, affecting the height of landscape labels,
     or the width of portrait labels.
@@ -170,7 +212,7 @@ def update_label_tape_size(root: Element, label_size: int, verbose: bool = False
     # Get label configuration
     label_config = get_label_config(label_size)
 
-    paper_elem = root.find('.//style:paper', namespaces=NS)
+    paper_elem = root.find('.//style:paper', namespaces=config.NS)
     if paper_elem is not None:
         # Get original margin before updating it
         original_margin = float(paper_elem.get('marginLeft', '0pt').replace('pt', ''))
@@ -178,22 +220,21 @@ def update_label_tape_size(root: Element, label_size: int, verbose: bool = False
 
         # Update paper element attributes
         paper_elem.set('width', f"{label_config['width']}pt")
-        paper_elem.set('height', f"{label_config['height']}pt")
-        log_message(f"Updated label width to [bold blue]{label_config['width']}pt[/] ({label_size}mm)", verbose)
+        log_message(f"Updated label width to {label_config['width']}pt ({label_size}mm)")
 
         paper_elem.set('marginLeft', f"{label_config['marginLeft']}pt")
         paper_elem.set('marginRight', f"{label_config['marginRight']}pt")
-        log_message(f"Updated margins to [bold blue]{label_config['marginLeft']}pt[/] on both sides", verbose)
+        log_message(f"Updated margins to {label_config['marginLeft']}pt on both sides")
 
         # Update format attribute for different label sizes
         paper_elem.set('format', label_config['format'])
-        log_message(f"Updated format to [bold blue]{label_config['format']}[/] for {label_size}mm tape", verbose)
+        log_message(f"Updated format to {label_config['format']} for {label_size}mm tape")
 
         # Update Y positions of all objects to account for margin change
-        update_object_y_positions(root, original_margin, new_margin, verbose)
+        update_object_y_positions(root, original_margin, new_margin)
 
 
-def update_object_y_positions(root: Element, original_margin: float, new_margin: float, verbose: bool = False) -> None:
+def update_object_y_positions(root: Element, original_margin: float, new_margin: float) -> None:
     """
     Update Y positions of objects to match the new margin.
 
@@ -211,18 +252,18 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
     if offset == 0:
         return
 
-    log_message(f"Adjusting object Y positions by [bold blue]{offset}pt[/] to match new margins", verbose)
+    log_message(f"Adjusting object Y positions by {offset}pt to match new margins")
 
     # Update background element Y position
-    bg_elem = root.find('.//style:backGround', namespaces=NS)
+    bg_elem = root.find('.//style:backGround', namespaces=config.NS)
     if bg_elem is not None:
         old_y = float(bg_elem.get('y', '0pt').replace('pt', ''))
         new_y = old_y + offset
         bg_elem.set('y', f"{new_y}pt")
-        log_message(f"Updated background Y position from [bold blue]{old_y}pt[/] to [bold blue]{new_y}pt[/]", verbose)
+        log_message(f"Updated background Y position from {old_y}pt to {new_y}pt")
 
     # Get all object elements
-    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
+    object_styles = root.findall('.//pt:objectStyle', namespaces=config.NS)
 
     for obj in object_styles:
         # Get parent element to determine if it's text or image
@@ -234,11 +275,10 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
         if 'y' in obj.attrib:
             old_y = float(obj.get('y', '0pt').replace('pt', ''))
 
-            # For text elements: maintain the 4.3pt offset from margin
+            # For text elements: maintain the offset from margin
             if is_text:
-                # Text Y position is consistently offset from margin by 4.3pt
-                text_margin_offset = 4.3
-                new_y = new_margin + text_margin_offset
+                # Text Y position is consistently offset from margin
+                new_y = new_margin + config.TEXT_MARGIN_OFFSET
             else:
                 # For other elements, apply the offset directly
                 new_y = old_y + offset
@@ -246,19 +286,19 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
             obj.set('y', f"{new_y}pt")
 
             obj_type = "text" if is_text else "image" if is_image else "object"
-            log_message(f"Updated {obj_type} Y position from [bold blue]{old_y}pt[/] to [bold blue]{new_y}pt[/]", verbose)
+            log_message(f"Updated {obj_type} Y position from {old_y}pt to {new_y}pt")
 
             # For images, also update the orgPos Y position
             if is_image and parent is not None:
-                org_pos = parent.find('.//image:orgPos', namespaces=NS)
+                org_pos = parent.find('.//image:orgPos', namespaces=config.NS)
                 if org_pos is not None:
                     old_org_y = float(org_pos.get('y', '0pt').replace('pt', ''))
                     new_org_y = old_org_y + offset
                     org_pos.set('y', f"{new_org_y}pt")
-                    log_message(f"Updated image orgPos Y from [bold blue]{old_org_y}pt[/] to [bold blue]{new_org_y}pt[/]", verbose)
+                    log_message(f"Updated image orgPos Y from {old_org_y}pt to {new_org_y}pt")
 
 
-def update_background(root: Element, label_config: Dict[str, Any], verbose: bool = False) -> None:
+def update_background(root: Element, label_config: Dict[str, Any]) -> None:
     """
     Update the background element dimensions in the XML.
     Only updates height and Y position, preserving the original width and X position.
@@ -266,37 +306,35 @@ def update_background(root: Element, label_config: Dict[str, Any], verbose: bool
     Args:
         root: Root element of the XML tree
         label_config: Label configuration dictionary
-        verbose: Whether to show verbose output
     """
-    bg_elem = root.find('.//style:backGround', namespaces=NS)
+    bg_elem = root.find('.//style:backGround', namespaces=config.NS)
     if bg_elem is not None:
         # Get current background width (preserved)
         current_width = parse_unit(bg_elem.get('width', '56.2pt'))  # Default to 56.2pt if not found
 
-        # Only update height - X position stays at TRUE_LEFT_EDGE
+        # Only update height - X position stays at config.TRUE_LEFT_EDGE
         bg_elem.set('height', f"{label_config['bg_height']}pt")
         # Note: Y position is already updated by update_object_y_positions function
-        log_message(f"Updated background dimensions: [bold blue]{current_width}pt × {label_config['bg_height']}pt[/]", verbose)
+        log_message(f"Updated background dimensions: {current_width}pt × {label_config['bg_height']}pt")
 
 
-def update_font_size(root: Element, font_size: int, verbose: bool = False) -> None:
+def update_font_size(root: Element, font_size: int) -> None:
     """
     Update font size in text elements of an LBX file.
 
     Args:
         root: Root element of the XML tree
         font_size: New font size in pt
-        verbose: Whether to show verbose output
     """
-    # Calculate original size (3.6x the font size)
-    org_size = font_size * 3.6
+    # Convert standard typographic points to Brother's internal units
+    org_size = font_size * config.BROTHER_UNITS_MULTIPLIER
 
     # Modify font sizes in text elements
-    font_ext_elems = root.findall('.//text:fontExt', namespaces=NS)
+    font_ext_elems = root.findall('.//text:fontExt', namespaces=config.NS)
     for font_elem in font_ext_elems:
         font_elem.set('size', f"{font_size}pt")
         font_elem.set('orgSize', f"{org_size}pt")
-        log_message(f"Updated font size to [bold blue]{font_size}pt[/] (orgSize: [bold blue]{org_size}pt[/])", verbose)
+        log_message(f"Updated font size to {font_size}pt (orgSize: {org_size}pt)")
 
 
 def classify_elements(root: Element) -> Tuple[List[Element], List[Element]]:
@@ -310,7 +348,7 @@ def classify_elements(root: Element) -> Tuple[List[Element], List[Element]]:
         Tuple of (image_elements, text_elements)
     """
     # Get all objects
-    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
+    object_styles = root.findall('.//pt:objectStyle', namespaces=config.NS)
 
     # Collect images and text elements
     image_elements = []
@@ -330,7 +368,7 @@ def classify_elements(root: Element) -> Tuple[List[Element], List[Element]]:
     return (image_elements, text_elements)
 
 
-def scale_images(image_elements: List[Element], image_scale: float, label_size: int, verbose: bool = False) -> float:
+def scale_images(image_elements: List[Element], image_scale: float, label_size: int) -> float:
     """
     Scale and position images based on the scale factor and label size.
 
@@ -338,19 +376,18 @@ def scale_images(image_elements: List[Element], image_scale: float, label_size: 
         image_elements: List of image elements to scale
         image_scale: Scale factor for images (1.0 means no scaling)
         label_size: Label width in mm
-        verbose: Whether to show verbose output
 
     Returns:
         float: The maximum right edge of all images after scaling and positioning
     """
     # If no images, return the left margin
     if not image_elements:
-        return TRUE_LEFT_EDGE
+        return config.TRUE_LEFT_EDGE
 
     # If no scaling is needed, calculate the maximum right edge without changing positions
     if image_scale == 1.0:
-        log_message(f"No image scaling required, preserving original horizontal positions", verbose)
-        max_right_edge = TRUE_LEFT_EDGE
+        log_message(f"No image scaling required, preserving original horizontal positions")
+        max_right_edge = config.TRUE_LEFT_EDGE
         # Find the rightmost edge of all images without modifying their positions
         for element in image_elements:
             current_x = parse_unit(element.get('x', '0pt'))
@@ -360,7 +397,7 @@ def scale_images(image_elements: List[Element], image_scale: float, label_size: 
         return max_right_edge
 
     # Process each image element
-    max_right_edge = TRUE_LEFT_EDGE
+    max_right_edge = config.TRUE_LEFT_EDGE
     for element in image_elements:
         # Get current values
         current_x = parse_unit(element.get('x', '0pt'))
@@ -373,8 +410,8 @@ def scale_images(image_elements: List[Element], image_scale: float, label_size: 
         new_height = current_height * image_scale
 
         # Always position at the absolute left printable edge
-        new_x = TRUE_LEFT_EDGE
-        log_message(f"Positioning image at absolute left printable edge: [bold blue]{TRUE_LEFT_EDGE}pt[/]", verbose)
+        new_x = config.TRUE_LEFT_EDGE
+        log_message(f"Positioning image at absolute left printable edge: {config.TRUE_LEFT_EDGE}pt")
 
         # Calculate the right edge of this image
         right_edge = new_x + new_width
@@ -384,8 +421,8 @@ def scale_images(image_elements: List[Element], image_scale: float, label_size: 
         new_y = current_y
 
         # Output the scaling and positioning
-        log_message(f"Image scaled from [bold blue]{current_width:.1f}x{current_height:.1f}pt[/] to [bold blue]{new_width:.1f}x{new_height:.1f}pt[/]", verbose)
-        log_message(f"Image position adjusted from ([bold blue]{current_x:.1f}[/], [bold blue]{current_y:.1f}[/])pt to ([bold blue]{new_x:.1f}[/], [bold blue]{new_y:.1f}[/])pt", verbose)
+        log_message(f"Image scaled from {current_width:.1f}x{current_height:.1f}pt to {new_width:.1f}x{new_height:.1f}pt")
+        log_message(f"Image position adjusted from ({current_x:.1f}, {current_y:.1f})pt to ({new_x:.1f}, {new_y:.1f})pt")
 
         # Update the element attributes
         element.set('x', f"{new_x}pt")
@@ -397,18 +434,18 @@ def scale_images(image_elements: List[Element], image_scale: float, label_size: 
         parent = element.getparent()
         if parent is not None and str(parent.tag).endswith('}image'):
             # Update orgPos element
-            org_pos = parent.find('.//image:orgPos', namespaces=NS)
+            org_pos = parent.find('.//image:orgPos', namespaces=config.NS)
             if org_pos is not None:
                 org_pos.set('x', f"{new_x}pt")
                 org_pos.set('y', f"{new_y}pt")
                 org_pos.set('width', f"{new_width}pt")
                 org_pos.set('height', f"{new_height}pt")
-                log_message(f"Updated image orgPos to [bold blue]{new_width}x{new_height}pt[/]", verbose)
+                log_message(f"Updated image orgPos to {new_width}x{new_height}pt")
 
             # Update trimming dimensions
-            image_style = parent.find('.//image:imageStyle', namespaces=NS)
+            image_style = parent.find('.//image:imageStyle', namespaces=config.NS)
             if image_style is not None:
-                trimming = image_style.find('.//image:trimming', namespaces=NS)
+                trimming = image_style.find('.//image:trimming', namespaces=config.NS)
                 if trimming is not None:
                     # Get original trimming dimensions
                     trim_width = parse_unit(trimming.get('trimOrgWidth', '0pt'))
@@ -421,12 +458,12 @@ def scale_images(image_elements: List[Element], image_scale: float, label_size: 
                     # Update trimming dimensions
                     trimming.set('trimOrgWidth', f"{new_trim_width}pt")
                     trimming.set('trimOrgHeight', f"{new_trim_height}pt")
-                    log_message(f"Updated image trimming dimensions from [bold blue]{trim_width}x{trim_height}pt[/] to [bold blue]{new_trim_width}x{new_trim_height}pt[/]", verbose)
+                    log_message(f"Updated image trimming dimensions from {trim_width}x{trim_height}pt to {new_trim_width}x{new_trim_height}pt")
 
     return max_right_edge
 
 
-def position_text(text_elements: List[Element], max_image_right_edge: float, label_size: int, text_margin_pt: float, image_scale: float, verbose: bool = False) -> None:
+def position_text(text_elements: List[Element], max_image_right_edge: float, label_size: int, text_margin_pt: float, image_scale: float) -> None:
     """
     Position text elements after images.
 
@@ -436,7 +473,6 @@ def position_text(text_elements: List[Element], max_image_right_edge: float, lab
         label_size: Label width in mm
         text_margin_pt: Margin between image and text in points
         image_scale: Scale factor used for images (used to determine if repositioning is needed)
-        verbose: Whether to show verbose output
     """
     if not text_elements:
         return
@@ -446,34 +482,33 @@ def position_text(text_elements: List[Element], max_image_right_edge: float, lab
         # Calculate text X position based on the right edge of images plus margin
         text_x = max_image_right_edge + text_margin_pt
         mm_margin = text_margin_pt/2.8
-        log_message(f"Positioning text at x=[bold blue]{text_x}pt[/] ([bold blue]{mm_margin:.1f}mm[/] after images)", verbose)
+        log_message(f"Positioning text at x={text_x}pt ({mm_margin:.1f}mm after images)")
 
         for element in text_elements:
             element.set('x', f"{text_x}pt")
-            log_message(f"Moved text element to x=[bold blue]{text_x}pt[/]", verbose)
+            log_message(f"Moved text element to x={text_x}pt")
     else:
-        log_message(f"Preserving original horizontal text positions (no image scaling applied)", verbose)
+        log_message(f"Preserving original horizontal text positions (no image scaling applied)")
 
 
-def center_elements_vertically(root: Element, label_width: float, verbose: bool = False) -> None:
+def center_elements_vertically(root: Element, label_width: float) -> None:
     """
     Center elements vertically within the background area of the label.
 
     Args:
         root: Root element of the XML tree
         label_width: Width of the label in points (not used for centering)
-        verbose: Whether to show verbose output
     """
     # Get the background element to determine the printable area
-    bg_elem = root.find('.//style:backGround', namespaces=NS)
+    bg_elem = root.find('.//style:backGround', namespaces=config.NS)
     if bg_elem is None:
-        log_message("[yellow]Warning: No background element found, skipping vertical centering[/]", verbose)
+        log_message("[yellow]Warning: No background element found, skipping vertical centering")
         return
 
     # Get the paper element to determine label size
-    paper_elem = root.find('.//style:paper', namespaces=NS)
+    paper_elem = root.find('.//style:paper', namespaces=config.NS)
     if paper_elem is None:
-        log_message("[yellow]Warning: No paper element found, skipping vertical centering[/]", verbose)
+        log_message("[yellow]Warning: No paper element found, skipping vertical centering")
         return
 
     # Get the label width to determine size
@@ -494,15 +529,15 @@ def center_elements_vertically(root: Element, label_width: float, verbose: bool 
     center_of_background = bg_y + (bg_height / 2)
 
     # Get all objects that need centering
-    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
+    object_styles = root.findall('.//pt:objectStyle', namespaces=config.NS)
 
     if not object_styles:
-        log_message("[yellow]Warning: No objects found to center[/]", verbose)
+        log_message("[yellow]Warning: No objects found to center")
         return
 
-    log_message(f"Paper width: [bold blue]{paper_width}pt[/]", verbose)
-    log_message(f"Background area: y=[bold blue]{bg_y}pt[/], height=[bold blue]{bg_height}pt[/]", verbose)
-    log_message(f"Center of background: [bold blue]{center_of_background}pt[/]", verbose)
+    log_message(f"Paper width: {paper_width}pt")
+    log_message(f"Background area: y={bg_y}pt, height={bg_height}pt")
+    log_message(f"Center of background: {center_of_background}pt")
 
     # Center each object individually
     for obj in object_styles:
@@ -527,17 +562,17 @@ def center_elements_vertically(root: Element, label_width: float, verbose: bool 
 
         # Update the object's position
         obj.set('y', f"{new_y}pt")
-        log_message(f"Centered object (height=[bold blue]{obj_height}pt[/]) from y=[bold blue]{orig_y}pt[/] to y=[bold blue]{new_y}pt[/]", verbose)
+        log_message(f"Centered object (height={obj_height}pt) from y={orig_y}pt to y={new_y}pt")
 
         # Also update corresponding image orgPos if exists
         parent = obj.getparent()
         if parent is not None and str(parent.tag).endswith('}image'):
-            org_pos = parent.find('.//image:orgPos', namespaces=NS)
+            org_pos = parent.find('.//image:orgPos', namespaces=config.NS)
             if org_pos is not None:
                 org_pos.set('y', f"{new_y}pt")
-                log_message(f"Updated image orgPos y to [bold blue]{new_y}pt[/]", verbose)
+                log_message(f"Updated image orgPos y to {new_y}pt")
 
-    log_message(f"All objects have been centered within the background area", verbose)
+    log_message(f"All objects have been centered within the background area")
 
 
 def extract_and_parse_lbx(input_file: str, temp_dir: str) -> Tuple[ElementTree, str]:
@@ -558,20 +593,8 @@ def extract_and_parse_lbx(input_file: str, temp_dir: str) -> Tuple[ElementTree, 
     # Path to the extracted label.xml file
     xml_path = os.path.join(temp_dir, 'label.xml')
 
-    # Parse the XML
-    namespaces = {
-        'pt': 'http://schemas.brother.info/ptouch/2007/lbx/main',
-        'style': 'http://schemas.brother.info/ptouch/2007/lbx/style',
-        'text': 'http://schemas.brother.info/ptouch/2007/lbx/text',
-        'draw': 'http://schemas.brother.info/ptouch/2007/lbx/draw',
-        'image': 'http://schemas.brother.info/ptouch/2007/lbx/image',
-        'barcode': 'http://schemas.brother.info/ptouch/2007/lbx/barcode',
-        'database': 'http://schemas.brother.info/ptouch/2007/lbx/database',
-        'table': 'http://schemas.brother.info/ptouch/2007/lbx/table',
-        'cable': 'http://schemas.brother.info/ptouch/2007/lbx/cable'
-    }
-
-    for prefix, uri in namespaces.items():
+    # Register XML namespaces
+    for prefix, uri in config.NS.items():
         ET.register_namespace(prefix, uri)
 
     parser = ET.XMLParser(remove_blank_text=True)
@@ -580,14 +603,13 @@ def extract_and_parse_lbx(input_file: str, temp_dir: str) -> Tuple[ElementTree, 
     return (tree, xml_path)
 
 
-def apply_compatibility_tweaks(root: Element, label_size: int, verbose: bool = False) -> None:
+def apply_compatibility_tweaks(root: Element, label_size: int) -> None:
     """
     Apply compatibility tweaks to the label file to ensure it works properly with P-touch Editor.
 
     Args:
         root: Root element of the XML tree
         label_size: Target label size in mm
-        verbose: Whether to show verbose output
     """
     # Update the XML document version and generator
     if str(root.tag).endswith('}document'):
@@ -596,25 +618,21 @@ def apply_compatibility_tweaks(root: Element, label_size: int, verbose: bool = F
 
         # Update the generator to show it was modified by this tool
         root.set('generator', 'com.jdlien.lbx-utils')
-        log_message(f"Updated document version to [bold blue]1.9[/] and generator to [bold blue]com.jdlien.lbx-utils[/]", verbose)
+        log_message(f"Updated document version to 1.9 and generator to com.jdlien.lbx-utils")
 
     # Update printer compatibility for wider tape formats
-    paper_elem = root.find('.//style:paper', namespaces=NS)
+    paper_elem = root.find('.//style:paper', namespaces=config.NS)
     if paper_elem is not None:
-        # The PT-P710BT supports larger tape sizes up to 24mm
-        large_format_printer_id = "30256"  # ID for PT-P710BT
-        large_format_printer_name = "Brother PT-P710BT"
-
         # Only update for 18mm and 24mm labels which need a compatible printer
         if label_size >= 18:
             # Check if already set to a compatible printer
             current_printer_id = paper_elem.get('printerID')
             current_printer_name = paper_elem.get('printerName', '')
 
-            if current_printer_id != large_format_printer_id or not current_printer_name.startswith("Brother PT-P7"):
-                paper_elem.set('printerID', large_format_printer_id)
-                paper_elem.set('printerName', large_format_printer_name)
-                log_message(f"Updated printer to [bold blue]{large_format_printer_name}[/] for compatibility with {label_size}mm tape", verbose)
+            if current_printer_id != config.LARGE_FORMAT_PRINTER_ID or not current_printer_name.startswith("Brother PT-P7"):
+                paper_elem.set('printerID', config.LARGE_FORMAT_PRINTER_ID)
+                paper_elem.set('printerName', config.LARGE_FORMAT_PRINTER_NAME)
+                log_message(f"Updated printer to {config.LARGE_FORMAT_PRINTER_NAME} for compatibility with {label_size}mm tape")
 
 
 def save_lbx(tree: ElementTree, xml_path: str, output_file: str, temp_dir: str) -> None:
@@ -649,7 +667,7 @@ def get_current_label_size(root: Element) -> Optional[int]:
     Returns:
         Label size in mm or None if it couldn't be determined
     """
-    paper_elem = root.find('.//style:paper', namespaces=NS)
+    paper_elem = root.find('.//style:paper', namespaces=config.NS)
     if paper_elem is None:
         return None
 
@@ -695,7 +713,7 @@ def get_text_elements(root: Element) -> List[Element]:
     text_elements = []
 
     # Find all object styles
-    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
+    object_styles = root.findall('.//pt:objectStyle', namespaces=config.NS)
 
     for element in object_styles:
         # Check if the parent is a text element
@@ -719,7 +737,7 @@ def get_image_elements(root: Element) -> List[Element]:
     image_elements = []
 
     # Find all object styles
-    object_styles = root.findall('.//pt:objectStyle', namespaces=NS)
+    object_styles = root.findall('.//pt:objectStyle', namespaces=config.NS)
 
     for element in object_styles:
         # Check if the parent is an image element
@@ -730,7 +748,7 @@ def get_image_elements(root: Element) -> List[Element]:
     return image_elements
 
 
-def update_font_sizes(text_elements: List[Element], target_font_size: float, verbose: bool = False) -> None:
+def update_font_sizes(text_elements: List[Element], target_font_size: float) -> None:
     """
     Update font sizes in text elements to a specific point size.
 
@@ -741,7 +759,7 @@ def update_font_sizes(text_elements: List[Element], target_font_size: float, ver
     if not text_elements:
         return
 
-    log_message(f"Setting font size to [bold blue]{target_font_size}pt[/]", verbose)
+    log_message(f"Setting font size to {target_font_size}pt")
 
     # Process each text element
     for element in text_elements:
@@ -751,7 +769,7 @@ def update_font_sizes(text_elements: List[Element], target_font_size: float, ver
             continue
 
         # Update main fontExt element
-        font_ext = parent.find('.//text:fontExt', namespaces=NS)
+        font_ext = parent.find('.//text:fontExt', namespaces=config.NS)
         if font_ext is not None:
             current_size = parse_unit(font_ext.get('size', '9pt'))
             current_org_size = parse_unit(font_ext.get('orgSize', '32.4pt'))
@@ -764,19 +782,19 @@ def update_font_sizes(text_elements: List[Element], target_font_size: float, ver
             font_ext.set('orgSize', f"{new_org_size}pt")
 
             if current_size != target_font_size:
-                log_message(f"Updated main font size from [bold blue]{current_size:.1f}pt[/] to [bold blue]{target_font_size}pt[/]", verbose)
+                log_message(f"Updated main font size from {current_size:.1f}pt to {target_font_size}pt")
 
         # Update textStyle orgPoint
-        text_style = parent.find('.//text:textStyle', namespaces=NS)
+        text_style = parent.find('.//text:textStyle', namespaces=config.NS)
         if text_style is not None:
             current_org_point = parse_unit(text_style.get('orgPoint', '9pt'))
             text_style.set('orgPoint', f"{target_font_size}pt")
             if current_org_point != target_font_size:
-                log_message(f"Updated textStyle orgPoint from [bold blue]{current_org_point:.1f}pt[/] to [bold blue]{target_font_size}pt[/]", verbose)
+                log_message(f"Updated textStyle orgPoint from {current_org_point:.1f}pt to {target_font_size}pt")
 
         # Update all stringItem fontExt elements
-        for string_item in parent.findall('.//text:stringItem', namespaces=NS):
-            string_font_ext = string_item.find('.//text:fontExt', namespaces=NS)
+        for string_item in parent.findall('.//text:stringItem', namespaces=config.NS):
+            string_font_ext = string_item.find('.//text:fontExt', namespaces=config.NS)
             if string_font_ext is not None:
                 current_size = parse_unit(string_font_ext.get('size', '9pt'))
                 current_org_size = parse_unit(string_font_ext.get('orgSize', '32.4pt'))
@@ -789,7 +807,7 @@ def update_font_sizes(text_elements: List[Element], target_font_size: float, ver
                 string_font_ext.set('orgSize', f"{new_org_size}pt")
 
                 if current_size != target_font_size:
-                    log_message(f"Updated string item font size from [bold blue]{current_size:.1f}pt[/] to [bold blue]{target_font_size}pt[/]", verbose)
+                    log_message(f"Updated string item font size from {current_size:.1f}pt to {target_font_size}pt")
 
 
 def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any]) -> None:
@@ -801,8 +819,9 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
         output_file_path: Path to output LBX file
         options: Dictionary of modification options
     """
-    verbose = options.get('verbose', False)
-    log_message(f"Modifying file: [bold blue]{lbx_file_path}[/]", verbose)
+    # Set global verbosity from options
+    config.verbose = options.get('verbose', False)
+    log_message(f"Modifying file: {lbx_file_path}")
 
     # Create a temporary directory for extraction
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -813,14 +832,14 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
         # Get the current label width
         current_label_size = get_current_label_size(root)
         if current_label_size is None:
-            log_message("[bold red]Could not determine current label size[/]", verbose)
+            log_message("Could not determine current label size", msg_class=MessageClass.ERROR)
             return
 
-        log_message(f"Current label size: [bold blue]{current_label_size}mm[/]", verbose)
+        log_message(f"Current label size: {current_label_size}mm")
 
         # Extract target label size from options
         label_size = options.get('label_size', current_label_size)
-        log_message(f"Target label size: [bold blue]{label_size}mm[/]", verbose)
+        log_message(f"Target label size: {label_size}mm")
 
         # Convert text margin from mm to points (1mm ≈ 2.8pt)
         text_margin = options.get('text_margin', 1.0)  # Default to 1.0mm
@@ -828,17 +847,17 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
 
         # Skip if the label size is the same and no other changes
         if label_size == current_label_size and not options.get('font_size') and not options.get('image_scale'):
-            log_message("[bold yellow]No changes necessary - input and output sizes are the same[/]", verbose)
+            log_message("No changes necessary - input and output sizes are the same", msg_class=MessageClass.WARNING)
             if options.get('force'):
-                log_message("[bold yellow]Force option specified - continuing anyway[/]", verbose)
+                log_message("Force option specified - continuing anyway", msg_class=MessageClass.WARNING)
             else:
                 save_lbx(tree, xml_path, output_file_path, temp_dir)
                 return
 
         # If target label size is different, update it
         if label_size != current_label_size:
-            log_message(f"Changing label size from [bold blue]{current_label_size}mm[/] to [bold blue]{label_size}mm[/]", verbose)
-            update_label_tape_size(root, label_size, verbose)
+            log_message(f"Changing label size from {current_label_size}mm to {label_size}mm")
+            update_label_tape_size(root, label_size)
 
         # Get text and image elements
         text_elements = get_text_elements(root)
@@ -852,64 +871,39 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
         if target_font_size is not None or image_scale != 1.0:
             # Update font size if specified
             if target_font_size is not None:
-                update_font_sizes(text_elements, target_font_size, verbose)
+                update_font_sizes(text_elements, target_font_size)
 
             # Scale images if requested
             if image_scale != 1.0:
-                log_message(f"Scaling images by factor: [bold blue]{image_scale}[/]", verbose)
+                log_message(f"Scaling images by factor: {image_scale}")
 
             # Scale and position images
-            max_image_right_edge = scale_images(image_elements, image_scale, label_size, verbose)
+            max_image_right_edge = scale_images(image_elements, image_scale, label_size)
 
             # Position text elements after images
-            position_text(text_elements, max_image_right_edge, label_size, text_margin_pt, image_scale, verbose)
+            position_text(text_elements, max_image_right_edge, label_size, text_margin_pt, image_scale)
 
             # Vertically center elements if requested
             if options.get('center_vertically', False):
-                center_elements_vertically(root, label_size, verbose)
+                center_elements_vertically(root, label_size)
         else:
-            log_message("[bold green]No changes needed - keeping original font sizes and image dimensions[/]", verbose)
+            log_message("No changes needed - keeping original font sizes and image dimensions", msg_class=MessageClass.SUCCESS)
             # Still need to find max_image_right_edge for text positioning
-            max_image_right_edge = scale_images(image_elements, image_scale, label_size, verbose)
+            max_image_right_edge = scale_images(image_elements, image_scale, label_size)
             # Position text elements after images (will preserve positions due to image_scale=1.0)
-            position_text(text_elements, max_image_right_edge, label_size, text_margin_pt, image_scale, verbose)
+            position_text(text_elements, max_image_right_edge, label_size, text_margin_pt, image_scale)
 
         # Save the modified file
         save_lbx(tree, xml_path, output_file_path, temp_dir)
-        log_message(f"Created modified LBX file: [bold blue]{output_file_path}[/]", True)
+        log_message(f"Created modified LBX file: {output_file_path}", msg_class=MessageClass.SUCCESS)
 
         # Open the file if requested (macOS only)
         if options.get('open_file', False) and platform.system() == 'Darwin':
             try:
                 subprocess.run(['open', '-a', '/Applications/P-touch Editor.app', output_file_path])
-                log_message(f"Opened file in P-touch Editor", verbose)
+                log_message("Opened file in P-touch Editor", msg_class=MessageClass.SUCCESS)
             except Exception as e:
-                log_message(f"[yellow]Warning: Could not open file: {str(e)}[/]", verbose)
-
-
-def log_message(message: str, verbose: bool = False) -> None:
-    """
-    Log a message to the console, respecting the verbose flag.
-
-    Args:
-        message: Message to log
-        verbose: Whether to show verbose output
-
-    Message types:
-    - Errors (red): Always shown
-    - Warnings (yellow): Always shown
-    - Basic success: Always shown
-    - All other messages: Only shown with verbose flag
-    """
-    # Always show errors and warnings
-    if message.startswith("[bold red]") or message.startswith("[red]") or \
-       message.startswith("[yellow]") or message.startswith("[bold yellow]"):
-        console.print(message)
-        return
-
-    # Show all other messages only in verbose mode
-    if verbose:
-        console.print(message)
+                log_message(f"Warning: Could not open file: {str(e)}", msg_class=MessageClass.WARNING)
 
 
 @app.command()
@@ -929,7 +923,7 @@ def main(
     vertical alignment, image scaling, and text positioning.
     """
     if not os.path.exists(input_file):
-        console.print(f"[red]Input file '{input_file}' not found.[/red]")
+        log_message(f"Input file '{input_file}' not found.", msg_class=MessageClass.ERROR)
         return 1
 
     try:
@@ -945,10 +939,10 @@ def main(
             'verbose': verbose  # Add verbose flag to options
         })
 
-        log_message(f"[green]✓ Successfully modified label file![/green]", verbose)
+        log_message("✓ Successfully modified label file!", msg_class=MessageClass.SUCCESS)
         return 0
     except Exception as e:
-        log_message(f"[red]Error: {str(e)}[/red]", verbose)
+        log_message(f"Error: {str(e)}", msg_class=MessageClass.ERROR)
         return 1
 
 
