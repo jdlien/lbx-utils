@@ -436,68 +436,86 @@ def position_text(text_elements: List[ET.Element], max_image_right_edge: float, 
 
 def center_elements_vertically(root: ET.Element, label_width: float) -> None:
     """
-    Center elements vertically on the label.
+    Center elements vertically within the background area of the label.
 
     Args:
         root: Root element of the XML tree
-        label_width: Width of the label in points
+        label_width: Width of the label in points (not used for centering)
     """
+    # Get the background element to determine the printable area
+    bg_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}backGround')
+    if bg_elem is None:
+        console.print("[yellow]Warning: No background element found, skipping vertical centering[/]")
+        return
+
+    # Get the paper element to determine label size
+    paper_elem = root.find('.//{http://schemas.brother.info/ptouch/2007/lbx/style}paper')
+    if paper_elem is None:
+        console.print("[yellow]Warning: No paper element found, skipping vertical centering[/]")
+        return
+
+    # Get the label width to determine size
+    paper_width = float(paper_elem.get('width').replace('pt', ''))
+
+    # Map paper widths to background heights for centering
+    # These heights match what P-Touch Editor uses for vertical centering
+    width_to_height = {
+        25.6: 20.0,    # 9mm
+        33.6: 28.0,    # 12mm
+        51.2: 44.8,    # 18mm
+        68.0: 51.2     # 24mm
+    }
+
+    # Get the background height based on paper width
+    bg_height = width_to_height.get(paper_width, 28.0)  # Default to 12mm height if not found
+    bg_y = float(bg_elem.get('y').replace('pt', ''))
+    center_of_background = bg_y + (bg_height / 2)
+
     # Get all objects that need centering
     object_styles = root.findall('.//{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle')
 
-    if object_styles:
-        # Calculate the available vertical space on the label
-        paper_height = float(label_width)
+    if not object_styles:
+        console.print("[yellow]Warning: No objects found to center[/]")
+        return
 
-        # Find the original vertical position range of objects
-        min_y = float('inf')
-        max_y = float('-inf')
-        orig_positions = {}
+    console.print(f"Paper width: [bold blue]{paper_width}pt[/]")
+    console.print(f"Background area: y=[bold blue]{bg_y}pt[/], height=[bold blue]{bg_height}pt[/]")
+    console.print(f"Center of background: [bold blue]{center_of_background}pt[/]")
 
-        # First pass: find the top and bottom positions
-        for obj in object_styles:
-            obj_y = float(obj.get('y').replace('pt', ''))
-            obj_height = float(obj.get('height').replace('pt', ''))
-            obj_bottom = obj_y + obj_height
+    # Center each object individually
+    for obj in object_styles:
+        # Get current object position and dimensions
+        orig_y = float(obj.get('y').replace('pt', ''))
+        obj_height = float(obj.get('height').replace('pt', ''))
 
-            min_y = min(min_y, obj_y)
-            max_y = max(max_y, obj_bottom)
+        # Calculate the center of the current object
+        center_of_object = orig_y + (obj_height / 2)
 
-            # Store original positions for later use
-            orig_positions[obj] = {
-                'y': obj_y,
-                'height': obj_height,
-                'bottom': obj_bottom
-            }
+        # Calculate how far the object's center is from the background's center
+        offset = center_of_background - center_of_object
 
-        # Calculate the group height and center position
-        group_height = max_y - min_y
-        center_of_paper = paper_height / 2
-        center_of_group = min_y + (group_height / 2)
+        # Calculate new y position that will center the object
+        new_y = orig_y + offset
 
-        # Calculate the offset needed to center the group
-        offset = center_of_paper - center_of_group
+        # Ensure the object stays within the background bounds
+        if new_y < bg_y:
+            new_y = bg_y
+        elif new_y + obj_height > bg_y + bg_height:
+            new_y = bg_y + bg_height - obj_height
 
-        console.print(f"Group height: [bold blue]{group_height}pt[/]")
-        console.print(f"Center of label: [bold blue]{center_of_paper}pt[/]")
-        console.print(f"Applying offset of [bold blue]{offset}pt[/] to center elements")
+        # Update the object's position
+        obj.set('y', f"{new_y}pt")
+        console.print(f"Centered object (height=[bold blue]{obj_height}pt[/]) from y=[bold blue]{orig_y}pt[/] to y=[bold blue]{new_y}pt[/]")
 
-        # Second pass: adjust each object's position
-        for obj in object_styles:
-            orig_y = orig_positions[obj]['y']
-            new_y = orig_y + offset
-            obj.set('y', f"{new_y}pt")
-            console.print(f"Centered object from y=[bold blue]{orig_y}pt[/] to y=[bold blue]{new_y}pt[/]")
+        # Also update corresponding image orgPos if exists
+        parent = obj.getparent()
+        if parent is not None and parent.tag.endswith('}image'):
+            org_pos = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos')
+            if org_pos is not None:
+                org_pos.set('y', f"{new_y}pt")
+                console.print(f"Updated image orgPos y to [bold blue]{new_y}pt[/]")
 
-            # Also update corresponding image orgPos if exists
-            parent = obj.getparent()
-            if parent is not None and parent.tag.endswith('}image'):
-                org_pos = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos')
-                if org_pos is not None:
-                    org_pos.set('y', f"{new_y}pt")
-                    console.print(f"Updated image position y to [bold blue]{new_y}pt[/]")
-
-        console.print(f"All objects have been centered as a group")
+    console.print(f"All objects have been centered within the background area")
 
 
 def extract_and_parse_lbx(input_file: str, temp_dir: str) -> Tuple[ET.ElementTree, str]:
