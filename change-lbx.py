@@ -104,26 +104,22 @@ FORMAT_CODES = {
 LABEL_CONFIGS = {
     9: {
         'width': 25.6,
-        'margin_y': 2.8,  # Used for marginLeft and marginRight, which control vertical positioning
-        'bg_width': 66.4,
+        'margin_y': 2.8,  # For marginLeft and marginRight, which affect vertical positioning
         'bg_height': 20.0
     },
     12: {
         'width': 33.6,
         'margin_y': 2.8,
-        'bg_width': 66.4,
         'bg_height': 28.0
     },
     18: {
         'width': 51.2,
         'margin_y': 3.2,
-        'bg_width': 66.4,
-        'bg_height': 28.0
+        'bg_height': 44.8
     },
     24: {
         'width': 68.0,
         'margin_y': 8.4,
-        'bg_width': 115.3,
         'bg_height': 51.2
     }
 }
@@ -156,7 +152,6 @@ def get_label_config(label_size: int) -> Dict[str, Any]:
         'height': DEFAULT_HEIGHT,
         'marginLeft': base_config['margin_y'],  # Affects vertical positioning in landscape
         'marginRight': base_config['margin_y'],  # Affects vertical positioning in landscape
-        'bg_width': base_config['bg_width'],
         'bg_height': base_config['bg_height'],
         'bg_x': DEFAULT_BG_X,
         'bg_y': base_config['margin_y'],  # bg_y is always set to margin value
@@ -268,6 +263,7 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
 def update_background(root: Element, label_config: Dict[str, Any], verbose: bool = False) -> None:
     """
     Update the background element dimensions in the XML.
+    Only updates height and position, preserving the original width.
 
     Args:
         root: Root element of the XML tree
@@ -276,11 +272,14 @@ def update_background(root: Element, label_config: Dict[str, Any], verbose: bool
     """
     bg_elem = root.find('.//style:backGround', namespaces=NS)
     if bg_elem is not None:
-        bg_elem.set('width', f"{label_config['bg_width']}pt")
+        # Get current background width
+        current_width = parse_unit(bg_elem.get('width', '56.2pt'))  # Default to 56.2pt if not found
+
+        # Only update height and position, preserving width
         bg_elem.set('height', f"{label_config['bg_height']}pt")
         bg_elem.set('x', f"{label_config['bg_x']}pt")
         # Note: Y position is already updated by update_object_y_positions function
-        log_message(f"Updated background dimensions: [bold blue]{label_config['bg_width']}pt × {label_config['bg_height']}pt[/]", verbose)
+        log_message(f"Updated background dimensions: [bold blue]{current_width}pt × {label_config['bg_height']}pt[/]", verbose)
         log_message(f"Updated background position X: [bold blue]{label_config['bg_x']}pt[/]", verbose)
 
 
