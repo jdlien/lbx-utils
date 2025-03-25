@@ -71,7 +71,7 @@ import typer
 init(autoreset=True)
 
 # Initialize Typer app and Rich console
-app = typer.Typer(help="Brother P-touch LBX Label File Modifier")
+app = typer.Typer(help="Brother P-touch LBX Label File Modifier", add_completion=False)
 console = Console()
 
 # Constants
