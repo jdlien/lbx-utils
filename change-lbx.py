@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# type: ignore[arg-type, var-annotated]
 
 """
 change-lbx.py - Brother P-touch LBX Label File Modifier
@@ -42,6 +41,7 @@ import subprocess
 import re
 from typing import Optional, List, Dict, Any, Union, Tuple
 from pathlib import Path
+from lxml.etree import _Element as Element, _ElementTree as ElementTree
 
 # Function to check dependencies before importing them
 def check_and_import_dependencies():
@@ -168,7 +168,7 @@ def get_label_config(label_size: int) -> Dict[str, Any]:
     return config
 
 
-def update_label_size(root: ET.Element, label_size: int, verbose: bool = False) -> None:
+def update_label_size(root: Element, label_size: int, verbose: bool = False) -> None:
     """
     Update the label dimensions in the XML.
 
@@ -202,7 +202,7 @@ def update_label_size(root: ET.Element, label_size: int, verbose: bool = False) 
         update_object_y_positions(root, original_margin, new_margin, verbose)
 
 
-def update_object_y_positions(root: ET.Element, original_margin: float, new_margin: float, verbose: bool = False) -> None:
+def update_object_y_positions(root: Element, original_margin: float, new_margin: float, verbose: bool = False) -> None:
     """
     Update Y positions of objects to match the new margin.
 
@@ -267,7 +267,7 @@ def update_object_y_positions(root: ET.Element, original_margin: float, new_marg
                     log_message(f"Updated image orgPos Y from [bold blue]{old_org_y}pt[/] to [bold blue]{new_org_y}pt[/]", verbose)
 
 
-def update_background(root: ET.Element, label_config: Dict[str, Any], verbose: bool = False) -> None:
+def update_background(root: Element, label_config: Dict[str, Any], verbose: bool = False) -> None:
     """
     Update the background element dimensions in the XML.
 
@@ -286,7 +286,7 @@ def update_background(root: ET.Element, label_config: Dict[str, Any], verbose: b
         log_message(f"Updated background position X: [bold blue]{label_config['bg_x']}pt[/]", verbose)
 
 
-def update_font_size(root: ET.Element, font_size: int, verbose: bool = False) -> None:
+def update_font_size(root: Element, font_size: int, verbose: bool = False) -> None:
     """
     Update font size in text elements of an LBX file.
 
@@ -306,7 +306,7 @@ def update_font_size(root: ET.Element, font_size: int, verbose: bool = False) ->
         log_message(f"Updated font size to [bold blue]{font_size}pt[/] (orgSize: [bold blue]{org_size}pt[/])", verbose)
 
 
-def classify_elements(root: ET.Element) -> Tuple[List[ET.Element], List[ET.Element]]:
+def classify_elements(root: Element) -> Tuple[List[Element], List[Element]]:
     """
     Classify elements in the XML as either image elements or text elements.
 
@@ -337,7 +337,7 @@ def classify_elements(root: ET.Element) -> Tuple[List[ET.Element], List[ET.Eleme
     return (image_elements, text_elements)
 
 
-def scale_images(image_elements: List[ET.Element], image_scale: float, label_size: int, verbose: bool = False) -> float:
+def scale_images(image_elements: List[Element], image_scale: float, label_size: int, verbose: bool = False) -> float:
     """
     Scale and position images based on the scale factor and label size.
 
@@ -433,7 +433,7 @@ def scale_images(image_elements: List[ET.Element], image_scale: float, label_siz
     return max_right_edge
 
 
-def position_text(text_elements: List[ET.Element], max_image_right_edge: float, label_size: int, text_margin_pt: float, image_scale: float, verbose: bool = False) -> None:
+def position_text(text_elements: List[Element], max_image_right_edge: float, label_size: int, text_margin_pt: float, image_scale: float, verbose: bool = False) -> None:
     """
     Position text elements after images.
 
@@ -462,7 +462,7 @@ def position_text(text_elements: List[ET.Element], max_image_right_edge: float, 
         log_message(f"Preserving original horizontal text positions (no image scaling applied)", verbose)
 
 
-def center_elements_vertically(root: ET.Element, label_width: float, verbose: bool = False) -> None:
+def center_elements_vertically(root: Element, label_width: float, verbose: bool = False) -> None:
     """
     Center elements vertically within the background area of the label.
 
@@ -547,7 +547,7 @@ def center_elements_vertically(root: ET.Element, label_width: float, verbose: bo
     log_message(f"All objects have been centered within the background area", verbose)
 
 
-def extract_and_parse_lbx(input_file: str, temp_dir: str) -> Tuple[ET.ElementTree, str]:
+def extract_and_parse_lbx(input_file: str, temp_dir: str) -> Tuple[ElementTree, str]:
     """
     Extract LBX file (ZIP) and parse the XML.
 
@@ -587,7 +587,7 @@ def extract_and_parse_lbx(input_file: str, temp_dir: str) -> Tuple[ET.ElementTre
     return (tree, xml_path)
 
 
-def apply_compatibility_tweaks(root: ET.Element, label_size: int, verbose: bool = False) -> None:
+def apply_compatibility_tweaks(root: Element, label_size: int, verbose: bool = False) -> None:
     """
     Apply compatibility tweaks to the label file to ensure it works properly with P-touch Editor.
 
@@ -624,7 +624,7 @@ def apply_compatibility_tweaks(root: ET.Element, label_size: int, verbose: bool 
                 log_message(f"Updated printer to [bold blue]{large_format_printer_name}[/] for compatibility with {label_size}mm tape", verbose)
 
 
-def save_lbx(tree: ET.ElementTree, xml_path: str, output_file: str, temp_dir: str) -> None:
+def save_lbx(tree: ElementTree, xml_path: str, output_file: str, temp_dir: str) -> None:
     """
     Save modified XML and create a new LBX file.
 
@@ -646,7 +646,7 @@ def save_lbx(tree: ET.ElementTree, xml_path: str, output_file: str, temp_dir: st
                 zipf.write(file_path, arcname)
 
 
-def get_current_label_size(root: ET.Element) -> Optional[int]:
+def get_current_label_size(root: Element) -> Optional[int]:
     """
     Get the current label size in mm from the XML.
 
@@ -689,7 +689,7 @@ def get_current_label_size(root: ET.Element) -> Optional[int]:
         return 24
 
 
-def get_text_elements(root: ET.Element) -> List[ET.Element]:
+def get_text_elements(root: Element) -> List[Element]:
     """
     Get all text elements from the XML.
 
@@ -713,7 +713,7 @@ def get_text_elements(root: ET.Element) -> List[ET.Element]:
     return text_elements
 
 
-def get_image_elements(root: ET.Element) -> List[ET.Element]:
+def get_image_elements(root: Element) -> List[Element]:
     """
     Get all image elements from the XML.
 
@@ -737,7 +737,7 @@ def get_image_elements(root: ET.Element) -> List[ET.Element]:
     return image_elements
 
 
-def update_font_sizes(text_elements: List[ET.Element], target_font_size: float, verbose: bool = False) -> None:
+def update_font_sizes(text_elements: List[Element], target_font_size: float, verbose: bool = False) -> None:
     """
     Update font sizes in text elements to a specific point size.
 
