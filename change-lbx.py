@@ -709,14 +709,19 @@ def get_image_elements(root: ET.Element) -> List[ET.Element]:
     return image_elements
 
 
-def update_font_sizes(text_elements: List[ET.Element], font_size_multiplier: float) -> None:
+def update_font_sizes(text_elements: List[ET.Element], target_font_size: float) -> None:
     """
-    Update font sizes in text elements by a multiplier.
+    Update font sizes in text elements to a specific point size.
 
     Args:
         text_elements: List of text elements to update
-        font_size_multiplier: Factor to multiply the current font size by
+        target_font_size: Target font size in points
     """
+    if not text_elements:
+        return
+
+    console.print(f"Setting font size to [bold blue]{target_font_size}pt[/]")
+
     # Process each text element
     for element in text_elements:
         # Find the text element's parent
@@ -724,24 +729,46 @@ def update_font_sizes(text_elements: List[ET.Element], font_size_multiplier: flo
         if parent is None:
             continue
 
-        # Find the fontExt element in the text element
+        # Update main fontExt element
         font_ext = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/text}fontExt')
-        if font_ext is None:
-            continue
+        if font_ext is not None:
+            current_size = parse_unit(font_ext.get('size', '9pt'))
+            current_org_size = parse_unit(font_ext.get('orgSize', '32.4pt'))
 
-        # Get current font size
-        current_size = parse_unit(font_ext.get('size', '9pt'))
-        current_org_size = parse_unit(font_ext.get('orgSize', '32.4pt'))
+            # Keep the original orgSize ratio
+            org_size_ratio = current_org_size / current_size
+            new_org_size = target_font_size * org_size_ratio
 
-        # Calculate new sizes
-        new_size = current_size * font_size_multiplier
-        new_org_size = current_org_size * font_size_multiplier
+            font_ext.set('size', f"{target_font_size}pt")
+            font_ext.set('orgSize', f"{new_org_size}pt")
 
-        # Update the font size attributes
-        font_ext.set('size', f"{new_size:.1f}pt")
-        font_ext.set('orgSize', f"{new_org_size:.1f}pt")
+            if current_size != target_font_size:
+                console.print(f"Updated main font size from [bold blue]{current_size:.1f}pt[/] to [bold blue]{target_font_size}pt[/]")
 
-        console.print(f"Updated font size from [bold blue]{current_size:.1f}pt[/] to [bold blue]{new_size:.1f}pt[/]")
+        # Update textStyle orgPoint
+        text_style = parent.find('.//{http://schemas.brother.info/ptouch/2007/lbx/text}textStyle')
+        if text_style is not None:
+            current_org_point = parse_unit(text_style.get('orgPoint', '9pt'))
+            text_style.set('orgPoint', f"{target_font_size}pt")
+            if current_org_point != target_font_size:
+                console.print(f"Updated textStyle orgPoint from [bold blue]{current_org_point:.1f}pt[/] to [bold blue]{target_font_size}pt[/]")
+
+        # Update all stringItem fontExt elements
+        for string_item in parent.findall('.//{http://schemas.brother.info/ptouch/2007/lbx/text}stringItem'):
+            string_font_ext = string_item.find('.//{http://schemas.brother.info/ptouch/2007/lbx/text}fontExt')
+            if string_font_ext is not None:
+                current_size = parse_unit(string_font_ext.get('size', '9pt'))
+                current_org_size = parse_unit(string_font_ext.get('orgSize', '32.4pt'))
+
+                # Keep the original orgSize ratio
+                org_size_ratio = current_org_size / current_size
+                new_org_size = target_font_size * org_size_ratio
+
+                string_font_ext.set('size', f"{target_font_size}pt")
+                string_font_ext.set('orgSize', f"{new_org_size}pt")
+
+                if current_size != target_font_size:
+                    console.print(f"Updated string item font size from [bold blue]{current_size:.1f}pt[/] to [bold blue]{target_font_size}pt[/]")
 
 
 def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any]) -> None:
