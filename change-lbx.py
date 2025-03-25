@@ -81,7 +81,6 @@ console = Console()
 # Label dimensions and measurements
 TRUE_LEFT_EDGE = 5.6  # The true printable left edge in Brother P-touch labels is 5.6pt
 DEFAULT_HEIGHT = 2834.4  # Default height for all label sizes
-DEFAULT_BG_X = 5.6  # Default background X position
 TEXT_MARGIN_OFFSET = 4.3  # Text Y position is consistently offset from margin by 4.3pt
 
 # XML namespaces
@@ -100,27 +99,23 @@ FORMAT_CODES = {
     24: '261'
 }
 
-# Label size configurations (width, margin, background dimensions in points)
+# Label size configurations (width, margin in points)
 LABEL_CONFIGS = {
     9: {
         'width': 25.6,
         'margin_y': 2.8,  # For marginLeft and marginRight, which affect vertical positioning
-        'bg_height': 20.0
     },
     12: {
         'width': 33.6,
         'margin_y': 2.8,
-        'bg_height': 28.0
     },
     18: {
         'width': 51.2,
         'margin_y': 3.2,
-        'bg_height': 44.8
     },
     24: {
         'width': 68.0,
         'margin_y': 8.4,
-        'bg_height': 51.2
     }
 }
 
@@ -146,14 +141,16 @@ def get_label_config(label_size: int) -> Dict[str, Any]:
     # Get base config from LABEL_CONFIGS, defaulting to 12mm if size not found
     base_config = LABEL_CONFIGS.get(label_size, LABEL_CONFIGS[12])
 
+    # Calculate background height as width minus margins
+    bg_height = base_config['width'] - (base_config['margin_y'] * 2)
+
     # Create config with derived/additional fields
     config = {
         'width': base_config['width'],
         'height': DEFAULT_HEIGHT,
         'marginLeft': base_config['margin_y'],  # Affects vertical positioning in landscape
         'marginRight': base_config['margin_y'],  # Affects vertical positioning in landscape
-        'bg_height': base_config['bg_height'],
-        'bg_x': DEFAULT_BG_X,
+        'bg_height': bg_height,
         'bg_y': base_config['margin_y'],  # bg_y is always set to margin value
         'format': FORMAT_CODES.get(label_size, FORMAT_CODES[12])  # Default to 12mm format if not found
     }
@@ -161,9 +158,10 @@ def get_label_config(label_size: int) -> Dict[str, Any]:
     return config
 
 
-def update_label_size(root: Element, label_size: int, verbose: bool = False) -> None:
+def update_label_tape_size(root: Element, label_size: int, verbose: bool = False) -> None:
     """
-    Update the label dimensions in the XML.
+    Update the label size to a different "width" of tape, affecting the height of landscape labels,
+    or the width of portrait labels.
 
     Args:
         root: Root element of the XML tree
@@ -181,10 +179,10 @@ def update_label_size(root: Element, label_size: int, verbose: bool = False) -> 
         # Update paper element attributes
         paper_elem.set('width', f"{label_config['width']}pt")
         paper_elem.set('height', f"{label_config['height']}pt")
+        log_message(f"Updated label width to [bold blue]{label_config['width']}pt[/] ({label_size}mm)", verbose)
+
         paper_elem.set('marginLeft', f"{label_config['marginLeft']}pt")
         paper_elem.set('marginRight', f"{label_config['marginRight']}pt")
-
-        log_message(f"Updated label width to [bold blue]{label_config['width']}pt[/] ({label_size}mm)", verbose)
         log_message(f"Updated margins to [bold blue]{label_config['marginLeft']}pt[/] on both sides", verbose)
 
         # Update format attribute for different label sizes
@@ -263,7 +261,7 @@ def update_object_y_positions(root: Element, original_margin: float, new_margin:
 def update_background(root: Element, label_config: Dict[str, Any], verbose: bool = False) -> None:
     """
     Update the background element dimensions in the XML.
-    Only updates height and position, preserving the original width.
+    Only updates height and Y position, preserving the original width and X position.
 
     Args:
         root: Root element of the XML tree
@@ -272,15 +270,13 @@ def update_background(root: Element, label_config: Dict[str, Any], verbose: bool
     """
     bg_elem = root.find('.//style:backGround', namespaces=NS)
     if bg_elem is not None:
-        # Get current background width
+        # Get current background width (preserved)
         current_width = parse_unit(bg_elem.get('width', '56.2pt'))  # Default to 56.2pt if not found
 
-        # Only update height and position, preserving width
+        # Only update height - X position stays at TRUE_LEFT_EDGE
         bg_elem.set('height', f"{label_config['bg_height']}pt")
-        bg_elem.set('x', f"{label_config['bg_x']}pt")
         # Note: Y position is already updated by update_object_y_positions function
         log_message(f"Updated background dimensions: [bold blue]{current_width}pt × {label_config['bg_height']}pt[/]", verbose)
-        log_message(f"Updated background position X: [bold blue]{label_config['bg_x']}pt[/]", verbose)
 
 
 def update_font_size(root: Element, font_size: int, verbose: bool = False) -> None:
@@ -842,7 +838,7 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
         # If target label size is different, update it
         if label_size != current_label_size:
             log_message(f"Changing label size from [bold blue]{current_label_size}mm[/] to [bold blue]{label_size}mm[/]", verbose)
-            update_label_size(root, label_size, verbose)
+            update_label_tape_size(root, label_size, verbose)
 
         # Get text and image elements
         text_elements = get_text_elements(root)
