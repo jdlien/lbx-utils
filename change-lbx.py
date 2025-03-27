@@ -29,6 +29,13 @@ Requirements:
 Install dependencies with:
 pip install typer rich colorama lxml
 
+To do:
+- Allow generating custom labels from a template
+  - Support changing text
+  - Change images
+
+
+
 """
 
 import sys
@@ -857,10 +864,10 @@ def tweak_text(root: Element) -> None:
         # - Optional whitespace
         # - Another number
         text = data_elem.text
-        # This approach is tricky because we'd have to update the charLen attribute of each stringItem element
-        # new_text = re.sub(r'(\d+)\s*x\s*(\d+)', r'\1×\2', text)
+        # This approach is tricky because we'd have to update the charLen attribute of this stringItem element
+        # new_text = re.sub(r'(\d+)\s?x\s?(\d+)', r'\1×\2', text)
         # Instead, we'll just directly replace the x with the × character
-        new_text = re.sub(r'(\d+\s)*x(\s*\d+)', r'\1×\2', text)
+        new_text = re.sub(r'(\d+\s?)x(\s?\d+)', r'\1×\2', text)
 
         if new_text != text:
             data_elem.text = new_text
