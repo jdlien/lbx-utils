@@ -9,8 +9,8 @@
 #
 # View (under menu):
 # ------------------
-# - Latitude: 30
-# - Longitude -30
+# - Latitude: 35
+# - Longitude -30 (Some parts look better with -60)
 
 # Preferences
 # -----------
@@ -51,6 +51,13 @@ from rich.console import Console
 from rich.panel import Panel
 import colorama
 
+# For image processing (cropping transparencies)
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+
 # Initialize Rich Console and Colorama
 colorama.init()
 console = Console()
@@ -64,6 +71,7 @@ DEFAULT_LDVIEW_APP_PATH = Path("/Applications/LDView.app")
 
 app = typer.Typer(
     help="🖼️ Generate consistent PNG images of LEGO parts using LDView.",
+    add_completion=False,
     rich_markup_mode="markdown",
 )
 
@@ -133,6 +141,75 @@ def is_valid_filename(filename: str) -> bool:
     return not bool(re.search(invalid_chars, str(filename)))
 
 
+def crop_transparent_edges(image_path: Path, maintain_height: bool = True, verbose: bool = False) -> bool:
+    """
+    Crops transparent edges from a PNG image while optionally maintaining the original height.
+
+    Args:
+        image_path: Path to the PNG image
+        maintain_height: If True, only crop horizontal transparent areas, preserving height
+        verbose: Whether to print detailed information
+
+    Returns:
+        True if cropping was successful, False otherwise
+    """
+    if not PIL_AVAILABLE:
+        if verbose:
+            console.print("[yellow]Warning:[/yellow] PIL/Pillow not available, skipping transparent cropping.")
+        return False
+
+    try:
+        # Open the image
+        img = Image.open(image_path)
+
+        # Get the alpha channel
+        if img.mode != 'RGBA':
+            if verbose:
+                console.print(f"[yellow]Warning:[/yellow] Image is not RGBA, skipping transparent cropping.")
+            return False
+
+        # Get the size
+        width, height = img.size
+        if verbose:
+            console.print(f"[dim]Original image size: {width}x{height}[/dim]")
+
+        # Get the alpha data
+        alpha = img.split()[3]
+
+        # Get bounding box of non-transparent pixels
+        bbox = alpha.getbbox()
+        if not bbox:
+            if verbose:
+                console.print(f"[yellow]Warning:[/yellow] Image is entirely transparent.")
+            return False
+
+        left, upper, right, lower = bbox
+
+        if maintain_height:
+            # Only crop horizontally, keep full height
+            bbox = (left, 0, right, height)
+            if verbose:
+                console.print(f"[dim]Maintaining height, cropping horizontally to: {left}, 0, {right}, {height}[/dim]")
+        elif verbose:
+            console.print(f"[dim]Cropping to: {left}, {upper}, {right}, {lower}[/dim]")
+
+        # Crop the image
+        cropped = img.crop(bbox)
+
+        # Save the cropped image, overwriting the original
+        cropped.save(image_path)
+
+        new_width, new_height = cropped.size
+        if verbose:
+            console.print(f"[dim]New image size: {new_width}x{new_height}[/dim]")
+
+        return True
+    except Exception as e:
+        if verbose:
+            console.print(f"[red]Error during transparent cropping:[/red] {e}")
+        return False
+
+
 @app.command()
 def generate(
     part_number: str = typer.Argument(
@@ -149,8 +226,20 @@ def generate(
     width: int = typer.Option(
         320,
         "--width", "-w",
-        help="Width of the output image in pixels. Height is set automatically by LDView.",
+        help="Width of the output image in pixels. Used when constraining by width.",
         min=10,
+    ),
+    height: int = typer.Option(
+        320,
+        "--height", "-h",
+        help="Height of the output image in pixels. Used when constraining by height (default).",
+        min=10,
+    ),
+    constrain_width: bool = typer.Option(
+        False,
+        "--constrain-width", "-cw",
+        help="Constrain the width of the image instead of the height (height is constrained by default).",
+        is_flag=True,
     ),
     edge_thickness: float = typer.Option(
         4.0,
@@ -165,6 +254,39 @@ def generate(
         help="Thickness of conditional lines in the rendered image. If not specified, matches edge thickness.",
         min=0.1,
         max=5.0,
+    ),
+    scale_size_not_lines: bool = typer.Option(
+        False,
+        "--scale-size-not-lines", "-s",
+        help="Scale the image size proportionally to part size rather than line thickness. This keeps lines visually consistent across parts of different sizes.",
+        is_flag=True,
+    ),
+    size_scale_factor: float = typer.Option(
+        0.5,
+        "--size-scale-factor", "-f",
+        help="Scale factor for the final image size when using --scale-size-not-lines. Lower values produce smaller images (e.g., 0.5 for half size).",
+        min=0.1,
+        max=2.0,
+    ),
+    crop_transparency: bool = typer.Option(
+        True,
+        "--crop-transparency/--no-crop-transparency",
+        help="Crop transparent areas from the sides of the image while maintaining height. Requires PIL/Pillow.",
+        is_flag=True,
+    ),
+    view_longitude: float = typer.Option(
+        -30.0,
+        "--lon", "--view-longitude", "--longitude",
+        help="Camera longitude (horizontal rotation in degrees). -30 gives a slightly angled view, 0 for front view, 90 for side view.",
+        min=-360.0,
+        max=360.0,
+    ),
+    view_latitude: float = typer.Option(
+        35.0,
+        "--lat", "--view-latitude", "--latitude",
+        help="Camera latitude (vertical rotation in degrees). 30 gives a slightly elevated view, 0 for level view, 90 for top-down view.",
+        min=-90.0,
+        max=90.0,
     ),
     ldview_path_str: str = typer.Option(
         str(DEFAULT_LDVIEW_APP_PATH),
@@ -205,8 +327,15 @@ def generate(
         console.print(f"[dim]- part_number: {part_number}[/dim]")
         console.print(f"[dim]- output: {output}[/dim]")
         console.print(f"[dim]- width: {width}[/dim]")
+        console.print(f"[dim]- height: {height}[/dim]")
+        console.print(f"[dim]- constrain_width: {constrain_width}[/dim]")
         console.print(f"[dim]- edge_thickness: {edge_thickness}[/dim]")
         console.print(f"[dim]- line_thickness: {line_thickness}[/dim]")
+        console.print(f"[dim]- scale_size_not_lines: {scale_size_not_lines}[/dim]")
+        console.print(f"[dim]- size_scale_factor: {size_scale_factor}[/dim]")
+        console.print(f"[dim]- crop_transparency: {crop_transparency}[/dim]")
+        console.print(f"[dim]- view_longitude: {view_longitude}[/dim]")
+        console.print(f"[dim]- view_latitude: {view_latitude}[/dim]")
         console.print(f"[dim]- ldview_path: {ldview_path_str}[/dim]")
         console.print(f"[dim]- ldraw_dir: {ldraw_dir_str}[/dim]")
 
@@ -290,18 +419,72 @@ def generate(
         raise typer.Exit(code=1)
 
     # --- 2. LDView Command Construction ---
-    # Set height equal to width for initial render square, AutoCrop will adjust
-    height = width
+    # Set render dimensions based on constraints
+    if constrain_width:
+        # Use the specified width and set height to maintain a square initially
+        # (LDView will autocrop later)
+        render_width = width
+        render_height = width  # Start with a square that will be cropped
+    else:
+        # Height-constrained approach (default)
+        # We need to ensure the height stays consistent after autocrop
+        # To do this, we'll disable autocrop and set a very large width to ensure
+        # the entire part is visible, then we'll manage cropping ourselves
+        render_height = height
+        render_width = height * 6  # Use a wide aspect ratio to ensure part fits
 
     # Ensure part_file_path is absolute for reliable loading
     part_file_path = part_file_path.absolute()
 
+    # Reference values for consistent line appearance
+    BASE_EDGE_THICKNESS = 1.0
+    BASE_LINE_THICKNESS = 1.0
+    BASE_WIDTH = 320
+    BASE_HEIGHT = 180
+
     # If line thickness not specified, use the same value as edge thickness
     actual_line_thickness = line_thickness if line_thickness is not None else edge_thickness
+
+    # If we're scaling size instead of lines, adjust dimensions based on line thickness ratio
+    if scale_size_not_lines:
+        # Calculate scaling ratio from edge thickness (how much thicker than base)
+        thickness_ratio = edge_thickness / BASE_EDGE_THICKNESS
+
+        if constrain_width:
+            # Scale width by the ratio to maintain visual consistency
+            adjusted_width = int(render_width * thickness_ratio * size_scale_factor)
+            adjusted_height = adjusted_width  # Start with square (will be autocropped)
+        else:
+            # Scale height by the ratio to maintain visual consistency
+            adjusted_height = int(render_height * thickness_ratio * size_scale_factor)
+            adjusted_width = adjusted_height  # Start with square (will be autocropped)
+
+        # Adjust edge and line thickness to fixed base values
+        adjusted_edge_thickness = BASE_EDGE_THICKNESS
+        adjusted_line_thickness = BASE_LINE_THICKNESS if line_thickness is None else (line_thickness / edge_thickness) * BASE_LINE_THICKNESS
+
+        if verbose:
+            console.print(f"[dim]Scaling image size instead of lines:[/dim]")
+            if constrain_width:
+                console.print(f"[dim]- Original width: {render_width}, Edge thickness: {edge_thickness}[/dim]")
+                console.print(f"[dim]- Adjusted width: {adjusted_width}, Edge thickness: {adjusted_edge_thickness}[/dim]")
+            else:
+                console.print(f"[dim]- Original height: {render_height}, Edge thickness: {edge_thickness}[/dim]")
+                console.print(f"[dim]- Adjusted height: {adjusted_height}, Edge thickness: {adjusted_edge_thickness}[/dim]")
+            console.print(f"[dim]- Scale factor: {size_scale_factor}[/dim]")
+            console.print(f"[dim]- Line thickness: {adjusted_line_thickness}[/dim]")
+
+        # Update values for command construction
+        render_width = adjusted_width
+        render_height = adjusted_height
+        edge_thickness = adjusted_edge_thickness
+        actual_line_thickness = adjusted_line_thickness
 
     if verbose:
         console.print(f"[dim]Edge thickness: {edge_thickness}[/dim]")
         console.print(f"[dim]Line thickness: {actual_line_thickness}[/dim]")
+        console.print(f"[dim]Image dimensions: {render_width}x{render_height}px (before crop)[/dim]")
+        console.print(f"[dim]Constraint: {'Width' if constrain_width else 'Height'}[/dim]")
 
     # Consistent settings for rendering quality and appearance
     # Ref: http://ldview.sourceforge.net/CommandOptions.html
@@ -311,10 +494,21 @@ def generate(
         str(part_file_path),
         # Output settings
         f"-SaveSnapshot={output_path}",
-        f"-SaveWidth={width}",
-        f"-SaveHeight={height}", # Render square initially
+        f"-SaveWidth={render_width}",
+        f"-SaveHeight={render_height}", # Initial dimensions before autocrop
         "-SaveAlpha=1",             # Crucial for transparency
-        "-AutoCrop=1",              # Crop tightly to the part
+    ]
+
+    # Add autocrop option conditionally - only for width-constrained images
+    if constrain_width:
+        ldview_cmd.append("-AutoCrop=1")  # Crop tightly to the part for width-constrained
+    else:
+        # For height-constrained images, we want a fixed height with variable width
+        # Disable autocrop to maintain the exact height we specified
+        ldview_cmd.append("-AutoCrop=0")  # Don't autocrop for height-constrained
+
+    # Continue with other visual settings
+    ldview_cmd.extend([
         # Visual settings
         "-ShowAxes=0",              # Hide coordinate axes
         "-ShowEdges=1",             # Ensure edges are visible
@@ -327,12 +521,12 @@ def generate(
         "-DefaultColor=0.8,0.8,0.8,1.0", # Set a default part color if none specified (RGBA, light gray) - Optional
         "-BackgroundColor=0,0,0,0", # Ensure background is transparent (RGBA)
         # Camera and Lighting (adjust for desired standard view)
-        "-DefaultLat=30",           # Camera latitude (elevation angle)
-        "-DefaultLon=45",           # Camera longitude (azimuth angle)
+        # Using combined latitude/longitude parameter as documented
+        f"-DefaultLatLong={view_latitude},{view_longitude}",  # Combined latitude/longitude parameter (variable latitude and longitude)
         "-ZoomToFit",               # Zoom to fit the model optimally
         # "-LightVector=1,1,1",     # Example: Custom light direction (optional, default is usually okay)
         # "-Ambient=.3", "-Diffuse=.7" # Example: Adjust lighting intensity (optional)
-    ]
+    ])
 
     # --- 3. Execution ---
     # Nicely format command for printing
@@ -344,7 +538,22 @@ def generate(
         console.print(Panel(cmd_str, title="LDView Command", border_style="blue", expand=False))
         raise typer.Exit(code=0)
 
-    console.print(f"\n[magenta]Generating image:[/magenta] '{output_path}' ({width}x{height}px before crop)...")
+    if scale_size_not_lines:
+        if constrain_width:
+            console.print(f"\n[magenta]Generating image with scaled size and constrained width:[/magenta]")
+            console.print(f"(Auto-cropped to fit part while maintaining specified width)")
+        else:
+            console.print(f"\n[magenta]Generating image with scaled size and constrained height:[/magenta]")
+            console.print(f"(Fixed height of {render_height}px with variable width)")
+    else:
+        if constrain_width:
+            console.print(f"\n[magenta]Generating image with constrained width:[/magenta]")
+            console.print(f"(Auto-cropped to fit part while maintaining specified width)")
+        else:
+            console.print(f"\n[magenta]Generating image with constrained height:[/magenta]")
+            console.print(f"(Fixed height of {render_height}px with variable width)")
+
+    console.print(f"'{output_path}' ({render_width}x{render_height}px before post-processing)")
     console.print(f"[dim]Absolute output path: {output_path.absolute()}[/dim]")
 
     if verbose:
@@ -393,8 +602,27 @@ def generate(
             # output_path.unlink()
             raise typer.Exit(code=1)
 
+        # Post-processing: Crop transparent edges if requested
+        if crop_transparency and not constrain_width:
+            if not PIL_AVAILABLE:
+                console.print("[yellow]Warning:[/yellow] PIL/Pillow not available, skipping transparent cropping.")
+                console.print("[yellow]Install with: pip install pillow[/yellow]")
+            else:
+                console.print("\n[magenta]Post-processing:[/magenta] Cropping transparent edges...")
+                cropped = crop_transparent_edges(output_path, maintain_height=True, verbose=verbose)
+                if cropped:
+                    console.print("[dim]Transparent areas successfully cropped.[/dim]")
+                else:
+                    console.print("[yellow]Warning:[/yellow] Transparent cropping was skipped or failed.")
+
+        # Success message
         console.print(f"\n[bold green]✅ Success![/bold green] Image generated successfully:")
-        console.print(f"   [link=file://{output_path}]{output_path}[/link]")
+        if scale_size_not_lines:
+            constraint_type = "width" if constrain_width else "height"
+            console.print(f"   [link=file://{output_path}]{output_path}[/link] (constrained {constraint_type}, scaled size: {render_width}x{render_height}px, scale factor: {size_scale_factor})")
+        else:
+            constraint_type = "width" if constrain_width else "height"
+            console.print(f"   [link=file://{output_path}]{output_path}[/link] (constrained {constraint_type})")
 
     except FileNotFoundError:
         console.print(f"[bold red]Fatal Error:[/bold red] LDView command '{ldview_executable}' not found. Cannot execute.")
