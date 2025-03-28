@@ -42,8 +42,9 @@ import typer
 import subprocess
 import os
 import sys
+import math
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import re  # Add regex for validating filenames
 
 # Rich and Colorama for styled output
@@ -135,6 +136,134 @@ def find_part_file(ldraw_dir: Path, part_number: str) -> Optional[Path]:
     console.print(f"[bold red]Error:[/bold red] Part file '{part_file_name}' not found in LDraw directory '{ldraw_dir}'.")
     console.print(f"[dim]Checked paths:\n- " + "\n- ".join(checked_paths) + "[/dim]")
     return None
+
+
+def get_part_dimensions_from_dat(part_file_path: Path, verbose: bool = False) -> Optional[Dict[str, Any]]:
+    """
+    Parses an LDraw DAT file to calculate the dimensions of a part.
+
+    Args:
+        part_file_path: Path to the LDraw DAT file
+        verbose: Whether to print detailed information
+
+    Returns:
+        Dictionary containing dimensions (width, height, depth) in LDraw Units,
+        and derived measurements like stud dimensions and approximate stud count,
+        or None if parsing failed
+    """
+    if not part_file_path.exists():
+        console.print(f"[bold red]Error:[/bold red] Part file not found: {part_file_path}")
+        return None
+
+    try:
+        # Initialize min/max values for bounding box calculation
+        min_x, min_y, min_z = float('inf'), float('inf'), float('inf')
+        max_x, max_y, max_z = float('-inf'), float('-inf'), float('-inf')
+        vertices_found = 0
+
+        if verbose:
+            console.print(f"[dim]Parsing DAT file: {part_file_path}[/dim]")
+
+        with open(part_file_path, 'r', encoding='utf-8', errors='replace') as f:
+            for line_num, line in enumerate(f, 1):
+                parts = line.strip().split()
+                if not parts:
+                    continue
+
+                # Line type 1 (triangles) and 3 (quadrilaterals) contain vertex coordinates
+                if parts[0] in ('1', '3'):
+                    # Number of vertices based on line type
+                    num_vertices = 3 if parts[0] == '1' else 4
+
+                    # Extract coordinates for each vertex
+                    # Format: 1 color x1 y1 z1 x2 y2 z2 x3 y3 z3
+                    # or:     3 color x1 y1 z1 x2 y2 z2 x3 y3 z3 x4 y4 z4
+                    for i in range(num_vertices):
+                        try:
+                            # Get coordinates from appropriate positions
+                            x_idx = 2 + i*3  # x coordinate index
+                            y_idx = 3 + i*3  # y coordinate index
+                            z_idx = 4 + i*3  # z coordinate index
+
+                            if x_idx < len(parts) and y_idx < len(parts) and z_idx < len(parts):
+                                x = float(parts[x_idx])
+                                y = float(parts[y_idx])
+                                z = float(parts[z_idx])
+
+                                # Update min/max values
+                                min_x = min(min_x, x)
+                                min_y = min(min_y, y)
+                                min_z = min(min_z, z)
+                                max_x = max(max_x, x)
+                                max_y = max(max_y, y)
+                                max_z = max(max_z, z)
+
+                                vertices_found += 1
+                        except (IndexError, ValueError) as e:
+                            if verbose:
+                                console.print(f"[yellow]Warning:[/yellow] Error parsing line {line_num}: {e}")
+                                console.print(f"[dim]Line content: {line.strip()}[/dim]")
+
+        # Check if we found any vertices
+        if vertices_found == 0:
+            console.print(f"[yellow]Warning:[/yellow] No vertices found in {part_file_path}")
+            return None
+
+        # Calculate dimensions from bounding box
+        width = max_x - min_x
+        height = max_y - min_y
+        depth = max_z - min_z
+
+        # Calculate LDU to stud conversion (1 stud = 20 LDU)
+        stud_width = width / 20.0
+        stud_height = height / 20.0
+        stud_depth = depth / 20.0
+
+        # Approximate footprint in studs (based on width/depth)
+        stud_count = stud_width * stud_depth
+
+        # Calculate volume
+        volume = width * height * depth
+        volume_studs = stud_width * stud_height * stud_depth
+
+        if verbose:
+            console.print(f"[dim]Found {vertices_found} vertices[/dim]")
+            console.print(f"[dim]Bounding box: ({min_x}, {min_y}, {min_z}) to ({max_x}, {max_y}, {max_z})[/dim]")
+            console.print(f"[dim]Dimensions (LDU): {width:.2f} × {height:.2f} × {depth:.2f}[/dim]")
+            console.print(f"[dim]Dimensions (studs): {stud_width:.2f} × {stud_height:.2f} × {stud_depth:.2f}[/dim]")
+            console.print(f"[dim]Approximate stud count (footprint): {stud_count:.2f}[/dim]")
+
+        return {
+            # Raw dimensions in LDraw Units (LDU)
+            "width_ldu": width,
+            "height_ldu": height,
+            "depth_ldu": depth,
+
+            # Bounding box coordinates
+            "min_x": min_x,
+            "min_y": min_y,
+            "min_z": min_z,
+            "max_x": max_x,
+            "max_y": max_y,
+            "max_z": max_z,
+
+            # Dimensions in studs (1 stud = 20 LDU)
+            "width_studs": stud_width,
+            "height_studs": stud_height,
+            "depth_studs": stud_depth,
+
+            # Derived measurements
+            "stud_count": stud_count,  # Approximate footprint in studs
+            "volume_ldu": volume,      # Volume in cubic LDU
+            "volume_studs": volume_studs  # Volume in cubic studs
+        }
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] Failed to parse part file: {e}")
+        if verbose:
+            import traceback
+            console.print(traceback.format_exc())
+        return None
 
 
 def is_valid_filename(filename: str) -> bool:
@@ -522,16 +651,16 @@ def generate(
         writable=True, # Basic check if parent dir is writable
         resolve_path=True, # Resolve to absolute path
     ),
-    width: int = typer.Option(
-        320,
+    width: Optional[int] = typer.Option(
+        None,
         "--width", "-w",
-        help="Width of the output image in pixels. Used when constraining by width.",
+        help="Width of the output image in pixels. Used when constraining by width. Specifying this disables proportional sizing.",
         min=10,
     ),
-    height: int = typer.Option(
-        320,
+    height: Optional[int] = typer.Option(
+        None,
         "--height", "-h",
-        help="Height of the output image in pixels. Used when constraining by height (default).",
+        help="Height of the output image in pixels. Used when constraining by height. Specifying this disables proportional sizing.",
         min=10,
     ),
     constrain_width: bool = typer.Option(
@@ -548,7 +677,7 @@ def generate(
         max=5.0,
     ),
     line_thickness: Optional[float] = typer.Option(
-        None,
+        4.0,
         "--line-thickness", "-l",
         help="Thickness of conditional lines in the rendered image. If not specified, matches edge thickness.",
         min=0.1,
@@ -566,6 +695,18 @@ def generate(
         help="Scale factor for the final image size when using --scale-size-not-lines. Lower values produce smaller images (e.g., 0.5 for half size).",
         min=0.1,
         max=2.0,
+    ),
+    proportional_size: bool = typer.Option(
+        True,
+        "--proportional-size/--no-proportional-size", "-p/--no-p",
+        help="Scale image size proportionally to part's physical dimensions (stud count). Larger parts get larger images, smaller parts get smaller images. This is the default unless width or height is specified.",
+    ),
+    base_pixels_per_stud: int = typer.Option(
+        80,
+        "--base-pixels-per-stud", "-ps",
+        help="Base number of pixels per stud when using proportional sizing. A 1x1 part will be approximately this many pixels wide.",
+        min=10,
+        max=200,
     ),
     # Crop transparency is now always enabled for height-constrained images
     # crop_transparency: bool = typer.Option(
@@ -627,6 +768,21 @@ def generate(
     """
     console.print(f"[bold blue]🚀 Starting image generation for part:[/bold blue] [cyan]{part_number}[/cyan]")
 
+    # Default width and height if not specified
+    DEFAULT_WIDTH = 250
+    DEFAULT_HEIGHT = 250
+
+    # Handle auto-disable of proportional sizing when width or height is specified
+    if (width is not None or height is not None) and proportional_size:
+        console.print(f"[yellow]Note:[/yellow] Width or height specified, disabling proportional sizing.")
+        proportional_size = False
+
+    # Set default values if not provided
+    if width is None:
+        width = DEFAULT_WIDTH
+    if height is None:
+        height = DEFAULT_HEIGHT
+
     # Debug: Print all command line arguments
     if verbose:
         console.print(f"[dim]Command line arguments:[/dim]")
@@ -639,6 +795,8 @@ def generate(
         console.print(f"[dim]- line_thickness: {line_thickness}[/dim]")
         console.print(f"[dim]- scale_size_not_lines: {scale_size_not_lines}[/dim]")
         console.print(f"[dim]- size_scale_factor: {size_scale_factor}[/dim]")
+        console.print(f"[dim]- proportional_size: {proportional_size}[/dim]")
+        console.print(f"[dim]- base_pixels_per_stud: {base_pixels_per_stud}[/dim]")
         # console.print(f"[dim]- crop_transparency: {crop_transparency}[/dim]")
         console.print(f"[dim]- view_longitude: {view_longitude}[/dim]")
         console.print(f"[dim]- view_latitude: {view_latitude}[/dim]")
@@ -657,6 +815,47 @@ def generate(
     else:
         output_path = output.expanduser() # Typer's resolve_path already does this, but belt-and-suspenders
         console.print(f"[dim]Output path specified: {output_path} (raw input: {output})[/dim]")
+
+    # Find the part file path (for proportional sizing or all_angles)
+    part_file_path = find_part_file(ldraw_dir, part_number)
+    if not part_file_path:
+        # Error message printed within find_part_file
+        raise typer.Exit(code=1)
+
+    # --- Handle proportional sizing if requested ---
+    if proportional_size:
+        # We need to get the part dimensions
+        console.print(f"[bold magenta]Calculating proportional size based on part dimensions...[/bold magenta]")
+
+        dimensions = get_part_dimensions_from_dat(part_file_path, verbose=verbose)
+
+        if not dimensions:
+            console.print(f"[yellow]Warning:[/yellow] Could not determine part dimensions. Using default sizing.")
+            proportional_size = False
+        else:
+            # Calculate appropriate size based on stud count
+            stud_count = dimensions["stud_count"]
+            console.print(f"[dim]Part dimensions: {dimensions['width_studs']:.2f} × {dimensions['depth_studs']:.2f} studs (approx. {stud_count:.2f} studs footprint)[/dim]")
+
+            # If part is very small (less than 1 stud footprint), use minimum size
+            stud_count = max(1.0, stud_count)
+
+            # Apply square root scaling to convert area (stud count) to linear dimension
+            # This makes the scaling feel more natural - a 2x2 part will be sqrt(4) = 2x larger than a 1x1
+            scaling_factor = math.sqrt(stud_count)
+
+            # Apply the scaling to base_pixels_per_stud
+            if constrain_width:
+                width = int(base_pixels_per_stud * scaling_factor)
+                console.print(f"[dim]Calculated proportional width: {width}px (base: {base_pixels_per_stud}, scaling: {scaling_factor:.2f}x)[/dim]")
+            else:
+                height = int(base_pixels_per_stud * scaling_factor)
+                console.print(f"[dim]Calculated proportional height: {height}px (base: {base_pixels_per_stud}, scaling: {scaling_factor:.2f}x)[/dim]")
+
+            # Disable other scaling options that might conflict
+            if scale_size_not_lines:
+                console.print(f"[yellow]Note:[/yellow] --proportional-size overrides --scale-size-not-lines")
+                scale_size_not_lines = False
 
     # --- Check if we're generating multiple angles ---
     if all_angles:

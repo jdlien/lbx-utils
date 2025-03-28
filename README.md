@@ -123,8 +123,10 @@ This requires LDView to be installed along with the LDraw library.
 
 # TODO
 
+- Tinker with increasing default resolution of images, Tom's are still a little higher
 - Support editing of text in LBX files
 - Completely automated generation of labels, including part images and QR codes linking to http://rbck.ca/part_number
+- Note: QR Codes are only effective when sized at 7mm or greater, unless we can print at higher than 180dpi.
 
 ## License
 
