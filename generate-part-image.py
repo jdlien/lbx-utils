@@ -44,8 +44,9 @@ import os
 import sys
 import math
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 import re  # Add regex for validating filenames
+from dataclasses import dataclass, field
 
 # Rich and Colorama for styled output
 from rich.console import Console
@@ -63,15 +64,39 @@ except ImportError:
 colorama.init()
 console = Console()
 
-# Default angles for the --all-angles option
-DEFAULT_LONGITUDE_ANGLES = [-120, -60, -30, 0, 30, 60, 120]
+@dataclass
+class Config:
+    """Configuration settings for the application."""
+    # Default paths
+    LDRAW_PARTS_PATH: Path = Path("~/Library/ldraw/parts").expanduser()
+    LDVIEW_APP_PATH: Path = Path("/Applications/LDView.app")
 
-# Default paths (adjust if your setup differs)
-# User specified ~/Library/ldraw/parts/
-DEFAULT_LDRAW_PARTS_PATH = Path("~/Library/ldraw/parts").expanduser()
-# Default for macOS, adjust for other OS if needed
-DEFAULT_LDVIEW_APP_PATH = Path("/Applications/LDView.app")
+    # Default camera angles
+    DEFAULT_LONGITUDE_ANGLES: List[int] = field(default_factory=lambda: [-120, -60, -30, 0, 30, 60, 120])
+    DEFAULT_LONGITUDE: float = -30.0
+    DEFAULT_LATITUDE: float = 35.0
+    DEFAULT_CAMERA_DISTANCE: float = 300.0  # 0 means let LDView determine distance automatically
 
+    # Default image settings
+    DEFAULT_WIDTH: int = 250
+    DEFAULT_HEIGHT: int = 250
+    DEFAULT_EDGE_THICKNESS: float = 4.0
+    DEFAULT_LINE_THICKNESS: float = 4.0
+    DEFAULT_SIZE_SCALE_FACTOR: float = 0.5
+    DEFAULT_BASE_PIXELS_PER_STUD: int = 80
+
+    # Reference values for consistent line appearance
+    BASE_EDGE_THICKNESS: float = 1.0
+    BASE_LINE_THICKNESS: float = 1.0
+    BASE_WIDTH: int = 320
+    BASE_HEIGHT: int = 180
+
+    # LDraw unit conversion constants
+    LDU_PER_STUD: float = 20.0
+    LDU_PER_BRICK_HEIGHT: float = 24.0
+
+# Create global config instance
+config = Config()
 
 app = typer.Typer(
     help="🖼️ Generate consistent PNG images of LEGO parts using LDView.",
@@ -82,35 +107,29 @@ app = typer.Typer(
 
 def find_ldview_executable(ldview_app_path: Path) -> Optional[Path]:
     """
-    Finds the LDView executable within the .app bundle on macOS
-    or checks if the provided path is an executable on other systems.
+    Finds the LDView executable within the .app bundle on macOS.
+    Currently only supports macOS.
     """
-    if sys.platform == "darwin" and ldview_app_path.suffix == ".app":
+    if sys.platform != "darwin":
+        console.print("[bold red]Error:[/bold red] This functionality is only supported on macOS at this time.")
+        return None
+
+    if ldview_app_path.suffix == ".app":
         # Standard macOS .app bundle structure
         potential_path = ldview_app_path / "Contents" / "MacOS" / "LDView"
         if potential_path.is_file() and os.access(potential_path, os.X_OK):
             console.print(f"[dim]Found macOS LDView executable: {potential_path}[/dim]")
             return potential_path
         else:
-             console.print(f"[yellow]Warning:[/yellow] Could not find executable at standard macOS path: {potential_path}")
-             # Fallback: Check if the .app path itself is somehow executable (unlikely but possible)
-             if ldview_app_path.is_file() and os.access(ldview_app_path, os.X_OK):
-                 console.print(f"[dim]Using provided path directly (unusual for .app): {ldview_app_path}[/dim]")
-                 return ldview_app_path
-    elif ldview_app_path.is_file() and os.access(ldview_app_path, os.X_OK):
-        # Assume the path is directly to the executable (Linux, Windows, or non-standard macOS)
-        console.print(f"[dim]Found LDView executable: {ldview_app_path}[/dim]")
-        return ldview_app_path
-    elif ldview_app_path.is_dir():
-         # Check for common executable names within the directory if it's not a .app
-         for name in ["ldview", "LDView", "ldview.exe", "LDView.exe"]:
-              potential_path = ldview_app_path / name
-              if potential_path.is_file() and os.access(potential_path, os.X_OK):
-                   console.print(f"[dim]Found LDView executable in directory: {potential_path}[/dim]")
-                   return potential_path
-
-    console.print(f"[bold red]Error:[/bold red] LDView executable not found or not executable at '{ldview_app_path}'.")
-    return None
+            console.print(f"[yellow]Warning:[/yellow] Could not find executable at standard macOS path: {potential_path}")
+            return None
+    else:
+        console.print(f"[yellow]Warning:[/yellow] Expected a .app path for macOS, got: {ldview_app_path}")
+        # Check if the provided path is directly executable
+        if ldview_app_path.is_file() and os.access(ldview_app_path, os.X_OK):
+            console.print(f"[dim]Using provided path directly: {ldview_app_path}[/dim]")
+            return ldview_app_path
+        return None
 
 
 def find_part_file(ldraw_dir: Path, part_number: str) -> Optional[Path]:
@@ -136,134 +155,6 @@ def find_part_file(ldraw_dir: Path, part_number: str) -> Optional[Path]:
     console.print(f"[bold red]Error:[/bold red] Part file '{part_file_name}' not found in LDraw directory '{ldraw_dir}'.")
     console.print(f"[dim]Checked paths:\n- " + "\n- ".join(checked_paths) + "[/dim]")
     return None
-
-
-def get_part_dimensions_from_dat(part_file_path: Path, verbose: bool = False) -> Optional[Dict[str, Any]]:
-    """
-    Parses an LDraw DAT file to calculate the dimensions of a part.
-
-    Args:
-        part_file_path: Path to the LDraw DAT file
-        verbose: Whether to print detailed information
-
-    Returns:
-        Dictionary containing dimensions (width, height, depth) in LDraw Units,
-        and derived measurements like stud dimensions and approximate stud count,
-        or None if parsing failed
-    """
-    if not part_file_path.exists():
-        console.print(f"[bold red]Error:[/bold red] Part file not found: {part_file_path}")
-        return None
-
-    try:
-        # Initialize min/max values for bounding box calculation
-        min_x, min_y, min_z = float('inf'), float('inf'), float('inf')
-        max_x, max_y, max_z = float('-inf'), float('-inf'), float('-inf')
-        vertices_found = 0
-
-        if verbose:
-            console.print(f"[dim]Parsing DAT file: {part_file_path}[/dim]")
-
-        with open(part_file_path, 'r', encoding='utf-8', errors='replace') as f:
-            for line_num, line in enumerate(f, 1):
-                parts = line.strip().split()
-                if not parts:
-                    continue
-
-                # Line type 1 (triangles) and 3 (quadrilaterals) contain vertex coordinates
-                if parts[0] in ('1', '3'):
-                    # Number of vertices based on line type
-                    num_vertices = 3 if parts[0] == '1' else 4
-
-                    # Extract coordinates for each vertex
-                    # Format: 1 color x1 y1 z1 x2 y2 z2 x3 y3 z3
-                    # or:     3 color x1 y1 z1 x2 y2 z2 x3 y3 z3 x4 y4 z4
-                    for i in range(num_vertices):
-                        try:
-                            # Get coordinates from appropriate positions
-                            x_idx = 2 + i*3  # x coordinate index
-                            y_idx = 3 + i*3  # y coordinate index
-                            z_idx = 4 + i*3  # z coordinate index
-
-                            if x_idx < len(parts) and y_idx < len(parts) and z_idx < len(parts):
-                                x = float(parts[x_idx])
-                                y = float(parts[y_idx])
-                                z = float(parts[z_idx])
-
-                                # Update min/max values
-                                min_x = min(min_x, x)
-                                min_y = min(min_y, y)
-                                min_z = min(min_z, z)
-                                max_x = max(max_x, x)
-                                max_y = max(max_y, y)
-                                max_z = max(max_z, z)
-
-                                vertices_found += 1
-                        except (IndexError, ValueError) as e:
-                            if verbose:
-                                console.print(f"[yellow]Warning:[/yellow] Error parsing line {line_num}: {e}")
-                                console.print(f"[dim]Line content: {line.strip()}[/dim]")
-
-        # Check if we found any vertices
-        if vertices_found == 0:
-            console.print(f"[yellow]Warning:[/yellow] No vertices found in {part_file_path}")
-            return None
-
-        # Calculate dimensions from bounding box
-        width = max_x - min_x
-        height = max_y - min_y
-        depth = max_z - min_z
-
-        # Calculate LDU to stud conversion (1 stud = 20 LDU)
-        stud_width = width / 20.0
-        stud_height = height / 20.0
-        stud_depth = depth / 20.0
-
-        # Approximate footprint in studs (based on width/depth)
-        stud_count = stud_width * stud_depth
-
-        # Calculate volume
-        volume = width * height * depth
-        volume_studs = stud_width * stud_height * stud_depth
-
-        if verbose:
-            console.print(f"[dim]Found {vertices_found} vertices[/dim]")
-            console.print(f"[dim]Bounding box: ({min_x}, {min_y}, {min_z}) to ({max_x}, {max_y}, {max_z})[/dim]")
-            console.print(f"[dim]Dimensions (LDU): {width:.2f} × {height:.2f} × {depth:.2f}[/dim]")
-            console.print(f"[dim]Dimensions (studs): {stud_width:.2f} × {stud_height:.2f} × {stud_depth:.2f}[/dim]")
-            console.print(f"[dim]Approximate stud count (footprint): {stud_count:.2f}[/dim]")
-
-        return {
-            # Raw dimensions in LDraw Units (LDU)
-            "width_ldu": width,
-            "height_ldu": height,
-            "depth_ldu": depth,
-
-            # Bounding box coordinates
-            "min_x": min_x,
-            "min_y": min_y,
-            "min_z": min_z,
-            "max_x": max_x,
-            "max_y": max_y,
-            "max_z": max_z,
-
-            # Dimensions in studs (1 stud = 20 LDU)
-            "width_studs": stud_width,
-            "height_studs": stud_height,
-            "depth_studs": stud_depth,
-
-            # Derived measurements
-            "stud_count": stud_count,  # Approximate footprint in studs
-            "volume_ldu": volume,      # Volume in cubic LDU
-            "volume_studs": volume_studs  # Volume in cubic studs
-        }
-
-    except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] Failed to parse part file: {e}")
-        if verbose:
-            import traceback
-            console.print(traceback.format_exc())
-        return None
 
 
 def is_valid_filename(filename: str) -> bool:
@@ -350,12 +241,11 @@ def _generate_single_image(
     constrain_width: bool,
     edge_thickness: float,
     line_thickness: Optional[float],
-    scale_size_not_lines: bool,
-    size_scale_factor: float,
     crop_transparency: bool,
     view_latitude: float,
     view_longitude: float,
-    ldview_app_path: Path,
+    camera_distance: float,
+    ldview_executable: Path,
     ldraw_dir: Path,
     dry_run: bool,
     verbose: bool,
@@ -367,8 +257,6 @@ def _generate_single_image(
     # Validate the output filename doesn't contain invalid characters
     if not is_valid_filename(output_path.name):
         console.print(f"[bold red]Error:[/bold red] Output filename '{output_path.name}' contains invalid characters.")
-        console.print("[yellow]Wildcards like * and ? are not valid in filenames and won't be expanded as expected.[/yellow]")
-        console.print("[yellow]Please use a valid filename without special characters.[/yellow]")
         return False
 
     # Ensure output directory exists
@@ -387,7 +275,7 @@ def _generate_single_image(
                 f.write('test')
             # Clean up the test file
             test_file.unlink()
-            console.print(f"[dim]Verified write access to output directory: {output_dir}[/dim]")
+            # console.print(f"[dim]Verified write access to output directory: {output_dir}[/dim]")
         except (PermissionError, IOError) as e:
             console.print(f"[bold red]Error:[/bold red] Cannot write to output directory '{output_dir}': {e}")
             return False
@@ -396,10 +284,9 @@ def _generate_single_image(
         console.print(f"[bold red]Error:[/bold red] Could not create or validate output directory '{output_path.parent}': {e}")
         return False
 
-    # Find and validate LDView executable
-    ldview_executable = find_ldview_executable(ldview_app_path)
-    if not ldview_executable:
-        # Error message printed within find_ldview_executable
+    # Verify that ldview_executable exists
+    if not ldview_executable or not ldview_executable.exists():
+        console.print(f"[bold red]Error:[/bold red] LDView executable not found at path: {ldview_executable}")
         return False
     if verbose:
         console.print(f"[dim]Using LDView executable: {ldview_executable}[/dim]")
@@ -419,75 +306,26 @@ def _generate_single_image(
 
     # --- 2. LDView Command Construction ---
     # Set render dimensions based on constraints
-    if constrain_width:
+    if camera_distance > 0:
+        # When using a custom distance, we need a large height so the part is fully visible
+        render_height = 1500
+        render_width = 2500
+    elif constrain_width:
         # Use the specified width and set height to maintain a square initially
-        # (LDView will autocrop later)
         render_width = width
         render_height = width  # Start with a square that will be cropped
     else:
         # Height-constrained approach (default)
-        # We need to ensure the height stays consistent after autocrop
-        # To do this, we'll disable autocrop and set a very large width to ensure
-        # the entire part is visible, then we'll manage cropping ourselves
         render_height = height
         render_width = height * 6  # Use a wide aspect ratio to ensure part fits
 
     # Ensure part_file_path is absolute for reliable loading
     part_file_path = part_file_path.absolute()
 
-    # Reference values for consistent line appearance
-    BASE_EDGE_THICKNESS = 1.0
-    BASE_LINE_THICKNESS = 1.0
-    BASE_WIDTH = 320
-    BASE_HEIGHT = 180
-
     # If line thickness not specified, use the same value as edge thickness
     actual_line_thickness = line_thickness if line_thickness is not None else edge_thickness
 
-    # If we're scaling size instead of lines, adjust dimensions based on line thickness ratio
-    if scale_size_not_lines:
-        # Calculate scaling ratio from edge thickness (how much thicker than base)
-        thickness_ratio = edge_thickness / BASE_EDGE_THICKNESS
-
-        if constrain_width:
-            # Scale width by the ratio to maintain visual consistency
-            adjusted_width = int(render_width * thickness_ratio * size_scale_factor)
-            adjusted_height = adjusted_width  # Start with square (will be autocropped)
-        else:
-            # Scale height by the ratio to maintain visual consistency
-            adjusted_height = int(render_height * thickness_ratio * size_scale_factor)
-            adjusted_width = adjusted_height  # Start with square (will be autocropped)
-
-        # Adjust edge and line thickness to fixed base values
-        adjusted_edge_thickness = BASE_EDGE_THICKNESS
-        adjusted_line_thickness = BASE_LINE_THICKNESS if line_thickness is None else (line_thickness / edge_thickness) * BASE_LINE_THICKNESS
-
-        if verbose:
-            console.print(f"[dim]Scaling image size instead of lines:[/dim]")
-            if constrain_width:
-                console.print(f"[dim]- Original width: {render_width}, Edge thickness: {edge_thickness}[/dim]")
-                console.print(f"[dim]- Adjusted width: {adjusted_width}, Edge thickness: {adjusted_edge_thickness}[/dim]")
-            else:
-                console.print(f"[dim]- Original height: {render_height}, Edge thickness: {edge_thickness}[/dim]")
-                console.print(f"[dim]- Adjusted height: {adjusted_height}, Edge thickness: {adjusted_edge_thickness}[/dim]")
-            console.print(f"[dim]- Scale factor: {size_scale_factor}[/dim]")
-            console.print(f"[dim]- Line thickness: {adjusted_line_thickness}[/dim]")
-
-        # Update values for command construction
-        render_width = adjusted_width
-        render_height = adjusted_height
-        edge_thickness = adjusted_edge_thickness
-        actual_line_thickness = adjusted_line_thickness
-
-    if verbose:
-        console.print(f"[dim]Edge thickness: {edge_thickness}[/dim]")
-        console.print(f"[dim]Line thickness: {actual_line_thickness}[/dim]")
-        console.print(f"[dim]Image dimensions: {render_width}x{render_height}px (before crop)[/dim]")
-        console.print(f"[dim]Constraint: {'Width' if constrain_width else 'Height'}[/dim]")
-
-    # Consistent settings for rendering quality and appearance
-    # Ref: http://ldview.sourceforge.net/CommandOptions.html
-    # Note: Some options might depend on your LDView version and configuration files.
+    # Initialize the command list
     ldview_cmd: List[str] = [
         str(ldview_executable),
         str(part_file_path),
@@ -498,13 +336,8 @@ def _generate_single_image(
         "-SaveAlpha=1",             # Crucial for transparency
     ]
 
-    # Add autocrop option conditionally - only for width-constrained images
-    if constrain_width:
-        ldview_cmd.append("-AutoCrop=1")  # Crop tightly to the part for width-constrained
-    else:
-        # For height-constrained images, we want a fixed height with variable width
-        # Disable autocrop to maintain the exact height we specified
-        ldview_cmd.append("-AutoCrop=0")  # Don't autocrop for height-constrained
+    # We don't autocrop, as we handle that as a separate step after rendering
+    ldview_cmd.append("-AutoCrop=0")  # Don't autocrop for height-constrained
 
     # Continue with other visual settings
     ldview_cmd.extend([
@@ -519,10 +352,25 @@ def _generate_single_image(
         "-Quality=4",               # Set rendering quality (0=low, 4=high)
         "-DefaultColor=0.8,0.8,0.8,1.0", # Set a default part color if none specified (RGBA, light gray) - Optional
         "-BackgroundColor=0,0,0,0", # Ensure background is transparent (RGBA)
-        # Camera and Lighting (adjust for desired standard view)
-        # Using combined latitude/longitude parameter as documented
-        f"-DefaultLatLong={view_latitude},{view_longitude}",  # Combined latitude/longitude parameter (variable latitude and longitude)
-        "-ZoomToFit",               # Zoom to fit the model optimally
+    ])
+
+    # Add camera settings based on whether a custom distance is specified
+    if camera_distance > 0:
+        # We need a fairly large height to ensure the part is visible at a custom distance
+        render_height = 1500
+        # When using a custom distance, use the camera globe parameter with distance
+        ldview_cmd.append(f"-cg{view_latitude},{view_longitude},{camera_distance*1000}")  # Camera position with specific distance
+        ldview_cmd.append("-ZoomToFit=0")  # Don't auto-adjust the camera distance when using cg with distance
+        # ldview_cmd.append("-ZoomMax=10000") # Allow high zoom values for flexibility
+
+    else:
+        # When no custom distance is specified, use DefaultLatLong (without setting distance)
+        ldview_cmd.append(f"-DefaultLatLong={view_latitude},{view_longitude}")  # Standard lat/lon positioning
+        ldview_cmd.append("-ZoomToFit=1")  # Let LDView calculate the appropriate distance
+
+    # Add additional camera settings that may be needed
+    ldview_cmd.extend([
+        "-FOV=0.1",  # Use a small Field of View (like a telephoto lens) to reduce perspective distortion
         # "-LightVector=1,1,1",     # Example: Custom light direction (optional, default is usually okay)
         # "-Ambient=.3", "-Diffuse=.7" # Example: Adjust lighting intensity (optional)
     ])
@@ -533,24 +381,25 @@ def _generate_single_image(
 
     if dry_run:
         console.print("\n[bold yellow]-- Dry Run Mode --[/bold yellow]")
-        console.print("Command that would be executed:")
-        console.print(Panel(cmd_str, title="LDView Command", border_style="blue", expand=False))
+        console.print("[bold blue]Command that would be executed:[/bold blue]")
+
+        # Format each option on its own line for better readability
+        formatted_cmd = f"{ldview_cmd[0]} \\\n"
+        formatted_cmd += f"    {ldview_cmd[1]} \\\n"
+        for arg in ldview_cmd[2:]:
+            formatted_cmd += f"    {arg} \\\n"
+        # Remove the trailing backslash and newline
+        formatted_cmd = formatted_cmd.rstrip(" \\\n")
+
+        # Print without panel for easier copying
+        console.print(formatted_cmd)
         return True  # Consider dry run successful
 
-    if scale_size_not_lines:
-        if constrain_width:
-            console.print(f"\n[magenta]Generating image with scaled size and constrained width:[/magenta]")
-            console.print(f"(Auto-cropped to fit part while maintaining specified width)")
-        else:
-            console.print(f"\n[magenta]Generating image with scaled size and constrained height:[/magenta]")
-            console.print(f"(Fixed height of {render_height}px with variable width)")
+    if constrain_width:
+        console.print(f"\n[magenta]Generating image with constrained width:[/magenta]")
     else:
-        if constrain_width:
-            console.print(f"\n[magenta]Generating image with constrained width:[/magenta]")
-            console.print(f"(Auto-cropped to fit part while maintaining specified width)")
-        else:
-            console.print(f"\n[magenta]Generating image with constrained height:[/magenta]")
-            console.print(f"(Fixed height of {render_height}px with variable width)")
+        console.print(f"\n[magenta]Generating image with constrained height:[/magenta]")
+        console.print(f"(Fixed height of {render_height}px with variable width)")
 
     console.print(f"'{output_path}' ({render_width}x{render_height}px before post-processing)")
     console.print(f"[dim]Absolute output path: {output_path.absolute()}[/dim]")
@@ -561,8 +410,8 @@ def _generate_single_image(
     try:
         # Determine appropriate CWD for LDView
         # On macOS, it often needs to be the dir containing the executable for resources
-        cwd = ldview_executable.parent if ldview_executable else None
-        if verbose:
+        cwd = ldview_executable.parent if sys.platform == "darwin" else None
+        if verbose and cwd:
             console.print(f"[dim]Using working directory: {cwd}[/dim]")
 
         process = subprocess.run(
@@ -601,27 +450,22 @@ def _generate_single_image(
             # output_path.unlink()
             return False
 
-        # Post-processing: Always crop transparent edges for height-constrained images
-        if not constrain_width:
-            if not PIL_AVAILABLE:
-                console.print("[yellow]Warning:[/yellow] PIL/Pillow not available, skipping transparent cropping.")
-                console.print("[yellow]Install with: pip install pillow[/yellow]")
-            else:
-                console.print("\n[magenta]Post-processing:[/magenta] Cropping transparent edges...")
-                cropped = crop_transparent_edges(output_path, maintain_height=True, verbose=verbose)
-                if cropped:
-                    console.print("[dim]Transparent areas successfully cropped.[/dim]")
-                else:
-                    console.print("[yellow]Warning:[/yellow] Transparent cropping was skipped or failed.")
+        # Post-processing: Always crop transparent edges
+        if not PIL_AVAILABLE:
+            console.print("[yellow]Warning:[/yellow] PIL/Pillow not available, skipping transparent cropping.")
+            console.print("[yellow]Install with: pip install pillow[/yellow]")
+        else:
+            # Set maintain_height to False if constrain_width is True OR camera_distance > 0
+            maintain_height = not (constrain_width or camera_distance > 0)
+            cropped = crop_transparent_edges(output_path, maintain_height=maintain_height, verbose=verbose)
+            if not cropped:
+                console.print("[yellow]Warning:[/yellow] Transparent cropping was skipped or failed.")
 
         # Success message
         console.print(f"\n[bold green]✅ Success![/bold green] Image generated successfully:")
-        if scale_size_not_lines:
-            constraint_type = "width" if constrain_width else "height"
-            console.print(f"   [link=file://{output_path}]{output_path}[/link] (constrained {constraint_type}, scaled size: {render_width}x{render_height}px, scale factor: {size_scale_factor})")
-        else:
-            constraint_type = "width" if constrain_width else "height"
-            console.print(f"   [link=file://{output_path}]{output_path}[/link] (constrained {constraint_type})")
+
+        constraint_type = "width" if constrain_width else "height"
+        console.print(f"   [link=file://{output_path}]{output_path}[/link] (constrained {constraint_type})")
 
         return True
 
@@ -670,73 +514,59 @@ def generate(
         is_flag=True,
     ),
     edge_thickness: float = typer.Option(
-        4.0,
+        config.DEFAULT_EDGE_THICKNESS,
         "--edge-thickness", "-e",
         help="Thickness of part edges in the rendered image. Higher values create more pronounced outlines.",
         min=0.1,
         max=5.0,
     ),
     line_thickness: Optional[float] = typer.Option(
-        4.0,
+        config.DEFAULT_LINE_THICKNESS,
         "--line-thickness", "-l",
         help="Thickness of conditional lines in the rendered image. If not specified, matches edge thickness.",
         min=0.1,
         max=5.0,
     ),
-    scale_size_not_lines: bool = typer.Option(
-        False,
-        "--scale-size-not-lines", "-s",
-        help="Scale the image size proportionally to part size rather than line thickness. This keeps lines visually consistent across parts of different sizes.",
-        is_flag=True,
-    ),
-    size_scale_factor: float = typer.Option(
-        0.5,
-        "--size-scale-factor", "-f",
-        help="Scale factor for the final image size when using --scale-size-not-lines. Lower values produce smaller images (e.g., 0.5 for half size).",
-        min=0.1,
-        max=2.0,
-    ),
     proportional_size: bool = typer.Option(
-        True,
+        False,
         "--proportional-size/--no-proportional-size", "-p/--no-p",
-        help="Scale image size proportionally to part's physical dimensions (stud count). Larger parts get larger images, smaller parts get smaller images. This is the default unless width or height is specified.",
+        help="Scale image size proportionally to part's physical dimensions (currently disabled). When enabled, larger parts get larger images, smaller parts get smaller images.",
     ),
     base_pixels_per_stud: int = typer.Option(
-        80,
+        config.DEFAULT_BASE_PIXELS_PER_STUD,
         "--base-pixels-per-stud", "-ps",
         help="Base number of pixels per stud when using proportional sizing. A 1x1 part will be approximately this many pixels wide.",
         min=10,
         max=200,
     ),
-    # Crop transparency is now always enabled for height-constrained images
-    # crop_transparency: bool = typer.Option(
-    #     False,
-    #     "--crop-transparency/--no-crop-transparency",
-    #     help="Crop transparent areas from the sides of the image while maintaining height. Requires PIL/Pillow. Disabled by default.",
-    #     is_flag=True,
-    # ),
     view_longitude: float = typer.Option(
-        -30.0,
+        config.DEFAULT_LONGITUDE,
         "--lon", "--view-longitude", "--longitude",
         help="Camera longitude (horizontal rotation in degrees). -30 gives a slightly angled view, 0 for front view, 90 for side view.",
         min=-360.0,
         max=360.0,
     ),
     view_latitude: float = typer.Option(
-        35.0,
+        config.DEFAULT_LATITUDE,
         "--lat", "--view-latitude", "--latitude",
         help="Camera latitude (vertical rotation in degrees). 30 gives a slightly elevated view, 0 for level view, 90 for top-down view.",
         min=-90.0,
         max=90.0,
     ),
+    camera_distance: float = typer.Option(
+        config.DEFAULT_CAMERA_DISTANCE,
+        "--distance", "-d",
+        help="Camera distance from the model (in kLDU). If 0, LDView determines distance automatically based on model size.",
+        min=0.0,
+    ),
     ldview_path_str: str = typer.Option(
-        str(DEFAULT_LDVIEW_APP_PATH),
+        str(config.LDVIEW_APP_PATH),
         "--ldview-path",
         help="Path to the LDView application (e.g., /Applications/LDView.app) or executable.",
         envvar="LDVIEW_PATH", # Allow setting via environment variable
     ),
     ldraw_dir_str: str = typer.Option(
-        str(DEFAULT_LDRAW_PARTS_PATH),
+        str(config.LDRAW_PARTS_PATH),
         "--ldraw-dir",
         help="Path to the root LDraw library directory (containing 'parts', 'p', etc.).",
         envvar="LDRAW_DIR", # Allow setting via environment variable
@@ -756,7 +586,13 @@ def generate(
     all_angles: bool = typer.Option(
         False,
         "--all-angles", "-a",
-        help=f"Generate images at multiple preset longitude angles {DEFAULT_LONGITUDE_ANGLES}. Adds _lon## suffix to filenames.",
+        help=f"Generate images at multiple preset longitude angles {config.DEFAULT_LONGITUDE_ANGLES}. Adds _lon## suffix to filenames.",
+        is_flag=True,
+    ),
+    get_size_only: bool = typer.Option(
+        False,
+        "--get-size-only",
+        help="Only print the dimensions of the part in LDraw Units (LDU) without generating an image.",
         is_flag=True,
     ),
 ):
@@ -768,10 +604,6 @@ def generate(
     """
     console.print(f"[bold blue]🚀 Starting image generation for part:[/bold blue] [cyan]{part_number}[/cyan]")
 
-    # Default width and height if not specified
-    DEFAULT_WIDTH = 250
-    DEFAULT_HEIGHT = 250
-
     # Handle auto-disable of proportional sizing when width or height is specified
     if (width is not None or height is not None) and proportional_size:
         console.print(f"[yellow]Note:[/yellow] Width or height specified, disabling proportional sizing.")
@@ -779,9 +611,9 @@ def generate(
 
     # Set default values if not provided
     if width is None:
-        width = DEFAULT_WIDTH
+        width = config.DEFAULT_WIDTH
     if height is None:
-        height = DEFAULT_HEIGHT
+        height = config.DEFAULT_HEIGHT
 
     # Debug: Print all command line arguments
     if verbose:
@@ -793,20 +625,46 @@ def generate(
         console.print(f"[dim]- constrain_width: {constrain_width}[/dim]")
         console.print(f"[dim]- edge_thickness: {edge_thickness}[/dim]")
         console.print(f"[dim]- line_thickness: {line_thickness}[/dim]")
-        console.print(f"[dim]- scale_size_not_lines: {scale_size_not_lines}[/dim]")
-        console.print(f"[dim]- size_scale_factor: {size_scale_factor}[/dim]")
         console.print(f"[dim]- proportional_size: {proportional_size}[/dim]")
         console.print(f"[dim]- base_pixels_per_stud: {base_pixels_per_stud}[/dim]")
-        # console.print(f"[dim]- crop_transparency: {crop_transparency}[/dim]")
         console.print(f"[dim]- view_longitude: {view_longitude}[/dim]")
         console.print(f"[dim]- view_latitude: {view_latitude}[/dim]")
+        console.print(f"[dim]- camera_distance: {camera_distance}[/dim]")
         console.print(f"[dim]- ldview_path: {ldview_path_str}[/dim]")
         console.print(f"[dim]- ldraw_dir: {ldraw_dir_str}[/dim]")
         console.print(f"[dim]- all_angles: {all_angles}[/dim]")
+        console.print(f"[dim]- get_size_only: {get_size_only}[/dim]")
 
     # --- 1. Path Setup & Validation ---
     ldview_app_path = Path(ldview_path_str).expanduser()
     ldraw_dir = Path(ldraw_dir_str).expanduser()
+
+    # Find the LDView executable once
+    ldview_executable = find_ldview_executable(ldview_app_path)
+    if not ldview_executable:
+        console.print(f"[bold red]Error:[/bold red] Could not find LDView executable at {ldview_app_path}")
+        raise typer.Exit(code=1)
+
+    if verbose:
+        console.print(f"[dim]Using LDView executable: {ldview_executable}[/dim]")
+
+    # Validate LDraw directory
+    if not ldraw_dir.is_dir():
+        console.print(f"[bold red]Error:[/bold red] LDraw directory not found: '{ldraw_dir}'")
+        raise typer.Exit(code=1)
+    if verbose:
+        console.print(f"[dim]Using LDraw directory: {ldraw_dir}[/dim]")
+
+    # Find the part file
+    part_file_path = find_part_file(ldraw_dir, part_number)
+    if not part_file_path:
+        # Error message printed within find_part_file
+        raise typer.Exit(code=1)
+
+    # If get_size_only is specified, just print dimensions and exit
+    if get_size_only:
+        console.print(f"[bold red]Error:[/bold red] Not implemented until part dimensions can be calculated")
+        raise typer.Exit(code=1)
 
     # Set default output path if not provided
     if output is None:
@@ -816,60 +674,25 @@ def generate(
         output_path = output.expanduser() # Typer's resolve_path already does this, but belt-and-suspenders
         console.print(f"[dim]Output path specified: {output_path} (raw input: {output})[/dim]")
 
-    # Find the part file path (for proportional sizing or all_angles)
-    part_file_path = find_part_file(ldraw_dir, part_number)
-    if not part_file_path:
-        # Error message printed within find_part_file
-        raise typer.Exit(code=1)
-
     # --- Handle proportional sizing if requested ---
     if proportional_size:
-        # We need to get the part dimensions
-        console.print(f"[bold magenta]Calculating proportional size based on part dimensions...[/bold magenta]")
-
-        dimensions = get_part_dimensions_from_dat(part_file_path, verbose=verbose)
-
-        if not dimensions:
-            console.print(f"[yellow]Warning:[/yellow] Could not determine part dimensions. Using default sizing.")
-            proportional_size = False
-        else:
-            # Calculate appropriate size based on stud count
-            stud_count = dimensions["stud_count"]
-            console.print(f"[dim]Part dimensions: {dimensions['width_studs']:.2f} × {dimensions['depth_studs']:.2f} studs (approx. {stud_count:.2f} studs footprint)[/dim]")
-
-            # If part is very small (less than 1 stud footprint), use minimum size
-            stud_count = max(1.0, stud_count)
-
-            # Apply square root scaling to convert area (stud count) to linear dimension
-            # This makes the scaling feel more natural - a 2x2 part will be sqrt(4) = 2x larger than a 1x1
-            scaling_factor = math.sqrt(stud_count)
-
-            # Apply the scaling to base_pixels_per_stud
-            if constrain_width:
-                width = int(base_pixels_per_stud * scaling_factor)
-                console.print(f"[dim]Calculated proportional width: {width}px (base: {base_pixels_per_stud}, scaling: {scaling_factor:.2f}x)[/dim]")
-            else:
-                height = int(base_pixels_per_stud * scaling_factor)
-                console.print(f"[dim]Calculated proportional height: {height}px (base: {base_pixels_per_stud}, scaling: {scaling_factor:.2f}x)[/dim]")
-
-            # Disable other scaling options that might conflict
-            if scale_size_not_lines:
-                console.print(f"[yellow]Note:[/yellow] --proportional-size overrides --scale-size-not-lines")
-                scale_size_not_lines = False
+        console.print(f"[bold red]Error:[/bold red] Not implemented until part dimensions can be calculated")
+        console.print(f"[yellow]Warning:[/yellow] Falling back to default sizing.")
+        proportional_size = False
 
     # --- Check if we're generating multiple angles ---
     if all_angles:
         # We'll handle multiple angles in a loop
-        if view_longitude != -30.0 and verbose:
+        if view_longitude != config.DEFAULT_LONGITUDE and verbose:
             console.print(f"[yellow]Note:[/yellow] --lon value will be ignored when using --all-angles")
 
-        console.print(f"[bold magenta]Generating images at multiple angles:[/bold magenta] {DEFAULT_LONGITUDE_ANGLES}")
+        console.print(f"[bold magenta]Generating images at multiple angles:[/bold magenta] {config.DEFAULT_LONGITUDE_ANGLES}")
 
         # Keep original output path for reference in messages
         original_output_path = output_path
 
         # For each angle in our predefined list
-        for angle in DEFAULT_LONGITUDE_ANGLES:
+        for angle in config.DEFAULT_LONGITUDE_ANGLES:
             # Create a new filename with _lon## suffix
             # First, split the path into stem and suffix
             stem = output_path.stem
@@ -883,9 +706,8 @@ def generate(
             # Call the rendering function with the current angle
             _generate_single_image(
                 part_number, angle_output, width, height, constrain_width,
-                edge_thickness, line_thickness, scale_size_not_lines,
-                size_scale_factor, False, view_latitude, angle,
-                ldview_app_path, ldraw_dir, dry_run, verbose
+                edge_thickness, line_thickness, False, view_latitude, angle,
+                camera_distance, ldview_executable, ldraw_dir, dry_run, verbose
             )
 
         # We've completed all angles
@@ -893,12 +715,11 @@ def generate(
         raise typer.Exit(code=0)  # Exit after processing all angles
 
     # --- Standard single-angle rendering logic continues here ---
-    # Just call our helper function with all the parameters
+    # Just call our helper function with all the parameters, using the executable path we already found
     success = _generate_single_image(
         part_number, output_path, width, height, constrain_width,
-        edge_thickness, line_thickness, scale_size_not_lines,
-        size_scale_factor, False, view_latitude, view_longitude,
-        ldview_app_path, ldraw_dir, dry_run, verbose
+        edge_thickness, line_thickness, False, view_latitude, view_longitude,
+        camera_distance, ldview_executable, ldraw_dir, dry_run, verbose
     )
 
     # Return appropriate exit code
