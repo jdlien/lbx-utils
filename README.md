@@ -60,6 +60,11 @@ Options:
   -m, --margin         Margin between image and text in mm
 ```
 
+## generate-part-image.py
+
+A utility to generate grayscale label-friendly images of LEGO parts using LDView.
+This requires LDView to be installed along with the LDraw library.
+
 ## Dependencies
 
 ### Required
@@ -115,6 +120,11 @@ Options:
    chmod +x parse-lbx.py
    chmod +x change-lbx.py
    ```
+
+# TODO
+
+- Support editing of text in LBX files
+- Completely automated generation of labels, including part images and QR codes linking to http://rbck.ca/part_number
 
 ## License
 

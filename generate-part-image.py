@@ -62,6 +62,9 @@ except ImportError:
 colorama.init()
 console = Console()
 
+# Default angles for the --all-angles option
+DEFAULT_LONGITUDE_ANGLES = [-120, -60, -30, 0, 30, 60, 120]
+
 # Default paths (adjust if your setup differs)
 # User specified ~/Library/ldraw/parts/
 DEFAULT_LDRAW_PARTS_PATH = Path("~/Library/ldraw/parts").expanduser()
@@ -210,147 +213,25 @@ def crop_transparent_edges(image_path: Path, maintain_height: bool = True, verbo
         return False
 
 
-@app.command()
-def generate(
-    part_number: str = typer.Argument(
-        ...,
-        help="The LDraw part number (e.g., '3001'). The '.dat' extension is added automatically."
-    ),
-    output: Optional[Path] = typer.Option(
-        None,
-        "--output", "-o",
-        help="Path to save the output PNG file. Defaults to '<part_number>.png' in current directory if not specified.",
-        writable=True, # Basic check if parent dir is writable
-        resolve_path=True, # Resolve to absolute path
-    ),
-    width: int = typer.Option(
-        320,
-        "--width", "-w",
-        help="Width of the output image in pixels. Used when constraining by width.",
-        min=10,
-    ),
-    height: int = typer.Option(
-        320,
-        "--height", "-h",
-        help="Height of the output image in pixels. Used when constraining by height (default).",
-        min=10,
-    ),
-    constrain_width: bool = typer.Option(
-        False,
-        "--constrain-width", "-cw",
-        help="Constrain the width of the image instead of the height (height is constrained by default).",
-        is_flag=True,
-    ),
-    edge_thickness: float = typer.Option(
-        4.0,
-        "--edge-thickness", "-e",
-        help="Thickness of part edges in the rendered image. Higher values create more pronounced outlines.",
-        min=0.1,
-        max=5.0,
-    ),
-    line_thickness: Optional[float] = typer.Option(
-        None,
-        "--line-thickness", "-l",
-        help="Thickness of conditional lines in the rendered image. If not specified, matches edge thickness.",
-        min=0.1,
-        max=5.0,
-    ),
-    scale_size_not_lines: bool = typer.Option(
-        False,
-        "--scale-size-not-lines", "-s",
-        help="Scale the image size proportionally to part size rather than line thickness. This keeps lines visually consistent across parts of different sizes.",
-        is_flag=True,
-    ),
-    size_scale_factor: float = typer.Option(
-        0.5,
-        "--size-scale-factor", "-f",
-        help="Scale factor for the final image size when using --scale-size-not-lines. Lower values produce smaller images (e.g., 0.5 for half size).",
-        min=0.1,
-        max=2.0,
-    ),
-    crop_transparency: bool = typer.Option(
-        True,
-        "--crop-transparency/--no-crop-transparency",
-        help="Crop transparent areas from the sides of the image while maintaining height. Requires PIL/Pillow.",
-        is_flag=True,
-    ),
-    view_longitude: float = typer.Option(
-        -30.0,
-        "--lon", "--view-longitude", "--longitude",
-        help="Camera longitude (horizontal rotation in degrees). -30 gives a slightly angled view, 0 for front view, 90 for side view.",
-        min=-360.0,
-        max=360.0,
-    ),
-    view_latitude: float = typer.Option(
-        35.0,
-        "--lat", "--view-latitude", "--latitude",
-        help="Camera latitude (vertical rotation in degrees). 30 gives a slightly elevated view, 0 for level view, 90 for top-down view.",
-        min=-90.0,
-        max=90.0,
-    ),
-    ldview_path_str: str = typer.Option(
-        str(DEFAULT_LDVIEW_APP_PATH),
-        "--ldview-path",
-        help="Path to the LDView application (e.g., /Applications/LDView.app) or executable.",
-        envvar="LDVIEW_PATH", # Allow setting via environment variable
-    ),
-    ldraw_dir_str: str = typer.Option(
-        str(DEFAULT_LDRAW_PARTS_PATH),
-        "--ldraw-dir",
-        help="Path to the root LDraw library directory (containing 'parts', 'p', etc.).",
-        envvar="LDRAW_DIR", # Allow setting via environment variable
-    ),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        help="Print the LDView command instead of executing it.",
-        is_flag=True,
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose", "-v",
-        help="Enable verbose output, including LDView's stdout/stderr.",
-        is_flag=True,
-    ),
-):
-    """
-    Generates a cropped, transparent PNG snapshot of an LDraw part file using LDView.
-
-    Ensures consistent camera, lighting, and quality settings.
-    Requires LDView to be installed and configured.
-    """
-    console.print(f"[bold blue]🚀 Starting image generation for part:[/bold blue] [cyan]{part_number}[/cyan]")
-
-    # Debug: Print all command line arguments
-    if verbose:
-        console.print(f"[dim]Command line arguments:[/dim]")
-        console.print(f"[dim]- part_number: {part_number}[/dim]")
-        console.print(f"[dim]- output: {output}[/dim]")
-        console.print(f"[dim]- width: {width}[/dim]")
-        console.print(f"[dim]- height: {height}[/dim]")
-        console.print(f"[dim]- constrain_width: {constrain_width}[/dim]")
-        console.print(f"[dim]- edge_thickness: {edge_thickness}[/dim]")
-        console.print(f"[dim]- line_thickness: {line_thickness}[/dim]")
-        console.print(f"[dim]- scale_size_not_lines: {scale_size_not_lines}[/dim]")
-        console.print(f"[dim]- size_scale_factor: {size_scale_factor}[/dim]")
-        console.print(f"[dim]- crop_transparency: {crop_transparency}[/dim]")
-        console.print(f"[dim]- view_longitude: {view_longitude}[/dim]")
-        console.print(f"[dim]- view_latitude: {view_latitude}[/dim]")
-        console.print(f"[dim]- ldview_path: {ldview_path_str}[/dim]")
-        console.print(f"[dim]- ldraw_dir: {ldraw_dir_str}[/dim]")
-
-    # --- 1. Path Setup & Validation ---
-    ldview_app_path = Path(ldview_path_str).expanduser()
-    ldraw_dir = Path(ldraw_dir_str).expanduser()
-
-    # Set default output path if not provided
-    if output is None:
-        output_path = Path(f"{part_number}.png")
-        console.print(f"[dim]No output path specified, using default: {output_path}[/dim]")
-    else:
-        output_path = output.expanduser() # Typer's resolve_path already does this, but belt-and-suspenders
-        console.print(f"[dim]Output path specified: {output_path} (raw input: {output})[/dim]")
-
+def _generate_single_image(
+    part_number: str,
+    output_path: Path,
+    width: int,
+    height: int,
+    constrain_width: bool,
+    edge_thickness: float,
+    line_thickness: Optional[float],
+    scale_size_not_lines: bool,
+    size_scale_factor: float,
+    crop_transparency: bool,
+    view_latitude: float,
+    view_longitude: float,
+    ldview_app_path: Path,
+    ldraw_dir: Path,
+    dry_run: bool,
+    verbose: bool,
+) -> bool:
+    """Helper function that generates a single image with the given parameters."""
     # Make sure output_path is absolute (critical for LDView running in a different directory)
     output_path = output_path.absolute()
 
@@ -359,18 +240,7 @@ def generate(
         console.print(f"[bold red]Error:[/bold red] Output filename '{output_path.name}' contains invalid characters.")
         console.print("[yellow]Wildcards like * and ? are not valid in filenames and won't be expanded as expected.[/yellow]")
         console.print("[yellow]Please use a valid filename without special characters.[/yellow]")
-
-        # Special note for shell wildcards
-        if '*' in output_path.name or '?' in output_path.name:
-            console.print("\n[blue]Note about shell wildcards:[/blue]")
-            console.print("If you intended to use shell wildcards (like *) for multiple files, this isn't supported directly.")
-            console.print("The shell might have tried to expand the wildcard but found no matches, or passed it literally.")
-            console.print("To generate images for multiple parts, you could create a shell script or loop:")
-            console.print("[dim]  for part in 3001 3002 3003; do[/dim]")
-            console.print("[dim]    python generate-part-image.py $part[/dim]")
-            console.print("[dim]  done[/dim]")
-
-        raise typer.Exit(code=1)
+        return False
 
     # Ensure output directory exists
     try:
@@ -391,24 +261,24 @@ def generate(
             console.print(f"[dim]Verified write access to output directory: {output_dir}[/dim]")
         except (PermissionError, IOError) as e:
             console.print(f"[bold red]Error:[/bold red] Cannot write to output directory '{output_dir}': {e}")
-            raise typer.Exit(code=1)
+            return False
 
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] Could not create or validate output directory '{output_path.parent}': {e}")
-        raise typer.Exit(code=1)
+        return False
 
     # Find and validate LDView executable
     ldview_executable = find_ldview_executable(ldview_app_path)
     if not ldview_executable:
         # Error message printed within find_ldview_executable
-        raise typer.Exit(code=1)
+        return False
     if verbose:
         console.print(f"[dim]Using LDView executable: {ldview_executable}[/dim]")
 
     # Validate LDraw directory
     if not ldraw_dir.is_dir():
         console.print(f"[bold red]Error:[/bold red] LDraw directory not found: '{ldraw_dir}'")
-        raise typer.Exit(code=1)
+        return False
     if verbose:
         console.print(f"[dim]Using LDraw directory: {ldraw_dir}[/dim]")
 
@@ -416,7 +286,7 @@ def generate(
     part_file_path = find_part_file(ldraw_dir, part_number)
     if not part_file_path:
         # Error message printed within find_part_file
-        raise typer.Exit(code=1)
+        return False
 
     # --- 2. LDView Command Construction ---
     # Set render dimensions based on constraints
@@ -536,7 +406,7 @@ def generate(
         console.print("\n[bold yellow]-- Dry Run Mode --[/bold yellow]")
         console.print("Command that would be executed:")
         console.print(Panel(cmd_str, title="LDView Command", border_style="blue", expand=False))
-        raise typer.Exit(code=0)
+        return True  # Consider dry run successful
 
     if scale_size_not_lines:
         if constrain_width:
@@ -588,22 +458,22 @@ def generate(
             if not verbose and process.stderr: # Print stderr if not already shown by verbose
                  console.print("[magenta]LDView stderr:[/magenta]")
                  console.print(f"[magenta]{process.stderr.strip()}[/magenta]")
-            raise typer.Exit(code=1)
+            return False
 
         # Verify output file existence and size
         if not output_path.is_file():
             console.print(f"\n[bold red]Error:[/bold red] LDView ran successfully, but the output file was not created: '{output_path}'")
             console.print("[yellow]Check LDView configuration and permissions.[/yellow]")
-            raise typer.Exit(code=1)
+            return False
         if output_path.stat().st_size == 0:
             console.print(f"\n[bold red]Error:[/bold red] LDView ran successfully, but the output file is empty: '{output_path}'")
             console.print("[yellow]Check LDView configuration and part file validity.[/yellow]")
             # Optionally remove the empty file
             # output_path.unlink()
-            raise typer.Exit(code=1)
+            return False
 
-        # Post-processing: Crop transparent edges if requested
-        if crop_transparency and not constrain_width:
+        # Post-processing: Always crop transparent edges for height-constrained images
+        if not constrain_width:
             if not PIL_AVAILABLE:
                 console.print("[yellow]Warning:[/yellow] PIL/Pillow not available, skipping transparent cropping.")
                 console.print("[yellow]Install with: pip install pillow[/yellow]")
@@ -624,17 +494,219 @@ def generate(
             constraint_type = "width" if constrain_width else "height"
             console.print(f"   [link=file://{output_path}]{output_path}[/link] (constrained {constraint_type})")
 
+        return True
+
     except FileNotFoundError:
         console.print(f"[bold red]Fatal Error:[/bold red] LDView command '{ldview_executable}' not found. Cannot execute.")
         console.print("Please ensure the --ldview-path is correct and LDView is installed properly.")
-        raise typer.Exit(code=1)
+        return False
     except Exception as e:
         console.print(f"[bold red]An unexpected error occurred during execution:[/bold red]")
         console.print(f"{e}")
         import traceback
         if verbose:
             console.print(traceback.format_exc())
+        return False
+
+
+@app.command()
+def generate(
+    part_number: str = typer.Argument(
+        ...,
+        help="The LDraw part number (e.g., '3001'). The '.dat' extension is added automatically."
+    ),
+    output: Optional[Path] = typer.Option(
+        None,
+        "--output", "-o",
+        help="Path to save the output PNG file. Defaults to '<part_number>.png' in current directory if not specified.",
+        writable=True, # Basic check if parent dir is writable
+        resolve_path=True, # Resolve to absolute path
+    ),
+    width: int = typer.Option(
+        320,
+        "--width", "-w",
+        help="Width of the output image in pixels. Used when constraining by width.",
+        min=10,
+    ),
+    height: int = typer.Option(
+        320,
+        "--height", "-h",
+        help="Height of the output image in pixels. Used when constraining by height (default).",
+        min=10,
+    ),
+    constrain_width: bool = typer.Option(
+        False,
+        "--constrain-width", "-cw",
+        help="Constrain the width of the image instead of the height (height is constrained by default).",
+        is_flag=True,
+    ),
+    edge_thickness: float = typer.Option(
+        4.0,
+        "--edge-thickness", "-e",
+        help="Thickness of part edges in the rendered image. Higher values create more pronounced outlines.",
+        min=0.1,
+        max=5.0,
+    ),
+    line_thickness: Optional[float] = typer.Option(
+        None,
+        "--line-thickness", "-l",
+        help="Thickness of conditional lines in the rendered image. If not specified, matches edge thickness.",
+        min=0.1,
+        max=5.0,
+    ),
+    scale_size_not_lines: bool = typer.Option(
+        False,
+        "--scale-size-not-lines", "-s",
+        help="Scale the image size proportionally to part size rather than line thickness. This keeps lines visually consistent across parts of different sizes.",
+        is_flag=True,
+    ),
+    size_scale_factor: float = typer.Option(
+        0.5,
+        "--size-scale-factor", "-f",
+        help="Scale factor for the final image size when using --scale-size-not-lines. Lower values produce smaller images (e.g., 0.5 for half size).",
+        min=0.1,
+        max=2.0,
+    ),
+    # Crop transparency is now always enabled for height-constrained images
+    # crop_transparency: bool = typer.Option(
+    #     False,
+    #     "--crop-transparency/--no-crop-transparency",
+    #     help="Crop transparent areas from the sides of the image while maintaining height. Requires PIL/Pillow. Disabled by default.",
+    #     is_flag=True,
+    # ),
+    view_longitude: float = typer.Option(
+        -30.0,
+        "--lon", "--view-longitude", "--longitude",
+        help="Camera longitude (horizontal rotation in degrees). -30 gives a slightly angled view, 0 for front view, 90 for side view.",
+        min=-360.0,
+        max=360.0,
+    ),
+    view_latitude: float = typer.Option(
+        35.0,
+        "--lat", "--view-latitude", "--latitude",
+        help="Camera latitude (vertical rotation in degrees). 30 gives a slightly elevated view, 0 for level view, 90 for top-down view.",
+        min=-90.0,
+        max=90.0,
+    ),
+    ldview_path_str: str = typer.Option(
+        str(DEFAULT_LDVIEW_APP_PATH),
+        "--ldview-path",
+        help="Path to the LDView application (e.g., /Applications/LDView.app) or executable.",
+        envvar="LDVIEW_PATH", # Allow setting via environment variable
+    ),
+    ldraw_dir_str: str = typer.Option(
+        str(DEFAULT_LDRAW_PARTS_PATH),
+        "--ldraw-dir",
+        help="Path to the root LDraw library directory (containing 'parts', 'p', etc.).",
+        envvar="LDRAW_DIR", # Allow setting via environment variable
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Print the LDView command instead of executing it.",
+        is_flag=True,
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose", "-v",
+        help="Enable verbose output, including LDView's stdout/stderr.",
+        is_flag=True,
+    ),
+    all_angles: bool = typer.Option(
+        False,
+        "--all-angles", "-a",
+        help=f"Generate images at multiple preset longitude angles {DEFAULT_LONGITUDE_ANGLES}. Adds _lon## suffix to filenames.",
+        is_flag=True,
+    ),
+):
+    """
+    Generates a cropped, transparent PNG snapshot of an LDraw part file using LDView.
+
+    Ensures consistent camera, lighting, and quality settings.
+    Requires LDView to be installed and configured.
+    """
+    console.print(f"[bold blue]🚀 Starting image generation for part:[/bold blue] [cyan]{part_number}[/cyan]")
+
+    # Debug: Print all command line arguments
+    if verbose:
+        console.print(f"[dim]Command line arguments:[/dim]")
+        console.print(f"[dim]- part_number: {part_number}[/dim]")
+        console.print(f"[dim]- output: {output}[/dim]")
+        console.print(f"[dim]- width: {width}[/dim]")
+        console.print(f"[dim]- height: {height}[/dim]")
+        console.print(f"[dim]- constrain_width: {constrain_width}[/dim]")
+        console.print(f"[dim]- edge_thickness: {edge_thickness}[/dim]")
+        console.print(f"[dim]- line_thickness: {line_thickness}[/dim]")
+        console.print(f"[dim]- scale_size_not_lines: {scale_size_not_lines}[/dim]")
+        console.print(f"[dim]- size_scale_factor: {size_scale_factor}[/dim]")
+        # console.print(f"[dim]- crop_transparency: {crop_transparency}[/dim]")
+        console.print(f"[dim]- view_longitude: {view_longitude}[/dim]")
+        console.print(f"[dim]- view_latitude: {view_latitude}[/dim]")
+        console.print(f"[dim]- ldview_path: {ldview_path_str}[/dim]")
+        console.print(f"[dim]- ldraw_dir: {ldraw_dir_str}[/dim]")
+        console.print(f"[dim]- all_angles: {all_angles}[/dim]")
+
+    # --- 1. Path Setup & Validation ---
+    ldview_app_path = Path(ldview_path_str).expanduser()
+    ldraw_dir = Path(ldraw_dir_str).expanduser()
+
+    # Set default output path if not provided
+    if output is None:
+        output_path = Path(f"{part_number}.png")
+        console.print(f"[dim]No output path specified, using default: {output_path}[/dim]")
+    else:
+        output_path = output.expanduser() # Typer's resolve_path already does this, but belt-and-suspenders
+        console.print(f"[dim]Output path specified: {output_path} (raw input: {output})[/dim]")
+
+    # --- Check if we're generating multiple angles ---
+    if all_angles:
+        # We'll handle multiple angles in a loop
+        if view_longitude != -30.0 and verbose:
+            console.print(f"[yellow]Note:[/yellow] --lon value will be ignored when using --all-angles")
+
+        console.print(f"[bold magenta]Generating images at multiple angles:[/bold magenta] {DEFAULT_LONGITUDE_ANGLES}")
+
+        # Keep original output path for reference in messages
+        original_output_path = output_path
+
+        # For each angle in our predefined list
+        for angle in DEFAULT_LONGITUDE_ANGLES:
+            # Create a new filename with _lon## suffix
+            # First, split the path into stem and suffix
+            stem = output_path.stem
+            suffix = output_path.suffix
+
+            # Create new filename with angle suffix
+            angle_output = output_path.with_name(f"{stem}_lon{angle}{suffix}")
+
+            console.print(f"\n[bold cyan]Rendering angle: {angle}°[/bold cyan] -> {angle_output.name}")
+
+            # Call the rendering function with the current angle
+            _generate_single_image(
+                part_number, angle_output, width, height, constrain_width,
+                edge_thickness, line_thickness, scale_size_not_lines,
+                size_scale_factor, False, view_latitude, angle,
+                ldview_app_path, ldraw_dir, dry_run, verbose
+            )
+
+        # We've completed all angles
+        console.print(f"\n[bold green]✅ All angles completed![/bold green] Images saved with _lon## suffixes.")
+        raise typer.Exit(code=0)  # Exit after processing all angles
+
+    # --- Standard single-angle rendering logic continues here ---
+    # Just call our helper function with all the parameters
+    success = _generate_single_image(
+        part_number, output_path, width, height, constrain_width,
+        edge_thickness, line_thickness, scale_size_not_lines,
+        size_scale_factor, False, view_latitude, view_longitude,
+        ldview_app_path, ldraw_dir, dry_run, verbose
+    )
+
+    # Return appropriate exit code
+    if not success:
         raise typer.Exit(code=1)
+    else:
+        raise typer.Exit(code=0)
 
 
 if __name__ == "__main__":
