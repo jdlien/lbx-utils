@@ -1,0 +1,19 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+- You can @ files here
+- You can use markdown but dont have to
+
+generate-part-image.py uses LDView. Documentation for using LDView via command line is here:
+https://trevorsandy.github.io/lpub3d/assets/docs/ldview/Help.html
+
+LDraw file format specification:
+https://www.ldraw.org/article/218.html
+
+
+We want to make a beautifully formatted command line app using colors and nicely formatted help text by using colorama, rich, and typer.
