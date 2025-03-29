@@ -75,7 +75,7 @@ class Config:
     DEFAULT_LONGITUDE_ANGLES: List[int] = field(default_factory=lambda: [-120, -60, -30, 0, 30, 60, 120])
     DEFAULT_LONGITUDE: float = -30.0
     DEFAULT_LATITUDE: float = 35.0
-    DEFAULT_CAMERA_DISTANCE: float = 300.0  # 0 means let LDView determine distance automatically
+    DEFAULT_CAMERA_DISTANCE: float = 250.0  # 0 means let LDView determine distance automatically
 
     # Default image settings
     DEFAULT_WIDTH: int = 250
@@ -83,7 +83,6 @@ class Config:
     DEFAULT_EDGE_THICKNESS: float = 4.0
     DEFAULT_LINE_THICKNESS: float = 4.0
     DEFAULT_SIZE_SCALE_FACTOR: float = 0.5
-    DEFAULT_BASE_PIXELS_PER_STUD: int = 80
 
     # Reference values for consistent line appearance
     BASE_EDGE_THICKNESS: float = 1.0
@@ -94,6 +93,9 @@ class Config:
     # LDraw unit conversion constants
     LDU_PER_STUD: float = 20.0
     LDU_PER_BRICK_HEIGHT: float = 24.0
+
+    # Application behavior settings
+    VERBOSE: bool = False  # Controls the amount of output displayed
 
 # Create global config instance
 config = Config()
@@ -118,7 +120,8 @@ def find_ldview_executable(ldview_app_path: Path) -> Optional[Path]:
         # Standard macOS .app bundle structure
         potential_path = ldview_app_path / "Contents" / "MacOS" / "LDView"
         if potential_path.is_file() and os.access(potential_path, os.X_OK):
-            console.print(f"[dim]Found macOS LDView executable: {potential_path}[/dim]")
+            if config.VERBOSE:
+                console.print(f"[dim]Found macOS LDView executable: {potential_path}[/dim]")
             return potential_path
         else:
             console.print(f"[yellow]Warning:[/yellow] Could not find executable at standard macOS path: {potential_path}")
@@ -127,7 +130,8 @@ def find_ldview_executable(ldview_app_path: Path) -> Optional[Path]:
         console.print(f"[yellow]Warning:[/yellow] Expected a .app path for macOS, got: {ldview_app_path}")
         # Check if the provided path is directly executable
         if ldview_app_path.is_file() and os.access(ldview_app_path, os.X_OK):
-            console.print(f"[dim]Using provided path directly: {ldview_app_path}[/dim]")
+            if config.VERBOSE:
+                console.print(f"[dim]Using provided path directly: {ldview_app_path}[/dim]")
             return ldview_app_path
         return None
 
@@ -147,7 +151,7 @@ def find_part_file(ldraw_dir: Path, part_number: str) -> Optional[Path]:
     for directory in search_dirs:
         part_path = directory / part_file_name
         if part_path.is_file():
-            console.print(f"Found part file: '{part_path}'")
+            if config.VERBOSE: console.print(f"Found part file: '{part_path}'")
             return part_path
 
     # If not found, log checked paths
@@ -164,20 +168,19 @@ def is_valid_filename(filename: str) -> bool:
     return not bool(re.search(invalid_chars, str(filename)))
 
 
-def crop_transparent_edges(image_path: Path, maintain_height: bool = True, verbose: bool = False) -> bool:
+def crop_transparent_edges(image_path: Path, maintain_height: bool = True) -> bool:
     """
     Crops transparent edges from a PNG image while optionally maintaining the original height.
 
     Args:
         image_path: Path to the PNG image
         maintain_height: If True, only crop horizontal transparent areas, preserving height
-        verbose: Whether to print detailed information
 
     Returns:
         True if cropping was successful, False otherwise
     """
     if not PIL_AVAILABLE:
-        if verbose:
+        if config.VERBOSE:
             console.print("[yellow]Warning:[/yellow] PIL/Pillow not available, skipping transparent cropping.")
         return False
 
@@ -187,13 +190,13 @@ def crop_transparent_edges(image_path: Path, maintain_height: bool = True, verbo
 
         # Get the alpha channel
         if img.mode != 'RGBA':
-            if verbose:
+            if config.VERBOSE:
                 console.print(f"[yellow]Warning:[/yellow] Image is not RGBA, skipping transparent cropping.")
             return False
 
         # Get the size
         width, height = img.size
-        if verbose:
+        if config.VERBOSE:
             console.print(f"[dim]Original image size: {width}x{height}[/dim]")
 
         # Get the alpha data
@@ -202,7 +205,7 @@ def crop_transparent_edges(image_path: Path, maintain_height: bool = True, verbo
         # Get bounding box of non-transparent pixels
         bbox = alpha.getbbox()
         if not bbox:
-            if verbose:
+            if config.VERBOSE:
                 console.print(f"[yellow]Warning:[/yellow] Image is entirely transparent.")
             return False
 
@@ -211,9 +214,9 @@ def crop_transparent_edges(image_path: Path, maintain_height: bool = True, verbo
         if maintain_height:
             # Only crop horizontally, keep full height
             bbox = (left, 0, right, height)
-            if verbose:
+            if config.VERBOSE:
                 console.print(f"[dim]Maintaining height, cropping horizontally to: {left}, 0, {right}, {height}[/dim]")
-        elif verbose:
+        elif config.VERBOSE:
             console.print(f"[dim]Cropping to: {left}, {upper}, {right}, {lower}[/dim]")
 
         # Crop the image
@@ -223,13 +226,74 @@ def crop_transparent_edges(image_path: Path, maintain_height: bool = True, verbo
         cropped.save(image_path)
 
         new_width, new_height = cropped.size
-        if verbose:
+        if config.VERBOSE:
             console.print(f"[dim]New image size: {new_width}x{new_height}[/dim]")
 
         return True
     except Exception as e:
-        if verbose:
+        if config.VERBOSE:
             console.print(f"[red]Error during transparent cropping:[/red] {e}")
+        return False
+
+
+def optimize_image(image_path: Path) -> bool:
+    """
+    Optimize the PNG image to reduce file size.
+    Focuses on converting RGBA to LA mode (grayscale+alpha) which is much more efficient
+    for LDraw part images that are primarily grayscale with transparency.
+
+    Args:
+        image_path: Path to the PNG image to optimize
+
+    Returns:
+        True if optimization was successful, False otherwise
+    """
+    if not PIL_AVAILABLE:
+        if config.VERBOSE:
+            console.print("[yellow]Warning:[/yellow] PIL/Pillow not available, skipping image optimization.")
+        return False
+
+    try:
+        # Get original file size for comparison
+        original_size = image_path.stat().st_size
+
+        # Open the image
+        img = Image.open(image_path)
+
+        # Only try LA mode for grayscale+alpha which is typically the most effective
+        # for LDraw part images
+        if img.mode == 'RGBA':
+            # Use PIL's built-in conversion to LA mode which is much faster and more reliable
+            la_img = img.convert('LA')
+
+            # Save with optimization
+            la_img.save(image_path, optimize=True)
+
+            # Check size improvement
+            new_size = image_path.stat().st_size
+
+            if config.VERBOSE and new_size < original_size:
+                reduction = (original_size - new_size) / original_size * 100
+                console.print(f"[dim]Image optimized: {original_size:,} → {new_size:,} bytes ({reduction:.1f}% reduction)[/dim]")
+
+            return True
+        else:
+            # For non-RGBA images, just optimize the existing format
+            img.save(image_path, optimize=True)
+
+            if config.VERBOSE:
+                new_size = image_path.stat().st_size
+                if new_size < original_size:
+                    reduction = (original_size - new_size) / original_size * 100
+                    console.print(f"[dim]Image optimized: {original_size:,} → {new_size:,} bytes ({reduction:.1f}% reduction)[/dim]")
+                else:
+                    console.print("[dim]No significant size improvement from optimization[/dim]")
+
+            return True
+
+    except Exception as e:
+        if config.VERBOSE:
+            console.print(f"[yellow]Warning:[/yellow] Image optimization failed: {e}")
         return False
 
 
@@ -248,7 +312,6 @@ def _generate_single_image(
     ldview_executable: Path,
     ldraw_dir: Path,
     dry_run: bool,
-    verbose: bool,
 ) -> bool:
     """Helper function that generates a single image with the given parameters."""
     # Make sure output_path is absolute (critical for LDView running in a different directory)
@@ -263,8 +326,8 @@ def _generate_single_image(
     try:
         output_dir = output_path.parent
         # If verbose or non-trivial directory (not just . or current dir)
-        if verbose or str(output_dir) != ".":
-            console.print(f"[dim]Creating output directory if needed: {output_dir}[/dim]")
+        if config.VERBOSE or str(output_dir) != ".":
+            if config.VERBOSE: console.print(f"[dim]Creating output directory if needed: {output_dir}[/dim]")
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -288,14 +351,14 @@ def _generate_single_image(
     if not ldview_executable or not ldview_executable.exists():
         console.print(f"[bold red]Error:[/bold red] LDView executable not found at path: {ldview_executable}")
         return False
-    if verbose:
+    if config.VERBOSE:
         console.print(f"[dim]Using LDView executable: {ldview_executable}[/dim]")
 
     # Validate LDraw directory
     if not ldraw_dir.is_dir():
         console.print(f"[bold red]Error:[/bold red] LDraw directory not found: '{ldraw_dir}'")
         return False
-    if verbose:
+    if config.VERBOSE:
         console.print(f"[dim]Using LDraw directory: {ldraw_dir}[/dim]")
 
     # Find the part file
@@ -395,23 +458,25 @@ def _generate_single_image(
         console.print(formatted_cmd)
         return True  # Consider dry run successful
 
-    if constrain_width:
-        console.print(f"\n[magenta]Generating image with constrained width:[/magenta]")
-    else:
-        console.print(f"\n[magenta]Generating image with constrained height:[/magenta]")
-        console.print(f"(Fixed height of {render_height}px with variable width)")
+    if config.VERBOSE:
+        if camera_distance > 0:
+            console.print(f"[magenta]Generating image at distance: {camera_distance}[/magenta]")
+        elif constrain_width:
+          console.print(f"[magenta]Generating image with constrained width:[/magenta]")
+        else:
+          console.print(f"[magenta]Generating image with constrained height:[/magenta]")
+          if config.VERBOSE:
+              console.print(f"(Fixed height of {render_height}px with variable width)")
 
-    console.print(f"'{output_path}' ({render_width}x{render_height}px before post-processing)")
-    console.print(f"[dim]Absolute output path: {output_path.absolute()}[/dim]")
-
-    if verbose:
+        console.print(f"({render_width}x{render_height}px before post-processing)")
+        console.print(f"[dim]Absolute output path: {output_path.absolute()}[/dim]")
         console.print(f"[dim]Executing: {cmd_str}[/dim]")
 
     try:
         # Determine appropriate CWD for LDView
         # On macOS, it often needs to be the dir containing the executable for resources
         cwd = ldview_executable.parent if sys.platform == "darwin" else None
-        if verbose and cwd:
+        if config.VERBOSE and cwd:
             console.print(f"[dim]Using working directory: {cwd}[/dim]")
 
         process = subprocess.run(
@@ -424,7 +489,7 @@ def _generate_single_image(
             errors='replace' # Handle potential encoding errors in output
         )
 
-        if verbose:
+        if config.VERBOSE:
             console.print("\n[bold cyan]LDView stdout:[/bold cyan]")
             console.print(f"[cyan]{process.stdout.strip()}[/cyan]" if process.stdout.strip() else "[dim]No stdout[/dim]")
             console.print("\n[bold magenta]LDView stderr:[/bold magenta]")
@@ -433,7 +498,7 @@ def _generate_single_image(
         # Check results
         if process.returncode != 0:
             console.print(f"\n[bold red]Error:[/bold red] LDView execution failed with code {process.returncode}.")
-            if not verbose and process.stderr: # Print stderr if not already shown by verbose
+            if not config.VERBOSE and process.stderr: # Print stderr if not already shown by verbose
                  console.print("[magenta]LDView stderr:[/magenta]")
                  console.print(f"[magenta]{process.stderr.strip()}[/magenta]")
             return False
@@ -457,15 +522,16 @@ def _generate_single_image(
         else:
             # Set maintain_height to False if constrain_width is True OR camera_distance > 0
             maintain_height = not (constrain_width or camera_distance > 0)
-            cropped = crop_transparent_edges(output_path, maintain_height=maintain_height, verbose=verbose)
+            cropped = crop_transparent_edges(output_path, maintain_height=maintain_height)
             if not cropped:
                 console.print("[yellow]Warning:[/yellow] Transparent cropping was skipped or failed.")
-
+            # Optimize image size (Experimental)
+            optimize_image(output_path)
         # Success message
-        console.print(f"\n[bold green]✅ Success![/bold green] Image generated successfully:")
+        if config.VERBOSE: console.print(f"\n[bold green]✅ Success![/bold green] Image generated successfully:")
 
         constraint_type = "width" if constrain_width else "height"
-        console.print(f"   [link=file://{output_path}]{output_path}[/link] (constrained {constraint_type})")
+        console.print(f"[link=file://{output_path}]{output_path}[/link]")
 
         return True
 
@@ -477,7 +543,7 @@ def _generate_single_image(
         console.print(f"[bold red]An unexpected error occurred during execution:[/bold red]")
         console.print(f"{e}")
         import traceback
-        if verbose:
+        if config.VERBOSE:
             console.print(traceback.format_exc())
         return False
 
@@ -527,18 +593,6 @@ def generate(
         min=0.1,
         max=5.0,
     ),
-    proportional_size: bool = typer.Option(
-        False,
-        "--proportional-size/--no-proportional-size", "-p/--no-p",
-        help="Scale image size proportionally to part's physical dimensions (currently disabled). When enabled, larger parts get larger images, smaller parts get smaller images.",
-    ),
-    base_pixels_per_stud: int = typer.Option(
-        config.DEFAULT_BASE_PIXELS_PER_STUD,
-        "--base-pixels-per-stud", "-ps",
-        help="Base number of pixels per stud when using proportional sizing. A 1x1 part will be approximately this many pixels wide.",
-        min=10,
-        max=200,
-    ),
     view_longitude: float = typer.Option(
         config.DEFAULT_LONGITUDE,
         "--lon", "--view-longitude", "--longitude",
@@ -556,8 +610,10 @@ def generate(
     camera_distance: float = typer.Option(
         config.DEFAULT_CAMERA_DISTANCE,
         "--distance", "-d",
-        help="Camera distance from the model (in kLDU). If 0, LDView determines distance automatically based on model size.",
+        help="Camera distance from the model (in kLDU). If 0, LDView determines distance automatically based on model size and the part will be zoomed to fit a fixed height by default. "
+             "Set to >300 to make large part outlines more pronounced for small labels.",
         min=0.0,
+        max=2000.0,
     ),
     ldview_path_str: str = typer.Option(
         str(config.LDVIEW_APP_PATH),
@@ -580,7 +636,7 @@ def generate(
     verbose: bool = typer.Option(
         False,
         "--verbose", "-v",
-        help="Enable verbose output, including LDView's stdout/stderr.",
+        help="Enable verbose output, including LDView's stdout/stderr and detailed progress information.",
         is_flag=True,
     ),
     all_angles: bool = typer.Option(
@@ -602,12 +658,10 @@ def generate(
     Ensures consistent camera, lighting, and quality settings.
     Requires LDView to be installed and configured.
     """
-    console.print(f"[bold blue]🚀 Starting image generation for part:[/bold blue] [cyan]{part_number}[/cyan]")
+    # Set the global verbosity level based on command-line flag
+    config.VERBOSE = verbose
 
-    # Handle auto-disable of proportional sizing when width or height is specified
-    if (width is not None or height is not None) and proportional_size:
-        console.print(f"[yellow]Note:[/yellow] Width or height specified, disabling proportional sizing.")
-        proportional_size = False
+    if config.VERBOSE: console.print(f"[bold blue]🚀 Starting image generation for part:[/bold blue] [cyan]{part_number}[/cyan]")
 
     # Set default values if not provided
     if width is None:
@@ -616,7 +670,7 @@ def generate(
         height = config.DEFAULT_HEIGHT
 
     # Debug: Print all command line arguments
-    if verbose:
+    if config.VERBOSE:
         console.print(f"[dim]Command line arguments:[/dim]")
         console.print(f"[dim]- part_number: {part_number}[/dim]")
         console.print(f"[dim]- output: {output}[/dim]")
@@ -625,8 +679,6 @@ def generate(
         console.print(f"[dim]- constrain_width: {constrain_width}[/dim]")
         console.print(f"[dim]- edge_thickness: {edge_thickness}[/dim]")
         console.print(f"[dim]- line_thickness: {line_thickness}[/dim]")
-        console.print(f"[dim]- proportional_size: {proportional_size}[/dim]")
-        console.print(f"[dim]- base_pixels_per_stud: {base_pixels_per_stud}[/dim]")
         console.print(f"[dim]- view_longitude: {view_longitude}[/dim]")
         console.print(f"[dim]- view_latitude: {view_latitude}[/dim]")
         console.print(f"[dim]- camera_distance: {camera_distance}[/dim]")
@@ -645,14 +697,14 @@ def generate(
         console.print(f"[bold red]Error:[/bold red] Could not find LDView executable at {ldview_app_path}")
         raise typer.Exit(code=1)
 
-    if verbose:
+    if config.VERBOSE:
         console.print(f"[dim]Using LDView executable: {ldview_executable}[/dim]")
 
     # Validate LDraw directory
     if not ldraw_dir.is_dir():
         console.print(f"[bold red]Error:[/bold red] LDraw directory not found: '{ldraw_dir}'")
         raise typer.Exit(code=1)
-    if verbose:
+    if config.VERBOSE:
         console.print(f"[dim]Using LDraw directory: {ldraw_dir}[/dim]")
 
     # Find the part file
@@ -669,21 +721,17 @@ def generate(
     # Set default output path if not provided
     if output is None:
         output_path = Path(f"{part_number}.png")
-        console.print(f"[dim]No output path specified, using default: {output_path}[/dim]")
+        if config.VERBOSE:
+            console.print(f"[dim]No output path specified, using default: {output_path}[/dim]")
     else:
         output_path = output.expanduser() # Typer's resolve_path already does this, but belt-and-suspenders
-        console.print(f"[dim]Output path specified: {output_path} (raw input: {output})[/dim]")
-
-    # --- Handle proportional sizing if requested ---
-    if proportional_size:
-        console.print(f"[bold red]Error:[/bold red] Not implemented until part dimensions can be calculated")
-        console.print(f"[yellow]Warning:[/yellow] Falling back to default sizing.")
-        proportional_size = False
+        if config.VERBOSE:
+            console.print(f"[dim]Output path specified: {output_path} (raw input: {output})[/dim]")
 
     # --- Check if we're generating multiple angles ---
     if all_angles:
         # We'll handle multiple angles in a loop
-        if view_longitude != config.DEFAULT_LONGITUDE and verbose:
+        if view_longitude != config.DEFAULT_LONGITUDE and config.VERBOSE:
             console.print(f"[yellow]Note:[/yellow] --lon value will be ignored when using --all-angles")
 
         console.print(f"[bold magenta]Generating images at multiple angles:[/bold magenta] {config.DEFAULT_LONGITUDE_ANGLES}")
@@ -707,7 +755,7 @@ def generate(
             _generate_single_image(
                 part_number, angle_output, width, height, constrain_width,
                 edge_thickness, line_thickness, False, view_latitude, angle,
-                camera_distance, ldview_executable, ldraw_dir, dry_run, verbose
+                camera_distance, ldview_executable, ldraw_dir, dry_run
             )
 
         # We've completed all angles
@@ -719,7 +767,7 @@ def generate(
     success = _generate_single_image(
         part_number, output_path, width, height, constrain_width,
         edge_thickness, line_thickness, False, view_latitude, view_longitude,
-        camera_distance, ldview_executable, ldraw_dir, dry_run, verbose
+        camera_distance, ldview_executable, ldraw_dir, dry_run
     )
 
     # Return appropriate exit code
