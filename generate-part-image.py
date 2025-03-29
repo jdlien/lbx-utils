@@ -36,6 +36,12 @@
 # Primitives:
 # - Primitive Substitution
 # 	- Curve Quality: Maximum
+#
+#
+# TODO:
+# - Ensure that specifying width or height automatically overrides distance
+# - I'm unsure if line-thickness actually does anything useful. More testing is required
+
 
 
 import typer
@@ -564,19 +570,19 @@ def generate(
     width: Optional[int] = typer.Option(
         None,
         "--width", "-w",
-        help="Width of the output image in pixels. Used when constraining by width. Specifying this disables proportional sizing.",
+        help="Width of the output image in pixels. Used when constraining by width.",
         min=10,
     ),
     height: Optional[int] = typer.Option(
         None,
         "--height", "-h",
-        help="Height of the output image in pixels. Used when constraining by height. Specifying this disables proportional sizing.",
+        help="Height of the output image in pixels. Used when constraining by height.",
         min=10,
     ),
     constrain_width: bool = typer.Option(
         False,
         "--constrain-width", "-cw",
-        help="Constrain the width of the image instead of the height (height is constrained by default).",
+        help="Constrain the width of the image instead of the height.",
         is_flag=True,
     ),
     edge_thickness: float = typer.Option(
@@ -645,12 +651,6 @@ def generate(
         help=f"Generate images at multiple preset longitude angles {config.DEFAULT_LONGITUDE_ANGLES}. Adds _lon## suffix to filenames.",
         is_flag=True,
     ),
-    get_size_only: bool = typer.Option(
-        False,
-        "--get-size-only",
-        help="Only print the dimensions of the part in LDraw Units (LDU) without generating an image.",
-        is_flag=True,
-    ),
 ):
     """
     Generates a cropped, transparent PNG snapshot of an LDraw part file using LDView.
@@ -685,7 +685,6 @@ def generate(
         console.print(f"[dim]- ldview_path: {ldview_path_str}[/dim]")
         console.print(f"[dim]- ldraw_dir: {ldraw_dir_str}[/dim]")
         console.print(f"[dim]- all_angles: {all_angles}[/dim]")
-        console.print(f"[dim]- get_size_only: {get_size_only}[/dim]")
 
     # --- 1. Path Setup & Validation ---
     ldview_app_path = Path(ldview_path_str).expanduser()
@@ -711,11 +710,6 @@ def generate(
     part_file_path = find_part_file(ldraw_dir, part_number)
     if not part_file_path:
         # Error message printed within find_part_file
-        raise typer.Exit(code=1)
-
-    # If get_size_only is specified, just print dimensions and exit
-    if get_size_only:
-        console.print(f"[bold red]Error:[/bold red] Not implemented until part dimensions can be calculated")
         raise typer.Exit(code=1)
 
     # Set default output path if not provided
