@@ -43,7 +43,6 @@
 # - I'm unsure if line-thickness actually does anything useful. More testing is required
 
 
-
 import typer
 import subprocess
 import os
@@ -318,6 +317,7 @@ def _generate_single_image(
     ldview_executable: Path,
     ldraw_dir: Path,
     dry_run: bool,
+    transparent_part: bool = False,
 ) -> bool:
     """Helper function that generates a single image with the given parameters."""
     # Make sure output_path is absolute (critical for LDView running in a different directory)
@@ -422,6 +422,12 @@ def _generate_single_image(
         "-DefaultColor=0.8,0.8,0.8,1.0", # Set a default part color if none specified (RGBA, light gray) - Optional
         "-BackgroundColor=0,0,0,0", # Ensure background is transparent (RGBA)
     ])
+
+    # Add transparency option if requested
+    if transparent_part:
+        ldview_cmd.append("-TransDefaultColor=1")  # Make default colored parts transparent
+        if config.VERBOSE:
+            console.print("[dim]Rendering part with transparency enabled[/dim]")
 
     # Add camera settings based on whether a custom distance is specified
     if camera_distance > 0:
@@ -651,6 +657,12 @@ def generate(
         help=f"Generate images at multiple preset longitude angles {config.DEFAULT_LONGITUDE_ANGLES}. Adds _lon## suffix to filenames.",
         is_flag=True,
     ),
+    transparent_part: bool = typer.Option(
+        False,
+        "--transparent", "-t",
+        help="Make the part transparent (see-through).",
+        is_flag=True,
+    ),
 ):
     """
     Generates a cropped, transparent PNG snapshot of an LDraw part file using LDView.
@@ -685,6 +697,7 @@ def generate(
         console.print(f"[dim]- ldview_path: {ldview_path_str}[/dim]")
         console.print(f"[dim]- ldraw_dir: {ldraw_dir_str}[/dim]")
         console.print(f"[dim]- all_angles: {all_angles}[/dim]")
+        console.print(f"[dim]- transparent_part: {transparent_part}[/dim]")
 
     # --- 1. Path Setup & Validation ---
     ldview_app_path = Path(ldview_path_str).expanduser()
@@ -749,7 +762,7 @@ def generate(
             _generate_single_image(
                 part_number, angle_output, width, height, constrain_width,
                 edge_thickness, line_thickness, False, view_latitude, angle,
-                camera_distance, ldview_executable, ldraw_dir, dry_run
+                camera_distance, ldview_executable, ldraw_dir, dry_run, transparent_part
             )
 
         # We've completed all angles
@@ -761,7 +774,7 @@ def generate(
     success = _generate_single_image(
         part_number, output_path, width, height, constrain_width,
         edge_thickness, line_thickness, False, view_latitude, view_longitude,
-        camera_distance, ldview_executable, ldraw_dir, dry_run
+        camera_distance, ldview_executable, ldraw_dir, dry_run, transparent_part
     )
 
     # Return appropriate exit code
