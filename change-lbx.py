@@ -658,14 +658,10 @@ def apply_compatibility_tweaks(root: Element, label_size: int) -> None:
     if paper_elem is not None:
         # Only update for 18mm and 24mm labels which need a compatible printer
         if label_size >= 18:
-            # Check if already set to a compatible printer
-            current_printer_id = paper_elem.get('printerID')
-            current_printer_name = paper_elem.get('printerName', '')
-
-            if current_printer_id != config.LARGE_FORMAT_PRINTER_ID or not current_printer_name.startswith("Brother PT-P7"):
-                paper_elem.set('printerID', config.LARGE_FORMAT_PRINTER_ID)
-                paper_elem.set('printerName', config.LARGE_FORMAT_PRINTER_NAME)
-                log_message(f"Updated printer to {config.LARGE_FORMAT_PRINTER_NAME} for compatibility with {label_size}mm tape")
+            # Always update printer ID and name for large format labels
+            paper_elem.set('printerID', config.LARGE_FORMAT_PRINTER_ID)
+            paper_elem.set('printerName', config.LARGE_FORMAT_PRINTER_NAME)
+            log_message(f"Updated printer to {config.LARGE_FORMAT_PRINTER_NAME} for compatibility with {label_size}mm tape")
 
 
 def save_lbx(tree: ElementTree, xml_path: str, output_file: str, temp_dir: str) -> None:
@@ -915,6 +911,8 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
             if options.get('force'):
                 log_message("Force option specified - continuing anyway", msg_class=MessageClass.WARNING)
             else:
+                # Apply compatibility tweaks before saving
+                apply_compatibility_tweaks(root, label_size)
                 save_lbx(tree, xml_path, output_file_path, temp_dir)
                 return
 
@@ -971,6 +969,9 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
             tweak_text(root)
         else:
             log_message("Skipping text tweaks (not requested)")
+
+        # Apply compatibility tweaks before saving
+        apply_compatibility_tweaks(root, label_size)
 
         # Save the modified file
         save_lbx(tree, xml_path, output_file_path, temp_dir)
