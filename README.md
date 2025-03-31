@@ -131,3 +131,150 @@ This requires LDView to be installed along with the LDraw library.
 ## License
 
 MIT
+
+# LBX Text Editor
+
+A Python utility for manipulating text in Brother P-Touch LBX label files. This tool allows you to edit, find, and replace text content in label files while preserving the required formatting structure for proper display in Brother P-Touch Editor.
+
+## Features
+
+- Extract and parse text objects from label.xml files in LBX containers
+- Edit text content while automatically updating character length tracking
+- Find and replace text across all text objects
+- Support for regular expression-based find and replace operations
+- Automated handling of string item character length attributes
+
+## Installation
+
+Clone this repository and ensure you have Python 3.6+ installed.
+
+```bash
+git clone https://github.com/yourusername/lbx-utils.git
+cd lbx-utils
+```
+
+No additional dependencies are required beyond the Python standard library.
+
+## Usage
+
+### Command Line Usage
+
+```bash
+# List all text objects in an LBX file
+python lbx-text-edit.py list input.lbx
+
+# Edit a specific text object
+python lbx-text-edit.py edit input.lbx -i 0 -t "New text" -o output.lbx
+
+# Find and replace text
+python lbx-text-edit.py replace input.lbx -f "Old text" -r "New text" -o output.lbx
+
+# Case-insensitive find and replace
+python lbx-text-edit.py replace input.lbx -f "text" -r "TEXT" -i -o output.lbx
+
+# Regular expression find and replace
+python lbx-text-edit.py replace input.lbx -f "(\d+)x(\d+)" -r "\1×\2" --regex -o output.lbx
+```
+
+### As a Library
+
+```python
+from lbx-text-edit import LBXTextEditor
+
+# Open an LBX file
+editor = LBXTextEditor()
+label_xml_path = editor.extract_from_lbx("input.lbx")
+editor.load(label_xml_path)
+
+# Get and edit text objects
+text_obj = editor.get_text_object_by_index(0)
+text_obj.edit_text("New text content")
+
+# Save changes back to a new LBX file
+editor.update_lbx("input.lbx", "output.lbx")
+```
+
+## Critical Format Requirements
+
+The Brother P-Touch label format has several requirements that must be maintained for labels to display correctly:
+
+1. Each `text:text` element MUST have one or more `text:stringItem` elements after `pt:data`
+2. Each `stringItem` needs a `charLen` attribute that matches the length of its text segment
+3. The sum of all `charLen` values must equal the length of the text in `pt:data`
+4. All `stringItems` must include their own `text:ptFontInfo` with font information
+5. The order of XML elements matters and must be preserved exactly
+6. If a text segment is removed, its corresponding `stringItem` must be removed or adjusted
+7. Special XML tags must be formatted exactly as expected by the Brother software
+
+This tool automatically handles these requirements when editing text, ensuring that your modified labels continue to work correctly in the Brother P-Touch Editor.
+
+## Examples
+
+### Convert dimension notation from "2x2" to "2×2"
+
+```bash
+python lbx-text-edit.py replace label.lbx -f "(\d+)x(\d+)" -r "\1×\2" --regex
+```
+
+### Add a suffix to all text objects
+
+```bash
+python lbx-text-edit.py replace label.lbx -f "^(.*)$" -r "\1 Brick" --regex
+```
+
+### Format part numbers
+
+```bash
+python lbx-text-edit.py replace label.lbx -f "(\d{4})(\d)?" -r "Part #\1-\2" --regex
+```
+
+# LBX Schema Documentation
+
+The `schema` directory contains XML Schema Definition (XSD) files and documentation for the Brother P-Touch LBX format based on reverse engineering. These files document the structure, elements, and requirements of the LBX format.
+
+## Schema Files
+
+- **lbx_label_schema.xsd**: Main schema for the label.xml structure
+- **lbx_text_schema.xsd**: Schema for text elements and formatting
+- **lbx_draw_schema.xsd**: Schema for drawing elements (frames, symbols, polygons)
+- **lbx_image_schema.xsd**: Schema for image elements (clipart, photos)
+- **lbx_unified_schema.xsd**: Master schema that imports all namespace-specific schemas
+
+## Features Documented
+
+- Vertical text support
+- Multiple text control modes (FREE, LONGTEXTFIXED, FIXEDFRAME)
+- Multiple copies of labels (4-up printing)
+- Portrait and landscape orientation
+- Mixed font sizes within text blocks
+- Decorative frames and custom shapes
+- Built-in clipart and symbols
+
+## Reference Documentation
+
+The `schema/LBX_SCHEMA_REFERENCE.md` file provides a comprehensive reference guide explaining:
+
+- The overall LBX file structure
+- Namespaces used in the format
+- Critical requirements for text editing
+- Examples of XML structures for various elements
+- Best practices for working with LBX files
+
+This documentation is especially useful for developers working on tools to manipulate Brother P-Touch label files programmatically.
+
+## License
+
+MIT License
+
+## Troubleshooting
+
+If modified labels aren't displaying correctly in Brother P-Touch Editor:
+
+1. Ensure you're using the latest version of this tool which properly preserves string items
+2. Check that string items' character lengths match the text content length
+3. Verify that the XML structure maintains the same element order as the original
+4. Use the `list` command to inspect the text objects and their string items
+
+## Contributing
+
+Contributions, bug reports, and feature requests are welcome!

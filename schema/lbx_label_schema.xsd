@@ -1,0 +1,994 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Brother P-Touch LBX Label XML Schema
+
+  This schema defines the structure of the label.xml file used in Brother P-Touch LBX label files.
+  The schema is based on reverse engineering the format as no official documentation is available.
+
+  Key findings and notes:
+  1. The format uses multiple XML namespaces to organize different aspects of the label
+  2. String items (text:stringItem) MUST be present below pt:data for text to display correctly
+  3. Each stringItem needs its own charLen attribute matching the length of the text segment
+  4. The sum of all charLen values must equal the length of the text in pt:data
+  5. Each stringItem must have its own text:ptFontInfo containing text:logFont and text:fontExt
+  6. Order of elements is important and must be preserved
+  7. Self-closing tags vs. explicit end tags may affect parsing in the Brother software
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:pt="http://schemas.brother.info/ptouch/2007/lbx/main"
+           xmlns:style="http://schemas.brother.info/ptouch/2007/lbx/style"
+           xmlns:text="http://schemas.brother.info/ptouch/2007/lbx/text"
+           xmlns:draw="http://schemas.brother.info/ptouch/2007/lbx/draw"
+           xmlns:image="http://schemas.brother.info/ptouch/2007/lbx/image"
+           xmlns:barcode="http://schemas.brother.info/ptouch/2007/lbx/barcode"
+           xmlns:database="http://schemas.brother.info/ptouch/2007/lbx/database"
+           xmlns:table="http://schemas.brother.info/ptouch/2007/lbx/table"
+           xmlns:cable="http://schemas.brother.info/ptouch/2007/lbx/cable"
+           elementFormDefault="qualified"
+           targetNamespace="http://schemas.brother.info/ptouch/2007/lbx/main">
+
+  <!-- Import other namespaces -->
+  <xs:import namespace="http://schemas.brother.info/ptouch/2007/lbx/style" schemaLocation="lbx_style_schema.xsd"/>
+  <xs:import namespace="http://schemas.brother.info/ptouch/2007/lbx/text" schemaLocation="lbx_text_schema.xsd"/>
+  <xs:import namespace="http://schemas.brother.info/ptouch/2007/lbx/image" schemaLocation="lbx_image_schema.xsd"/>
+
+  <!-- Root document element -->
+  <xs:element name="document">
+    <xs:annotation>
+      <xs:documentation>
+        The root element of a Brother P-Touch label document.
+        Contains version information and the entire label structure.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="pt:body"/>
+      </xs:sequence>
+      <xs:attribute name="version" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            The version of the P-Touch label format. Common values are "1.7" and "1.9".
+            Must match the version supported by the target printer.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="generator" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            The software that generated this label file.
+            Example: "P-touch Editor 5.4.014 Windows"
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Body element containing sheets -->
+  <xs:element name="body">
+    <xs:annotation>
+      <xs:documentation>
+        Contains all the sheets (pages) in the label document.
+        A label typically has only one sheet.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="style:sheet" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="currentSheet" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            The name of the currently active sheet. Usually "Sheet 1".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="direction" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Text direction. LTR (left-to-right) or RTL (right-to-left).
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="LTR"/>
+            <xs:enumeration value="RTL"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Define objects container -->
+  <xs:element name="objects">
+    <xs:annotation>
+      <xs:documentation>
+        Container for all objects on the label, such as text and images.
+        The order of objects is important as it defines layering.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element ref="text:text"/>
+        <xs:element ref="image:image"/>
+        <!-- Other object types can be added here -->
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Object style common attributes -->
+  <xs:element name="objectStyle">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the positioning and appearance of an object on the label.
+        Used by both text and image objects.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="pt:pen"/>
+        <xs:element ref="pt:brush"/>
+        <xs:element ref="pt:expanded"/>
+      </xs:sequence>
+      <xs:attribute name="x" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            X-coordinate of the object in points (pt) from the left edge.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="y" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Y-coordinate of the object in points (pt) from the top edge.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="width" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Width of the object in points (pt).
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="height" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Height of the object in points (pt).
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="backColor" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Background color in hexadecimal RGB format (e.g., "#FFFFFF" for white).
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="backPrintColorNumber" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Printer color number for the background.
+            Typically "0" for no color or white.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="ropMode" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Raster operation mode. Typically "COPYPEN".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="angle" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Rotation angle in degrees. Usually "0".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="anchor" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Anchor point for positioning. Usually "TOPLEFT".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="TOPLEFT"/>
+            <xs:enumeration value="TOPCENTER"/>
+            <xs:enumeration value="TOPRIGHT"/>
+            <xs:enumeration value="MIDDLELEFT"/>
+            <xs:enumeration value="MIDDLECENTER"/>
+            <xs:enumeration value="MIDDLERIGHT"/>
+            <xs:enumeration value="BOTTOMLEFT"/>
+            <xs:enumeration value="BOTTOMCENTER"/>
+            <xs:enumeration value="BOTTOMRIGHT"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="flip" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Flip orientation. Usually "NONE".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="NONE"/>
+            <xs:enumeration value="HORIZONTAL"/>
+            <xs:enumeration value="VERTICAL"/>
+            <xs:enumeration value="BOTH"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Pen element for object strokes -->
+  <xs:element name="pen">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the stroke/border of an object.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="style" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Pen style. Typically "NULL" for no border.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="widthX" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Horizontal width of the pen stroke in points.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="widthY" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Vertical width of the pen stroke in points.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="color" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Color of the pen in hexadecimal RGB format.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="printColorNumber" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Printer color number for the pen. Usually "1".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Brush element for object fills -->
+  <xs:element name="brush">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the fill style and color of an object.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="style" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Brush style. Typically "NULL" for no fill.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="color" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Fill color in hexadecimal RGB format.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="printColorNumber" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Printer color number for the fill. Usually "1".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="id" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Brush identifier. Usually "0".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Expanded properties for objects -->
+  <xs:element name="expanded">
+    <xs:annotation>
+      <xs:documentation>
+        Additional properties for objects like name, ID, and locking.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="objectName" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Name of the object. Example: "Text22" for text, "Image23" for images.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="ID" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Unique identifier for the object. Usually "0".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="lock" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Lock state of the object. "0" for unlocked, "2" for locked.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="templateMergeTarget" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Template merge target. Usually "LABELLIST".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="templateMergeType" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Template merge type. Usually "NONE".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="templateMergeID" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Template merge ID. Usually "0".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="linkStatus" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Link status. Usually "NONE".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="linkID" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Link ID. Usually "0".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Data element for text content -->
+  <xs:element name="data">
+    <xs:annotation>
+      <xs:documentation>
+        Holds the actual text content of a text object.
+        This is the raw text that will appear on the label.
+        CRITICAL: This must be followed by stringItem elements that
+        divide the text into segments with specific formatting.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:simpleType>
+      <xs:restriction base="xs:string"/>
+    </xs:simpleType>
+  </xs:element>
+
+  <!-- Import additional namespace schemas -->
+  <xs:import namespace="http://schemas.brother.info/ptouch/2007/lbx/draw" schemaLocation="lbx_draw_schema.xsd"/>
+
+  <!-- New elements found in 8mm-vertical.lbx and 4-up-smoking.lbx -->
+
+  <!-- Note on new findings:
+       The 8mm-vertical.lbx template includes:
+       1. Vertical text (with text:textStyle vertical="true")
+       2. Different text control mode (LONGTEXTFIXED)
+       3. Draw:frame element for decorative frames
+       4. Draw:symbol element for specialized symbols
+       5. Draw:poly element for custom polygons/shapes
+       6. Portrait orientation (style:paper orientation="portrait")
+
+       The 4-up-smoking.lbx template includes:
+       1. Multiple copies of same label (split="4")
+       2. Image:clipart elements for built-in clipart
+       3. Specialized text formatting with multiple string items per newline
+       4. Different font sizes within same text block
+       5. Brush with PATTERN style
+       6. Negative positioning (x="-1.3pt") for elements that extend beyond margins
+  -->
+
+  <!-- Paper element definitions updated with findings -->
+  <xs:element name="paper">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the paper/label size, margins, and orientation.
+        The 'split' attribute indicates how many copies of the label to print (1-4).
+        The 'orientation' can be 'landscape' or 'portrait'.
+        The 'autoLength' setting determines if the label length is automatically adjusted.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="media" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Media type identifier. Usually "0".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="width" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Width of the label in points. For narrow tapes (like 8mm), this will be a small value like "9.6pt".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="height" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Height of the label in points. For fixed-length labels, this specifies the exact length.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="marginLeft" type="xs:string" use="required"/>
+      <xs:attribute name="marginTop" type="xs:string" use="required"/>
+      <xs:attribute name="marginRight" type="xs:string" use="required"/>
+      <xs:attribute name="marginBottom" type="xs:string" use="required"/>
+      <xs:attribute name="orientation" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Paper orientation. "landscape" or "portrait".
+            For narrow tapes (like 8mm), "portrait" often makes more sense for vertical text.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="landscape"/>
+            <xs:enumeration value="portrait"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="autoLength" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to automatically adjust label length. "true" or "false".
+            Fixed-length labels will have this set to "false".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="monochromeDisplay" type="xs:string" use="required"/>
+      <xs:attribute name="printColorDisplay" type="xs:string" use="required"/>
+      <xs:attribute name="printColorsID" type="xs:string" use="required"/>
+      <xs:attribute name="paperColor" type="xs:string" use="required"/>
+      <xs:attribute name="paperInk" type="xs:string" use="required"/>
+      <xs:attribute name="split" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Number of copies to print on a single sheet. Values range from 1 to 4.
+            When greater than 1, the label will be duplicated (e.g., 2×2 grid for split="4").
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="format" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Format code for the label. Different values correspond to different label types:
+            - 259: Standard label
+            - 263: 8mm label in portrait orientation
+            - 293: Multi-label layout (split="4")
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="backgroundTheme" type="xs:string" use="required"/>
+      <xs:attribute name="printerID" type="xs:string" use="required"/>
+      <xs:attribute name="printerName" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Brush element updated with additional styles -->
+  <xs:element name="brush">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the fill style and color of an object.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="style" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Brush style. Options include:
+            - "NULL": No fill
+            - "PATTERN": Pattern fill (requires additional pattern attributes)
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="NULL"/>
+            <xs:enumeration value="PATTERN"/>
+            <!-- Additional brush styles can be added here as they are discovered -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="color" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Fill color in hexadecimal RGB format.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="printColorNumber" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Printer color number for the fill. Usually "1".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="id" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Brush identifier. Usually "0" or "1".
+            The same id may be reused across multiple elements to indicate they share the same fill style.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- New definition for draw:frame element -->
+  <xs:element name="frame" xmlns:draw="http://schemas.brother.info/ptouch/2007/lbx/draw">
+    <xs:annotation>
+      <xs:documentation>
+        Decorative frame element that can be placed around content.
+        Used in 8mm-vertical.lbx for creating a border.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="pt:objectStyle"/>
+        <xs:element ref="draw:frameStyle"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Style for frame elements -->
+  <xs:element name="frameStyle" xmlns:draw="http://schemas.brother.info/ptouch/2007/lbx/draw">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the style for a decorative frame.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="category" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Frame category, typically "SIMPLE".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="SIMPLE"/>
+            <!-- Other categories can be added here as discovered -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="style" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Frame style number. Different values create different frame styles. Example: "2".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="stretchCenter" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to stretch the center of the frame. Usually "true".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- New definition for draw:symbol element -->
+  <xs:element name="symbol" xmlns:draw="http://schemas.brother.info/ptouch/2007/lbx/draw">
+    <xs:annotation>
+      <xs:documentation>
+        Symbol element for inserting predefined symbols and dingbats.
+        Used in both templates to insert special symbols like warning signs.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="pt:objectStyle"/>
+        <xs:element ref="draw:symbolStyle"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Style for symbol elements -->
+  <xs:element name="symbolStyle" xmlns:draw="http://schemas.brother.info/ptouch/2007/lbx/draw">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the style for a symbol.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="fontName" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Name of the symbol font. Example: "PT Dingbats 1".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="code" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Character code for the symbol. This corresponds to a specific symbol in the font.
+            Examples:
+            - "33": Used in 8mm-vertical.lbx (possibly a warning symbol)
+            - "47": Used in 4-up-smoking.lbx (possibly a specific smoking-related symbol)
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- New definition for draw:poly element -->
+  <xs:element name="poly" xmlns:draw="http://schemas.brother.info/ptouch/2007/lbx/draw">
+    <xs:annotation>
+      <xs:documentation>
+        Polygon/polyline element for custom shapes.
+        Used in 8mm-vertical.lbx to create a custom arrow shape.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="pt:objectStyle"/>
+        <xs:element ref="draw:polyStyle"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Style for polygon elements -->
+  <xs:element name="polyStyle" xmlns:draw="http://schemas.brother.info/ptouch/2007/lbx/draw">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the style for a polygon.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="draw:polyOrgPos"/>
+        <xs:element ref="draw:polyLinePoints"/>
+      </xs:sequence>
+      <xs:attribute name="shape" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Shape type. Example: "POLYGON".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="POLYGON"/>
+            <!-- Other shapes can be added here as discovered -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="arrowBegin" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Arrow style at the beginning. Example: "SQUARE".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="SQUARE"/>
+            <!-- Other arrow styles can be added here as discovered -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="arrowEnd" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Arrow style at the end. Example: "SQUARE".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="SQUARE"/>
+            <!-- Other arrow styles can be added here as discovered -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Original position for polygon -->
+  <xs:element name="polyOrgPos" xmlns:draw="http://schemas.brother.info/ptouch/2007/lbx/draw">
+    <xs:annotation>
+      <xs:documentation>
+        Original position and dimensions of the polygon.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="x" type="xs:string" use="required"/>
+      <xs:attribute name="y" type="xs:string" use="required"/>
+      <xs:attribute name="width" type="xs:string" use="required"/>
+      <xs:attribute name="height" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Points for polygon -->
+  <xs:element name="polyLinePoints" xmlns:draw="http://schemas.brother.info/ptouch/2007/lbx/draw">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the points that make up the polygon.
+        Format is a space-separated list of "x,y" coordinate pairs.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="points" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Example: "2pt,59.3pt 6.8pt,56.5pt 7pt,62.5pt 4.3pt,62.5pt"
+            This defines a polygon with 4 vertices.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- New definition for image:clipart element -->
+  <xs:element name="clipart" xmlns:image="http://schemas.brother.info/ptouch/2007/lbx/image">
+    <xs:annotation>
+      <xs:documentation>
+        Clipart element for built-in vector graphics.
+        Used in 4-up-smoking.lbx to include the "No Smoking" symbol.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="pt:objectStyle"/>
+        <xs:element ref="image:clipartStyle"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Style for clipart elements -->
+  <xs:element name="clipartStyle" xmlns:image="http://schemas.brother.info/ptouch/2007/lbx/image">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the style for clipart.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="image:category" minOccurs="0"/>
+      </xs:sequence>
+      <xs:attribute name="originalName" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Original name of the clipart. Example: "BEC,SIGN,18,18".
+            This references a specific clipart in the Brother library.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="alignInText" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Alignment of the clipart within text. Usually "LEFT".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="LEFT"/>
+            <xs:enumeration value="CENTER"/>
+            <xs:enumeration value="RIGHT"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="firstMerge" type="xs:string" use="optional">
+        <xs:annotation>
+          <xs:documentation>
+            Whether this is the first merge. Optional attribute.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Clipart category -->
+  <xs:element name="category" xmlns:image="http://schemas.brother.info/ptouch/2007/lbx/image">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the category for clipart.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="categoryId" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            ID of the clipart category. Example: "229" for warning signs.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="categoryName" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Name of the clipart category. Can be empty.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Update to Text Control element for vertical text and different modes -->
+  <xs:element name="textControl" xmlns:text="http://schemas.brother.info/ptouch/2007/lbx/text">
+    <xs:annotation>
+      <xs:documentation>
+        Defines text control settings like wrapping and sizing behavior.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="control" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Text control mode. Options include:
+            - "FREE": Standard free-flowing text
+            - "LONGTEXTFIXED": Used for vertical text in 8mm-vertical.lbx
+            - "FIXEDFRAME": Used for text in fixed frames in 4-up-smoking.lbx
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="FREE"/>
+            <xs:enumeration value="LONGTEXTFIXED"/>
+            <xs:enumeration value="FIXEDFRAME"/>
+            <!-- Other control types can be added here as discovered -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <!-- Other attributes remain the same -->
+      <xs:attribute name="clipFrame" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="aspectNormal" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="shrink" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="autoLF" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="avoidImage" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Update to Text Style element for vertical text -->
+  <xs:element name="textStyle" xmlns:text="http://schemas.brother.info/ptouch/2007/lbx/text">
+    <xs:annotation>
+      <xs:documentation>
+        Defines text styling properties including vertical text orientation.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="vertical" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether the text is vertical (top-to-bottom).
+            Set to "true" for vertical text as in 8mm-vertical.lbx.
+            Set to "false" for horizontal text.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <!-- Other attributes remain the same -->
+      <xs:attribute name="nullBlock" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="charSpace" type="xs:string" use="required"/>
+      <xs:attribute name="lineSpace" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Line spacing. Can be "0" for normal, "-10" for reduced, or "-25" for very tight.
+            The 4-up-smoking.lbx uses "-25" for tighter spacing.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="orgPoint" type="xs:string" use="required"/>
+      <xs:attribute name="combinedChars" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Note about pen element styles -->
+  <xs:element name="pen">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the stroke/border of an object.
+        The style attribute can be "NULL" (no border) or "INSIDEFRAME" (border inside the frame).
+        The INSIDEFRAME style is used in both new templates for frames, symbols, and polygons.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="style" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="NULL"/>
+            <xs:enumeration value="INSIDEFRAME"/>
+            <!-- Other pen styles can be added here as discovered -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="widthX" type="xs:string" use="required"/>
+      <xs:attribute name="widthY" type="xs:string" use="required"/>
+      <xs:attribute name="color" type="xs:string" use="required"/>
+      <xs:attribute name="printColorNumber" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
