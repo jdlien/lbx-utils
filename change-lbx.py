@@ -23,7 +23,7 @@ python3 change-lbx.py label.lbx label-24mm.lbx -f 14 -l 24 -c -s 1.5 -m 0.5
 Text editing examples:
 - Convert dimension notation (2x2 to 2×2): --text-tweaks
 - Find and replace: --find "old text" --replace "new text"
-- Regex replacement: --find r"(\d+)x(\d+)" --replace r"\1×\2" --regex
+- Regex replacement: --find r"(\\d+)x(\\d+)" --replace r"\\1×\\2" --regex
 - Case-insensitive search: --find "Text" --replace "NEW TEXT" --ignore-case
 - Compact multi-line text: automatically combines first two lines with a space when text has more than two lines (enabled by default with --text-tweaks)
 
