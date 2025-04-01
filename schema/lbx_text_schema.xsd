@@ -96,13 +96,16 @@
     <xs:annotation>
       <xs:documentation>
         Defines the basic font properties like family, weight, and style.
+
+        CRITICAL: For compatibility with P-Touch Editor, use name="Helsinki" and pitchAndFamily="2".
+        Using other fonts may cause the editor to crash when opening the file.
       </xs:documentation>
     </xs:annotation>
     <xs:complexType>
       <xs:attribute name="name" type="xs:string" use="required">
         <xs:annotation>
           <xs:documentation>
-            Font family name. Example: "Arial", "Comic Sans MS".
+            Font family name. Use "Helsinki" for maximum compatibility with P-Touch Editor.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -143,7 +146,8 @@
       <xs:attribute name="pitchAndFamily" type="xs:string" use="required">
         <xs:annotation>
           <xs:documentation>
-            Font pitch and family. "2" or "34" depending on printer model.
+            Font pitch and family. For compatibility, use "2" when using the Helsinki font.
+            The value "34" is often used with other fonts but may cause compatibility issues.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -155,6 +159,9 @@
     <xs:annotation>
       <xs:documentation>
         Defines extended font properties like effects, size, and color.
+
+        CRITICAL: For compatibility with P-Touch Editor, use size="21.7pt" and orgSize="28.8pt".
+        Using other font sizes may cause the editor to crash when opening the file.
       </xs:documentation>
     </xs:annotation>
     <xs:complexType>
@@ -190,15 +197,17 @@
       <xs:attribute name="size" type="xs:string" use="required">
         <xs:annotation>
           <xs:documentation>
-            Font size with unit. Example: "8pt".
-            In 4-up-smoking.lbx, multiple text blocks with different sizes (6pt, 8pt, etc.) are used.
+            Font size with unit. For maximum compatibility, use "21.7pt".
+            Other commonly used sizes include 6pt, 8pt, and 12pt, but default to
+            21.7pt for best compatibility with P-Touch Editor.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="orgSize" type="xs:string" use="required">
         <xs:annotation>
           <xs:documentation>
-            Original size for reference. Usually 3.6x the size. Example: "28.8pt" for "8pt".
+            Original size for reference. Use "28.8pt" for maximum compatibility.
+            Usually 3.6x the size for other values when needed.
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -224,6 +233,9 @@
     <xs:annotation>
       <xs:documentation>
         Defines text control settings like wrapping and sizing behavior.
+
+        CRITICAL: For compatibility with P-Touch Editor, use control="AUTOLEN" and autoLF="false".
+        Using control="FREE" or autoLF="true" may cause the editor to crash when opening the file.
       </xs:documentation>
     </xs:annotation>
     <xs:complexType>
@@ -231,7 +243,8 @@
         <xs:annotation>
           <xs:documentation>
             Text control mode. Options include:
-            - FREE: Standard text flow with automatic wrapping.
+            - AUTOLEN: Preferred for P-Touch Editor compatibility
+            - FREE: Standard text flow with automatic wrapping, may cause issues when opening files
             - LONGTEXTFIXED: Used for vertical text in 8mm-vertical.lbx, creates vertical flow.
             - FIXEDFRAME: Used in 4-up-smoking.lbx, constrains text to a fixed frame.
           </xs:documentation>
@@ -239,6 +252,7 @@
         <xs:simpleType>
           <xs:restriction base="xs:string">
             <xs:enumeration value="FREE"/>
+            <xs:enumeration value="AUTOLEN"/>
             <xs:enumeration value="LONGTEXTFIXED"/>
             <xs:enumeration value="FIXEDFRAME"/>
             <!-- Other control types discovered in samples -->
@@ -294,6 +308,10 @@
         <xs:annotation>
           <xs:documentation>
             Whether to automatically break lines to fit within the frame width.
+
+            CRITICAL: For compatibility with P-Touch Editor, use autoLF="false".
+            Setting autoLF="true" may cause the editor to crash when opening the file.
+
             - "true": Add line breaks automatically.
             - "false": Only break at explicit newlines.
           </xs:documentation>
@@ -328,6 +346,9 @@
     <xs:annotation>
       <xs:documentation>
         Defines text alignment settings.
+
+        CRITICAL: For compatibility with P-Touch Editor, use verticalAlignment="TOP" rather than "CENTER".
+        Using "CENTER" may cause the editor to crash when opening the file.
       </xs:documentation>
     </xs:annotation>
     <xs:complexType>
@@ -351,6 +372,9 @@
         <xs:annotation>
           <xs:documentation>
             Vertical text alignment.
+
+            CRITICAL: For compatibility with P-Touch Editor, prefer "TOP" rather than "CENTER".
+
             For vertical text (textStyle vertical="true"), this actually controls horizontal positioning.
           </xs:documentation>
         </xs:annotation>

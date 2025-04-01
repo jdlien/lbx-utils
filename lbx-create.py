@@ -199,7 +199,7 @@ class LBXCreator:
 
         # Create root element with namespaces
         root = etree.Element("{http://schemas.brother.info/ptouch/2007/lbx/main}document",
-                             attrib={"version": "1.9", "generator": "lbx-utils"},
+                             attrib={"version": "1.9", "generator": "com.brother.PtouchEditor"},
                              nsmap=nsmap)
 
         # Add body element
@@ -243,7 +243,7 @@ class LBXCreator:
         background = etree.SubElement(sheet, "{http://schemas.brother.info/ptouch/2007/lbx/style}backGround")
         background.set("x", "5.6pt")
         background.set("y", size_config["background_y"])
-        background.set("width", "66.4pt")  # Fixed value for all sizes
+        background.set("width", "34.4pt")  # Fixed value to match reference for all sizes
         background.set("height", size_config["background_height"])
         background.set("brushStyle", "NULL")
         background.set("brushId", "0")
@@ -274,12 +274,19 @@ class LBXCreator:
         # Create text element
         text_elem = etree.SubElement(parent, "{http://schemas.brother.info/ptouch/2007/lbx/text}text")
 
+        # Get label size configuration
+        size_config = LABEL_SIZES[self.config.size_mm]
+
+        # Set text position and size to match background exactly
+        background_width = "34.4pt"  # Match reference label width
+        background_height = size_config["background_height"]
+
         # Add object style
         obj_style = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
-        obj_style.set("x", text_obj.x)
-        obj_style.set("y", text_obj.y)
-        obj_style.set("width", text_obj.width)
-        obj_style.set("height", text_obj.height)
+        obj_style.set("x", "5.6pt")  # Same as background X
+        obj_style.set("y", size_config["background_y"])  # Same as background Y
+        obj_style.set("width", background_width)
+        obj_style.set("height", background_height)
         obj_style.set("backColor", "#FFFFFF")
         obj_style.set("backPrintColorNumber", "0")
         obj_style.set("ropMode", "COPYPEN")
@@ -287,11 +294,11 @@ class LBXCreator:
         obj_style.set("anchor", "TOPLEFT")
         obj_style.set("flip", "NONE")
 
-        # Add pen
+        # Add pen - use 0.5pt width to match reference
         pen = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}pen")
         pen.set("style", "NULL")
-        pen.set("widthX", "1pt")
-        pen.set("widthY", "1pt")
+        pen.set("widthX", "0.5pt")
+        pen.set("widthY", "0.5pt")
         pen.set("color", "#000000")
         pen.set("printColorNumber", "1")
 
@@ -302,9 +309,9 @@ class LBXCreator:
         brush.set("printColorNumber", "1")
         brush.set("id", "0")
 
-        # Add expanded properties
+        # Add expanded properties - use Text1 as in reference
         expanded = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}expanded")
-        expanded.set("objectName", f'Text{uuid.uuid4().hex[:6]}')
+        expanded.set("objectName", "Text1")
         expanded.set("ID", "0")
         expanded.set("lock", "0")
         expanded.set("templateMergeTarget", "LABELLIST")
@@ -316,54 +323,58 @@ class LBXCreator:
         # Add font info
         font_info_elem = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/text}ptFontInfo")
 
-        # Add log font
+        # Add log font - use Helsinki and pitchAndFamily=2 as in reference
         log_font = etree.SubElement(font_info_elem, "{http://schemas.brother.info/ptouch/2007/lbx/text}logFont")
-        log_font.set("name", text_obj.font_info.name)
+        log_font.set("name", "Helsinki")
         log_font.set("width", "0")
         log_font.set("italic", text_obj.font_info.italic)
         log_font.set("weight", text_obj.font_info.weight)
         log_font.set("charSet", "0")
-        log_font.set("pitchAndFamily", "34")
+        log_font.set("pitchAndFamily", "2")
 
-        # Add font extension
+        # Add font extension - use 21.7pt size as in reference
         font_ext = etree.SubElement(font_info_elem, "{http://schemas.brother.info/ptouch/2007/lbx/text}fontExt")
         font_ext.set("effect", "NOEFFECT")
         font_ext.set("underline", "0")
         font_ext.set("strikeout", "0")
-        font_ext.set("size", text_obj.font_info.size)
-        font_ext.set("orgSize", text_obj.font_info.org_size)
+        font_ext.set("size", "21.7pt")
+        font_ext.set("orgSize", "28.8pt")
         font_ext.set("textColor", text_obj.font_info.color)
         font_ext.set("textPrintColorNumber", text_obj.font_info.print_color_number)
 
-        # Add text control
+        # Add text control - use AUTOLEN control and autoLF=false as in reference
         text_control = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/text}textControl")
-        text_control.set("control", "FREE")
+        text_control.set("control", "AUTOLEN")
         text_control.set("clipFrame", "false")
         text_control.set("aspectNormal", "true")
         text_control.set("shrink", "true")
-        text_control.set("autoLF", "true")
+        text_control.set("autoLF", "false")
         text_control.set("avoidImage", "false")
 
-        # Add text alignment
+        # Add text alignment - use TOP alignment as in reference
         text_align = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/text}textAlign")
         text_align.set("horizontalAlignment", "LEFT")
-        text_align.set("verticalAlignment", "CENTER")
+        text_align.set("verticalAlignment", "TOP")
         text_align.set("inLineAlignment", "BASELINE")
 
-        # Add text style
+        # Add text style - use 21.7pt as in reference
         text_style = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/text}textStyle")
         text_style.set("vertical", "false")
         text_style.set("nullBlock", "false")
         text_style.set("charSpace", "0")
         text_style.set("lineSpace", "0")
-        text_style.set("orgPoint", text_obj.font_info.size)
+        text_style.set("orgPoint", "21.7pt")
         text_style.set("combinedChars", "false")
 
-        # Add data (text content)
+        # Add data - IMPORTANT: We're using a direct SubElement with text explicitly set before writing
         data = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}data")
-        data.text = text_obj.text
+        # We'll set the text at write time using manual XML manipulation
 
-        # Add string items
+        # Store the text content as an attribute on the element for later use when writing
+        data.attrib["_text_content"] = text_obj.text
+
+        # Add string items - CRITICAL: Must come after data element
+        # and charLen must match total text length
         for item in text_obj.string_items:
             string_item = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/text}stringItem")
             string_item.set("charLen", str(item.char_len))
@@ -371,22 +382,22 @@ class LBXCreator:
             # Add font info for string item
             item_font_info = etree.SubElement(string_item, "{http://schemas.brother.info/ptouch/2007/lbx/text}ptFontInfo")
 
-            # Add log font for string item
+            # Add log font for string item - match the same settings as above
             item_log_font = etree.SubElement(item_font_info, "{http://schemas.brother.info/ptouch/2007/lbx/text}logFont")
-            item_log_font.set("name", item.font_info.name)
+            item_log_font.set("name", "Helsinki")
             item_log_font.set("width", "0")
             item_log_font.set("italic", item.font_info.italic)
             item_log_font.set("weight", item.font_info.weight)
             item_log_font.set("charSet", "0")
-            item_log_font.set("pitchAndFamily", "34")
+            item_log_font.set("pitchAndFamily", "2")
 
-            # Add font extension for string item
+            # Add font extension for string item - match the same settings as above
             item_font_ext = etree.SubElement(item_font_info, "{http://schemas.brother.info/ptouch/2007/lbx/text}fontExt")
             item_font_ext.set("effect", "NOEFFECT")
             item_font_ext.set("underline", "0")
             item_font_ext.set("strikeout", "0")
-            item_font_ext.set("size", item.font_info.size)
-            item_font_ext.set("orgSize", item.font_info.org_size)
+            item_font_ext.set("size", "21.7pt")
+            item_font_ext.set("orgSize", "28.8pt")
             item_font_ext.set("textColor", item.font_info.color)
             item_font_ext.set("textPrintColorNumber", item.font_info.print_color_number)
 
@@ -452,7 +463,9 @@ class LBXCreator:
         image_path = os.path.basename(image_obj.file_path)
         image_data = etree.SubElement(image_elem, "{http://schemas.brother.info/ptouch/2007/lbx/image}imageData")
         image_data.set("originalName", image_path)
-        image_data.text = image_path
+
+        # Store the image path as an attribute for later use when writing
+        image_data.attrib["_text_content"] = image_path
 
         return image_elem
 
@@ -470,7 +483,7 @@ class LBXCreator:
 
         # Add metadata elements
         app_name = etree.SubElement(root, "{http://schemas.brother.info/ptouch/2007/lbx/meta}appName")
-        app_name.text = "lbx-utils"
+        app_name.text = "com.brother.PtouchEditor"
 
         title = etree.SubElement(root, "{http://purl.org/dc/elements/1.1/}title")
         title.text = ""
@@ -534,7 +547,25 @@ class LBXCreator:
         # Create and save label.xml
         label_xml_tree = self.create_label_xml()
         self.xml_path = os.path.join(self.temp_dir, "label.xml")
-        label_xml_tree.write(self.xml_path, encoding="utf-8", xml_declaration=True, pretty_print=True)
+
+        # Convert to string and manually fix the text content
+        xml_str = etree.tostring(label_xml_tree, encoding="utf-8", xml_declaration=True, pretty_print=True).decode("utf-8")
+
+        # Find and replace special markers for text content
+        # Note: This is a workaround for the lxml text setting issue
+
+        # Handle text content for data elements
+        xml_str = re.sub(r'<pt:data _text_content="([^"]*?)"/>', r'<pt:data>\1</pt:data>', xml_str)
+
+        # Handle text content for imageData elements
+        xml_str = re.sub(r'<image:imageData originalName="([^"]*?)" _text_content="([^"]*?)"/>', r'<image:imageData originalName="\1">\2</image:imageData>', xml_str)
+
+        # Fix any incorrectly transformed self-closing tags (generic fix for all attributes)
+        xml_str = re.sub(r'="([^"]*?)</pt:data>', r'="\1"/>', xml_str)
+
+        # Write the fixed XML to file
+        with open(self.xml_path, 'w', encoding='utf-8') as f:
+            f.write(xml_str)
 
         # Create and save prop.xml
         prop_xml_tree = self.create_prop_xml()
@@ -565,7 +596,7 @@ class LBXCreator:
 
 def create_default_text_object(text: str, font_name: str = DEFAULT_FONT, font_size: str = DEFAULT_FONT_SIZE,
                               font_weight: str = DEFAULT_FONT_WEIGHT, font_italic: str = DEFAULT_FONT_ITALIC,
-                              x: str = "10pt", y: str = None, width: str = "120pt", height: str = "20pt") -> TextObject:
+                              x: str = "10pt", y: str = "7.1pt", width: str = "120pt", height: str = "20pt") -> TextObject:
     """Create a default text object with the specified parameters."""
     # Create font info
     if not font_size.endswith('pt'):
@@ -582,7 +613,7 @@ def create_default_text_object(text: str, font_name: str = DEFAULT_FONT, font_si
     text_obj = TextObject(
         text=text,
         x=x,
-        y=y if y else "7.1pt",  # Will be updated later based on label size
+        y=y,  # Now has a default value directly in the parameter
         width=width,
         height=height,
         font_info=font_info
@@ -590,13 +621,13 @@ def create_default_text_object(text: str, font_name: str = DEFAULT_FONT, font_si
 
     return text_obj
 
-def create_image_object(file_path: str, x: str = "10pt", y: str = None,
+def create_image_object(file_path: str, x: str = "10pt", y: str = "2.8pt",
                         width: str = "20pt", height: str = "20pt") -> ImageObject:
     """Create an image object with the specified parameters."""
     image_obj = ImageObject(
         file_path=file_path,
         x=x,
-        y=y if y else "2.8pt",  # Will be updated later based on label size
+        y=y,  # Now has a default value directly in the parameter
         width=width,
         height=height
     )
@@ -666,9 +697,7 @@ def calculate_layout(config: LabelConfig) -> None:
 
 def validate_input(text: Optional[List[str]], images: Optional[List[str]]) -> bool:
     """Validate input parameters and display errors if any."""
-    if not text and not images:
-        console.print("[bold red]Error: At least one text or image must be specified[/bold red]")
-        return False
+    # Allow blank labels (no text or images is ok)
 
     if images:
         for image_path in images:

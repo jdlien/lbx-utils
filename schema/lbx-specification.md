@@ -242,6 +242,14 @@ When converting between label sizes:
 
 - **Solution**: Update the printerName to a larger printer model.
 
+### 8.4 Blank Labels
+
+- **Issue**: Creating blank labels (with no text or images) requires the proper XML structure
+- **Solution**: Ensure that the `pt:objects` element is correctly included even when empty
+- **Solution**: Maintain proper XML namespaces, attributes, and formatting as provided in templates
+- **Solution**: Use the Brother P-Touch Editor's default generator value: `generator="com.brother.PtouchEditor"`
+- **Solution**: Set the `meta:appName` value to match the generator: `com.brother.PtouchEditor`
+
 ## 9. Implementation Notes
 
 For optimal compatibility:
@@ -252,6 +260,99 @@ For optimal compatibility:
 4. Test with both older and newer P-touch Editor versions
 5. Update metadata in prop.xml when making significant changes
 6. Ensure object Y-positions match the expected values for the target tape size
+
+## 10. Critical XML Structure Requirements
+
+The LBX file format has several critical requirements that must be followed to ensure compatibility with Brother P-Touch Editor:
+
+### 10.1 Element Order and Hierarchy
+
+The order of elements in the XML is extremely important and strictly enforced by the P-Touch Editor. Changing the order will cause the application to crash.
+
+For text elements, the correct order is:
+
+1. objectStyle (with pen, brush, expanded child elements)
+2. ptFontInfo (with logFont and fontExt child elements)
+3. textControl
+4. textAlign
+5. textStyle
+6. data (containing the actual text content)
+7. stringItem (one or more elements for text formatting)
+
+For image elements, the correct order is:
+
+1. objectStyle (with pen, brush, expanded child elements)
+2. imageStyle
+3. imageData (containing the image path)
+
+### 10.2 Text Content Requirements
+
+1. **Text Content Handling**: When creating text elements, the text content must be properly enclosed within the `<pt:data>` element as its content, not as an attribute:
+
+   ```xml
+   <!-- CORRECT -->
+   <pt:data>Your text here</pt:data>
+
+   <!-- INCORRECT -->
+   <pt:data text="Your text here" />
+   ```
+
+2. **String Item Length**: Each `stringItem` element must have a `charLen` attribute that precisely matches the length of the corresponding text segment. The sum of all `charLen` values must exactly equal the total length of the text in the `data` element.
+
+3. **Data Before StringItem**: The `data` element must always come before any `stringItem` elements in the XML structure.
+
+### 10.3 Image Content Requirements
+
+1. **Image Path**: The image path should be stored as the content of the `imageData` element:
+
+   ```xml
+   <!-- CORRECT -->
+   <image:imageData originalName="image.png">image.png</image:imageData>
+
+   <!-- INCORRECT -->
+   <image:imageData originalName="image.png" path="image.png" />
+   ```
+
+2. **Image References**: All images referenced in the XML must also be included in the LBX file (ZIP archive).
+
+### 10.4 Text Formatting and Positioning Requirements
+
+1. **Text Control Mode**: For text elements to open properly in P-Touch Editor, several critical settings must be correct:
+
+   - Text control mode should be `AUTOLEN` instead of `FREE`
+   - Auto Line Feed should be `false` to match the P-Touch Editor's default behavior
+   - Vertical alignment should be `TOP` rather than `CENTER`
+
+2. **Font Settings**: The following font settings are required for compatibility:
+
+   - Font name should be `Helsinki` (P-Touch Editor's default font)
+   - pitchAndFamily value should be `2` rather than the more common `34`
+   - Font size should be `21.7pt` with corresponding `orgSize` of `28.8pt`
+
+3. **Object Positioning**: For text objects, positioning must precisely match the background element:
+
+   - The `x` coordinate should be exactly `5.6pt` (matching background's x)
+   - The `y` coordinate should exactly match the background y-coordinate
+   - The width should be `34.4pt` to match the background width
+   - The height should match the background height
+
+4. **Pen Width**: Use `0.5pt` for both widthX and widthY values in pen elements
+
+5. **Object Name**: For text objects, use a consistent naming scheme with `Text1` rather than random identifiers
+
+### 10.5 XML Generation Issues
+
+When programmatically generating LBX files, be aware of these common issues:
+
+1. **XML Library Compatibility**: Some XML libraries may handle text content for elements differently. When using libraries like lxml, you may need to implement workarounds to ensure text content is properly set.
+
+2. **Namespace Handling**: All elements must include proper namespace prefixes (pt:, style:, text:, image:, etc.). Missing or incorrect namespaces will cause the editor to crash.
+
+3. **Empty Elements**: Self-closing tags for elements that should contain text content can cause issues. Use explicit opening and closing tags for elements like `data` and `imageData`.
+
+4. **Special Characters**: Ensure proper XML escaping for special characters in text content.
+
+Following these strict requirements will help ensure that LBX files can be successfully opened in the Brother P-Touch Editor software without crashing.
 
 ---
 
