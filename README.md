@@ -60,6 +60,36 @@ lbx-change --help
 lbx-generate-part-image --help
 ```
 
+## Testing
+
+The project uses pytest for testing. To run the tests:
+
+```bash
+# Install pytest if you haven't already
+pip install pytest
+
+# Run all tests
+pytest
+
+# Run tests with more detailed output
+pytest -xvs
+
+# Run only unit tests
+pytest -m unit
+
+# Run only integration tests
+pytest -m integration
+
+# Run tests from a specific file
+pytest tests/unit/test_lbx_text_edit.py
+```
+
+The test suite includes:
+
+- Unit tests for individual functions and classes
+- Integration tests that test the interaction between components
+- Tests for the complete workflow from creation to modification of LBX files
+
 ## Utilities
 
 ### lbx_create.py

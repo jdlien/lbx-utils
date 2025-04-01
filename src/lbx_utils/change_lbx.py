@@ -104,7 +104,7 @@ from colorama import Fore, Style
 import typer
 
 # Import LBXTextEditor directly
-from lbx_text_edit import LBXTextEditor
+from .lbx_text_edit import LBXTextEditor
 
 # Initialize colorama for cross-platform colored output
 colorama.init(autoreset=True)

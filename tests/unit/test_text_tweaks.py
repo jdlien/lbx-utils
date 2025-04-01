@@ -11,7 +11,8 @@ import zipfile
 import shutil
 import re
 from lxml import etree
-from lbx_text_edit import LBXTextEditor
+from lbx_utils.lbx_text_edit import LBXTextEditor
+from lbx_utils.change_lbx import tweak_text
 
 # Create a simple test XML with a dimension notation
 TEST_XML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -96,9 +97,6 @@ def test_lbx_workflow():
 
         with zipfile.ZipFile(lbx_path, 'r') as zipf:
             zipf.extractall(extract_dir)
-
-        # Import the tweak_text function from change_lbx.py
-        from change_lbx import tweak_text, config
 
         # Get the label.xml path in the extracted directory
         extracted_xml_path = os.path.join(extract_dir, 'label.xml')

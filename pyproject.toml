@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lbx-utils"
+version = "0.1.0"
+description = "Utilities for working with Brother LBX label files"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "MIT"}
+authors = [
+    {name = "JD Lien", email = "jdlien@example.com"},
+]
+dependencies = [
+    "pillow>=9.0.0",
+    "lxml>=5.3.1",
+    "lxml-stubs>=0.5.0",
+    "colorama>=0.4.6",
+    "typer>=0.9.0",
+    "rich>=13.7.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/jdlien/lbx-utils"
+"Bug Tracker" = "https://github.com/jdlien/lbx-utils/issues"
+
+[project.scripts]
+lbx-text-edit = "lbx_utils.lbx_text_edit:main"
+lbx-create = "lbx_utils.lbx_create:main"
+lbx-change = "lbx_utils.change_lbx:main"
+lbx-generate-part-image = "lbx_utils.generate_part_image:app"
+lbx = "lbx_utils.__main__:app"
+
+[tool.pytest]
+testpaths = ["tests"]
+python_files = "test_*.py"
+markers = [
+    "unit: Unit tests that don't require external resources",
+    "integration: Tests that integrate with external resources",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py37"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py37"
+select = ["E", "F", "B", "I"]
+ignore = ["E203"]
+
+[tool.ruff.isort]
+known-first-party = ["lbx_utils"]

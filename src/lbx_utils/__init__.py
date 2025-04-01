@@ -2,8 +2,17 @@
 
 __version__ = "0.1.0"
 
-from .lbx_text_edit import LBXTextEditor, TextObject, StringItem, FontInfo
-from .lbx_create import create_label, create_label_file
-from .change_lbx import update_lbx_label
-from .lbx_parser import parse_lbx_file, extract_label_xml
-from .generate_part_image import generate_part_image
+# Text editor functionality
+from .lbx_text_edit import LBXTextEditor, TextObject, StringItem, FontInfo, NAMESPACES
+
+# Label creation functionality
+from .lbx_create import LBXCreator, LabelConfig, TextObject, ImageObject, FontInfo, StringItem
+
+# Label modification functionality
+from .change_lbx import modify_lbx
+
+# Label parsing
+from .lbx_parser import extract_text_from_lbx, extract_images_from_lbx
+
+# Image generation
+# (No direct function exports available at top level)

@@ -70,7 +70,7 @@ class LBXCreateTestCase(unittest.TestCase):
 
     def _run_lbx_create(self, output_file, *args):
         """Run lbx_create.py with the given arguments."""
-        cmd = ["python", "lbx_create.py", "create", "--output", output_file] + list(args)
+        cmd = ["python", "-m", "lbx_utils.lbx_create", "create", "--output", output_file] + list(args)
         print(f"Running: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
 
