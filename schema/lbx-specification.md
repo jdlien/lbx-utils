@@ -357,3 +357,38 @@ Following these strict requirements will help ensure that LBX files can be succe
 ---
 
 This specification is based on analysis of LBX files across different tape widths and should be updated as additional insights are discovered.
+
+## 10. XML Formatting Requirements
+
+### 10.1 Single-Line XML Content
+
+For compatibility with Brother P-Touch Editor, all XML content (except the XML declaration) **MUST** be on a single line with no line breaks or unnecessary whitespace:
+
+- The XML declaration line should be separate: `<?xml version="1.0" encoding="UTF-8"?>`
+- All remaining XML content must follow on a single line with no line breaks
+- While the XML structure should be minified, text content should be preserved as-is (including whitespace)
+- Failure to follow these formatting rules can cause the P-Touch Editor to crash or fail to open files
+
+### 10.2 Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<pt:document xmlns:pt="http://schemas.brother.info/ptouch/2007/lbx/main" version="1.5" generator="com.brother.PtouchEditor"><pt:body...</pt:body></pt:document>
+```
+
+Note how all content after the XML declaration is on a single line.
+
+### 10.3 Implementation
+
+When generating LBX files programmatically:
+
+1. Generate properly formatted XML with appropriate indentation for development
+2. Before writing to the LBX file, remove all line breaks and unnecessary whitespace
+3. Ensure text content within elements is preserved exactly as intended
+4. Keep proper XML escaping for special characters
+
+This formatting requirement applies to both `label.xml` and `prop.xml` files within the LBX archive.
+
+---
+
+This specification is based on analysis of LBX files across different tape widths and should be updated as additional insights are discovered.

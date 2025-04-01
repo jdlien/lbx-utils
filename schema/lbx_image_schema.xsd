@@ -6,6 +6,13 @@
   Image elements include photos, clipart, barcodes, and other visual elements.
 
   Based on analysis of 4-up-smoking.lbx template.
+
+  XML FORMATTING REQUIREMENTS:
+  1. For compatibility with Brother P-Touch Editor, all XML content (except the XML declaration)
+     MUST be on a single line with no line breaks or unnecessary whitespace
+  2. Only the XML declaration line should be separate, with all content following on one line
+  3. While the XML structure should be minified, preserve text content as-is (including whitespace)
+  4. Failure to follow these formatting rules can cause the P-Touch Editor to crash or fail to open files
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:pt="http://schemas.brother.info/ptouch/2007/lbx/main"
