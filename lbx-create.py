@@ -548,7 +548,7 @@ class LBXCreator:
         label_xml_tree = self.create_label_xml()
         self.xml_path = os.path.join(self.temp_dir, "label.xml")
 
-        # Convert to string and manually fix the text content
+        # Convert to string - initially with pretty_print for easier debugging and text content manipulation
         xml_str = etree.tostring(label_xml_tree, encoding="utf-8", xml_declaration=True, pretty_print=True).decode("utf-8")
 
         # Find and replace special markers for text content
@@ -563,14 +563,73 @@ class LBXCreator:
         # Fix any incorrectly transformed self-closing tags (generic fix for all attributes)
         xml_str = re.sub(r'="([^"]*?)</pt:data>', r'="\1"/>', xml_str)
 
-        # Write the fixed XML to file
+        # Now, minify the XML while preserving the XML declaration on the first line
+        # 1. Split the XML into the declaration and the rest
+        xml_lines = xml_str.splitlines()
+        xml_declaration = xml_lines[0] if xml_lines and xml_lines[0].startswith('<?xml') else '<?xml version="1.0" encoding="UTF-8"?>'
+
+        # 2. Join the rest of the XML and remove extra whitespace, but preserve content in tags
+        xml_body = "".join(xml_lines[1:])
+
+        # 3. Extract all pt:data and other content tags to preserve their whitespace
+        content_tags = {}
+        tag_counter = 0
+
+        # Store content in pt:data tags
+        for match in re.finditer(r'<pt:data>(.*?)</pt:data>', xml_body):
+            placeholder = f"__CONTENT_PLACEHOLDER_{tag_counter}__"
+            content_tags[placeholder] = match.group(1)
+            xml_body = xml_body.replace(match.group(0), f'<pt:data>{placeholder}</pt:data>')
+            tag_counter += 1
+
+        # Store content in imageData tags
+        for match in re.finditer(r'<image:imageData originalName="([^"]*)">(.*?)</image:imageData>', xml_body):
+            placeholder = f"__CONTENT_PLACEHOLDER_{tag_counter}__"
+            content_tags[placeholder] = match.group(2)
+            xml_body = xml_body.replace(match.group(0),
+                                     f'<image:imageData originalName="{match.group(1)}">{placeholder}</image:imageData>')
+            tag_counter += 1
+
+        # 4. Minify the XML body by removing whitespace between tags
+        # Remove newlines, tabs, and multiple spaces
+        xml_body = re.sub(r'>\s+<', '><', xml_body)
+        xml_body = re.sub(r'\s+', ' ', xml_body)
+        xml_body = re.sub(r'> <', '><', xml_body)
+
+        # 5. Restore the content of the data tags
+        for placeholder, content in content_tags.items():
+            xml_body = xml_body.replace(placeholder, content)
+
+        # 6. Combine XML declaration with minified body
+        minified_xml = xml_declaration + '\n' + xml_body
+
+        # Write the fixed and minified XML to file
         with open(self.xml_path, 'w', encoding='utf-8') as f:
-            f.write(xml_str)
+            f.write(minified_xml)
 
         # Create and save prop.xml
         prop_xml_tree = self.create_prop_xml()
         self.prop_xml_path = os.path.join(self.temp_dir, "prop.xml")
-        prop_xml_tree.write(self.prop_xml_path, encoding="utf-8", xml_declaration=True, pretty_print=True)
+
+        # Convert prop.xml to string
+        prop_xml_str = etree.tostring(prop_xml_tree, encoding="utf-8", xml_declaration=True, pretty_print=True).decode("utf-8")
+
+        # Minify prop.xml in the same way
+        prop_xml_lines = prop_xml_str.splitlines()
+        prop_xml_declaration = prop_xml_lines[0] if prop_xml_lines and prop_xml_lines[0].startswith('<?xml') else '<?xml version="1.0" encoding="UTF-8"?>'
+        prop_xml_body = "".join(prop_xml_lines[1:])
+
+        # Minify the prop.xml body
+        prop_xml_body = re.sub(r'>\s+<', '><', prop_xml_body)
+        prop_xml_body = re.sub(r'\s+', ' ', prop_xml_body)
+        prop_xml_body = re.sub(r'> <', '><', prop_xml_body)
+
+        # Combine XML declaration with minified body
+        minified_prop_xml = prop_xml_declaration + '\n' + prop_xml_body
+
+        # Write the minified prop.xml to file
+        with open(self.prop_xml_path, 'w', encoding='utf-8') as f:
+            f.write(minified_prop_xml)
 
         # Create ZIP file (LBX)
         with zipfile.ZipFile(output_path, "w") as zipf:

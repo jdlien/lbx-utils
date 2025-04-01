@@ -2,6 +2,87 @@
 
 # LBX Utilities
 
+This repository contains utilities for working with Brother P-Touch LBX label files.
+
+## What is LBX?
+
+LBX is the file format used by Brother P-Touch Editor software for label designs. It's a ZIP archive containing XML files that define the label layout, text, images, and metadata.
+
+## Utilities
+
+### lbx-create.py
+
+Creates Brother P-Touch LBX label files with text and images.
+
+```bash
+# Create a basic text label
+python lbx-create.py create --output mylabel.lbx --text "Hello World" --size 24
+
+# Create a label with multiple text elements
+python lbx-create.py create --output mylabel.lbx --text "Line 1" --text "Line 2" --size 24
+
+# Create a label with an image
+python lbx-create.py create --output mylabel.lbx --image logo.png --size 24
+
+# Create a label with text and image
+python lbx-create.py create --output mylabel.lbx --image logo.png --text "Company Name" --size 24
+
+# Create a label with custom text formatting
+python lbx-create.py create --output mylabel.lbx --text "Bold Text" --bold --font "Helsinki" --size 24
+```
+
+For more options, run:
+
+```bash
+python lbx-create.py --help
+```
+
+## LBX File Format
+
+The LBX file is a ZIP archive containing:
+
+- `label.xml`: Contains the label layout, text, and image references
+- `prop.xml`: Contains metadata about the label
+- Image files: Any images used in the label
+
+### Key Compatibility Requirements
+
+For compatibility with Brother P-Touch Editor, follow these guidelines:
+
+1. **XML Structure**: The order of XML elements is critical - changing the order may cause the editor to crash
+2. **Text Formatting**: Use these settings for best compatibility:
+
+   - Font: Helsinki
+   - Font PitchAndFamily: 2
+   - Font Size: 21.7pt
+   - Original Size: 28.8pt
+   - Text Control: AUTOLEN
+   - Auto Line Feed: false
+   - Vertical Alignment: TOP
+
+3. **Background Width**: Use 34.4pt for maximum compatibility
+
+For detailed specifications, see the [LBX Specification](schema/lbx-specification.md).
+
+## Schema Documentation
+
+The repository includes XSD schema files that document the structure of LBX XML files:
+
+- `schema/lbx_text_schema.xsd`: Defines the structure for text elements
+- `schema/lbx_label_schema.xsd`: Defines the overall label structure
+- `schema/lbx_image_schema.xsd`: Defines the structure for image elements
+
+## Requirements
+
+- Python 3.6+
+- Required packages: typer, rich, colorama, lxml
+
+## License
+
+MIT
+
+# LBX Utilities
+
 A set of tools for working with Brother P-Touch Label (.lbx) files.
 
 ## What is LBX?
@@ -127,10 +208,6 @@ This requires LDView to be installed along with the LDraw library.
 - Support editing of text in LBX files
 - Completely automated generation of labels, including part images and QR codes linking to http://rbck.ca/part_number
 - Note: QR Codes are only effective when sized at 7mm or greater, unless we can print at higher than 180dpi.
-
-## License
-
-MIT
 
 # LBX Text Editor
 
