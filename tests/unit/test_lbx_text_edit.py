@@ -13,7 +13,7 @@ import unittest
 import tempfile
 import importlib.util
 import xml.etree.ElementTree as ET
-from lbx_utils.core.lbx_text_edit import LBXTextEditor, TextObject, StringItem, FontInfo, NAMESPACES
+from lbx_utils.lbx_text_edit import LBXTextEditor, TextObject, StringItem, FontInfo, NAMESPACES
 from typing import Optional, Any, Dict, List, TYPE_CHECKING
 
 # To appease the linter, add stub type hints

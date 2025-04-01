@@ -14,7 +14,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/jdlien/lbx-utils",
-    packages=find_packages(),
+    package_dir={"": "src"},
+    packages=find_packages(where="src"),
     include_package_data=True,
     package_data={
         "lbx_utils": ["data/label_templates/*", "data/label_examples/*", "data/schema/*"],
@@ -35,10 +36,10 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "lbx-text-edit=lbx_utils.core.lbx_text_edit:main",
-            "lbx-create=lbx_utils.core.lbx_create:main",
-            "lbx-change=lbx_utils.core.change_lbx:main",
-            "lbx-generate-part-image=lbx_utils.core.generate_part_image:app",
+            "lbx-text-edit=lbx_utils.lbx_text_edit:main",
+            "lbx-create=lbx_utils.lbx_create:main",
+            "lbx-change=lbx_utils.change_lbx:main",
+            "lbx-generate-part-image=lbx_utils.generate_part_image:app",
             "lbx=lbx_utils.__main__:app",
         ],
     },

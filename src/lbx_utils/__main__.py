@@ -9,10 +9,10 @@ import sys
 import typer
 from typing import Optional
 
-from lbx_utils.core.lbx_text_edit import main as lbx_text_edit_main
-from lbx_utils.core.lbx_create import main as lbx_create_main
-from lbx_utils.core.change_lbx import main as change_lbx_main
-from lbx_utils.core.generate_part_image import app as generate_part_image_app
+from lbx_utils.lbx_text_edit import main as lbx_text_edit_main
+from lbx_utils.lbx_create import main as lbx_create_main
+from lbx_utils.change_lbx import main as change_lbx_main
+from lbx_utils.generate_part_image import app as generate_part_image_app
 
 app = typer.Typer(help="LBX Utils - Tools for working with Brother LBX labels")
 

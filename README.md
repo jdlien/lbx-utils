@@ -14,14 +14,14 @@ The project is now organized as a Python package with the following structure:
 
 ```
 lbx-utils/
-├── lbx_utils/                # Main package
-│   ├── core/                 # Core functionality modules
-│   │   ├── lbx_text_edit.py  # Text editing in LBX files
-│   │   ├── lbx_create.py     # Create new LBX labels
-│   │   ├── change_lbx.py     # Modify existing LBX files
-│   │   ├── lbx_parser.py     # Parse and extract from LBX files
-│   │   └── generate_part_image.py # Generate LEGO part images
-│   └── __main__.py           # CLI entry point
+├── src/                    # Source code
+│   └── lbx_utils/          # Main package
+│       ├── lbx_text_edit.py  # Text editing in LBX files
+│       ├── lbx_create.py     # Create new LBX labels
+│       ├── change_lbx.py     # Modify existing LBX files
+│       ├── lbx_parser.py     # Parse and extract from LBX files
+│       ├── generate_part_image.py # Generate LEGO part images
+│       └── __main__.py       # CLI entry point
 ├── data/                     # Data files
 │   ├── label_templates/      # Template LBX files
 │   ├── label_examples/       # Example LBX files

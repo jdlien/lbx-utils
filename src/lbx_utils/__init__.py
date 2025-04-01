@@ -1,4 +1,6 @@
-"""Core functionality for lbx-utils package."""
+"""LBX Utils - Utilities for working with Brother LBX label files."""
+
+__version__ = "0.1.0"
 
 from .lbx_text_edit import LBXTextEditor, TextObject, StringItem, FontInfo
 from .lbx_create import create_label, create_label_file
