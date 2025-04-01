@@ -457,16 +457,13 @@ def test_case_insensitive_search(test_lbx, output_lbx, extract_lbx):
     original_tree = extract_lbx(test_lbx)
     original_text = get_text_content(original_tree)
 
-    # Find a text that might be in the file - look for letters
-    text_match = re.search(r'([a-zA-Z]+)', original_text)
-    if not text_match:
-        pytest.skip("No text found in the template file to test case-insensitive search")
+    # Specifically search for "brick" or similar text in the content
+    # This is more reliable than matching random letters
+    if "brick" not in original_text.lower():
+        pytest.skip("Text 'brick' not found in the template file to test case-insensitive search")
 
-    # Use the found text with different case for replacement
-    find_text = text_match.group(0).lower()  # Force lowercase for testing
-    if find_text.islower() == find_text.isupper():  # If it's only digits or symbols
-        pytest.skip("Found text has no case variation to test")
-
+    # Use lowercase for testing case-insensitivity
+    find_text = "brick"
     replace_text = "REPLACED-TEXT"
 
     modify_lbx(str(test_lbx), str(output_lbx), {

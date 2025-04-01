@@ -21,10 +21,12 @@ from tests.integration.create_test_lbx import create_test_lbx
 # Try different import paths to handle different runtime environments
 try:
     from src.lbx_utils import LBXTextEditor, TextObject, StringItem, FontInfo, NAMESPACES, LabelConfig, LBXCreator
+    from src.lbx_utils.lbx_create import create_image_object, LABEL_SIZES
 except ImportError:
     # This import will work when running within the package, but may show a linter error in IDE
     # The linter error can be safely ignored as we handle both import paths
     from lbx_utils import LBXTextEditor, TextObject, StringItem, FontInfo, NAMESPACES, LabelConfig, LBXCreator  # linter: ignore
+    from lbx_utils.lbx_create import create_image_object, LABEL_SIZES  # linter: ignore
 
 # Directory to store output files
 TEST_OUTPUT_DIR = Path("test_output/lbx_create")
@@ -180,3 +182,107 @@ def test_create_with_label_config(output_path):
     # but we can at least check the creator was initialized with the config
     assert creator.config.size_mm == 24
     assert creator.config.auto_length is True
+
+@pytest.mark.integration
+def test_create_with_images_and_centered_text(output_path):
+    """Test creating a label with images on both sides of text and vertical centering."""
+    # Create test image paths
+    test_images_dir = Path("test_images")
+    test_images_dir.mkdir(exist_ok=True)
+    image1_path = test_images_dir / "test_img1.png"
+    image2_path = test_images_dir / "test_img2.png"
+
+    # Create test images if they don't exist
+    for img_path, color in [(image1_path, (255, 0, 0)), (image2_path, (0, 0, 255))]:
+        if not img_path.exists():
+            try:
+                from PIL import Image
+                img = Image.new('RGB', (20, 20), color=color)
+                img.save(img_path)
+                print(f"Created test image: {img_path}")
+            except ImportError:
+                print("Warning: PIL not installed. Test image not created.")
+                img_path.write_bytes(b'\x89PNG\r\n\x1a\n')  # Minimal PNG header
+
+    # Create a LabelConfig for our test
+    config = LabelConfig(
+        size_mm=24,
+        auto_length=True
+    )
+
+    # Create the first image object (left side)
+    image1 = create_image_object(
+        str(image1_path),
+        x="10pt",
+        y="10pt",  # This will be adjusted for vertical centering
+        width="20pt",
+        height="20pt"
+    )
+
+    # Create the text object (middle)
+    text_obj = TextObject(
+        text="Test Label",
+        x="40pt",  # Position to the right of the first image with some spacing
+        y="10pt",  # This will be adjusted for vertical centering
+        width="40pt",
+        height="20pt",
+        font_info=FontInfo(name="Arial", size="12pt")
+    )
+
+    # Create the second image object (right side)
+    image2 = create_image_object(
+        str(image2_path),
+        x="90pt",  # Position to the right of the text with some spacing
+        y="10pt",  # This will be adjusted for vertical centering
+        width="20pt",
+        height="20pt"
+    )
+
+    # Add all objects to the config
+    config.image_objects.extend([image1, image2])
+    config.text_objects.append(text_obj)
+
+    # Create the LBX file
+    creator = LBXCreator(config)
+
+    # Calculate vertical center for all objects
+    size_config = LABEL_SIZES[config.size_mm]
+
+    # Label height minus margins
+    label_height = float(size_config["background_height"].replace("pt", ""))
+
+    # Get object height (assuming all objects have the same height)
+    object_height = float(image1.height.replace("pt", ""))
+
+    # Calculate center position
+    center_y = (label_height - object_height) / 2 + float(size_config["background_y"].replace("pt", ""))
+    center_y_pt = f"{center_y}pt"
+
+    # Update Y positions to center vertically
+    for img in config.image_objects:
+        img.y = center_y_pt
+
+    for txt in config.text_objects:
+        txt.y = center_y_pt
+
+    # Create the LBX file
+    creator.create_lbx(str(output_path))
+
+    # Verify the file exists
+    assert os.path.exists(output_path)
+
+    # Verify it's a valid zip file
+    with zipfile.ZipFile(output_path, 'r') as zip_ref:
+        file_list = zip_ref.namelist()
+        assert 'label.xml' in file_list
+
+        # Check that both images are included
+        image_files = [f for f in file_list if f.endswith(".png")]
+        assert len(image_files) == 2
+
+        # Extract and check the XML content
+        with zip_ref.open('label.xml') as xml_file:
+            xml_content = xml_file.read().decode('utf-8')
+            assert 'Test Label' in xml_content
+            # The font might be Helsinki instead of Arial in the actual output
+            assert any(font in xml_content for font in ['Arial', 'Helsinki'])

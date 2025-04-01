@@ -392,3 +392,60 @@ This formatting requirement applies to both `label.xml` and `prop.xml` files wit
 ---
 
 This specification is based on analysis of LBX files across different tape widths and should be updated as additional insights are discovered.
+
+## Image Handling
+
+### Image Format Requirements
+
+The Brother P-Touch LBX format has specific considerations for image handling:
+
+1. **Image File Format**:
+
+   - BMP (Bitmap) files are commonly used within LBX archives and provide the most reliable compatibility
+   - PNG files should also work well, especially in newer versions of P-Touch Editor
+   - Other formats (JPEG, etc.) may work but have less consistent support
+   - While BMP format is traditionally used, both BMP and PNG are supported formats for LBX files
+
+2. **Filename Pattern**: Image files typically use unique filenames:
+
+   - BMP files often follow a pattern like `Object[uuid].bmp` (e.g., `Object1234.bmp`)
+   - PNG files can retain their original names or use a similar naming pattern
+
+3. **XML Structure for Images**: Images must be structured correctly in the XML for proper display:
+   - The `<image:image>` element should include a proper `<image:imageStyle>` element
+   - The `fileName` attribute of `imageStyle` should reference the image file in the archive
+   - The `originalName` attribute should contain the original filename
+
+### Required Image Elements
+
+The following structure is necessary for proper image rendering:
+
+```xml
+<image:image>
+  <pt:objectStyle x="10pt" y="12.7pt" width="20pt" height="20pt" backColor="#FFFFFF" backPrintColorNumber="0" ropMode="COPYPEN" angle="0" anchor="TOPLEFT" flip="NONE">
+    <pt:pen style="NULL" widthX="0.5pt" widthY="0.5pt" color="#000000" printColorNumber="1"/>
+    <pt:brush style="NULL" color="#000000" printColorNumber="1" id="0"/>
+    <pt:expanded objectName="Bitmap12ab" ID="0" lock="2" templateMergeTarget="LABELLIST" templateMergeType="NONE" templateMergeID="0" linkStatus="NONE" linkID="0"/>
+  </pt:objectStyle>
+  <image:imageStyle originalName="original.png" alignInText="NONE" firstMerge="true" IpName="" fileName="image.png">
+    <image:transparent flag="false" color="#FFFFFF"/>
+    <image:trimming flag="false" shape="RECTANGLE" trimOrgX="0pt" trimOrgY="0pt" trimOrgWidth="0pt" trimOrgHeight="0pt"/>
+    <image:orgPos x="10pt" y="12.7pt" width="20pt" height="20pt"/>
+    <image:effect effect="MONO" brightness="50" contrast="50" photoIndex="4"/>
+    <image:mono operationKind="ERRORDIFFUSION" reverse="0" ditherKind="MESH" threshold="128" gamma="100" ditherEdge="0" rgbconvProportionRed="30" rgbconvProportionGreen="59" rgbconvProportionBlue="11" rgbconvProportionReversed="0"/>
+  </image:imageStyle>
+</image:image>
+```
+
+### Image Conversion Notes
+
+When generating LBX files with images:
+
+1. **Mode Conversion**: For maximum compatibility, images in LA, RGBA, or other non-RGB modes should be converted to RGB before inclusion in the LBX file.
+
+2. **Image Positioning**: The position information must be consistent between:
+
+   - The `objectStyle` element's `x`, `y`, `width`, and `height` attributes
+   - The nested `image:orgPos` element within `imageStyle`
+
+3. **Background Handling**: For transparent images, a white background should be applied when using file formats that don't fully support transparency in the P-Touch Editor.

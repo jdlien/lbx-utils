@@ -16,6 +16,7 @@ import uuid
 import datetime
 import zipfile
 import tempfile
+import shutil
 from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass, field
 import xml.etree.ElementTree as ET
@@ -153,12 +154,33 @@ class TextObject:
 
 @dataclass
 class ImageObject:
-    """Represents an image object on the label."""
+    """Object representing an image to be added to the label."""
     file_path: str
     x: str
     y: str
     width: str
     height: str
+    convert_to_bmp: bool = False  # Optionally convert to BMP for maximum compatibility
+    dest_filename: str = ""
+    needs_conversion: bool = False
+
+    @property
+    def effect_type(self) -> str:
+        """Return the effect type based on file format."""
+        # For PNG files without conversion, use NONE effect
+        if not self.convert_to_bmp and self.file_path.lower().endswith('.png'):
+            return "NONE"
+        # For BMP or converted files, use MONO effect
+        return "MONO"
+
+    @property
+    def operation_kind(self) -> str:
+        """Return the operation kind based on file format."""
+        # For PNG files without conversion, use BINARY operation
+        if not self.convert_to_bmp and self.file_path.lower().endswith('.png'):
+            return "BINARY"
+        # For BMP or converted files, use ERRORDIFFUSION
+        return "ERRORDIFFUSION"
 
 @dataclass
 class LabelConfig:
@@ -281,10 +303,10 @@ class LBXCreator:
         background_width = "34.4pt"  # Match reference label width
         background_height = size_config["background_height"]
 
-        # Add object style
+        # Add object style - use the TextObject's x and y positions instead of fixed values
         obj_style = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
-        obj_style.set("x", "5.6pt")  # Same as background X
-        obj_style.set("y", size_config["background_y"])  # Same as background Y
+        obj_style.set("x", text_obj.x)
+        obj_style.set("y", text_obj.y)
         obj_style.set("width", background_width)
         obj_style.set("height", background_height)
         obj_style.set("backColor", "#FFFFFF")
@@ -405,10 +427,9 @@ class LBXCreator:
 
     def _add_image_object(self, parent, image_obj: ImageObject):
         """Add an image object to the parent element."""
-        # Create image element
         image_elem = etree.SubElement(parent, "{http://schemas.brother.info/ptouch/2007/lbx/image}image")
 
-        # Add object style
+        # Create object style
         obj_style = etree.SubElement(image_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
         obj_style.set("x", image_obj.x)
         obj_style.set("y", image_obj.y)
@@ -421,51 +442,98 @@ class LBXCreator:
         obj_style.set("anchor", "TOPLEFT")
         obj_style.set("flip", "NONE")
 
-        # Add pen
+        # Create pen
         pen = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}pen")
         pen.set("style", "NULL")
-        pen.set("widthX", "1pt")
-        pen.set("widthY", "1pt")
+        pen.set("widthX", "0.5pt")
+        pen.set("widthY", "0.5pt")
         pen.set("color", "#000000")
         pen.set("printColorNumber", "1")
 
-        # Add brush
+        # Create brush
         brush = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}brush")
         brush.set("style", "NULL")
         brush.set("color", "#000000")
         brush.set("printColorNumber", "1")
         brush.set("id", "0")
 
-        # Add expanded properties
+        # Create expanded info
         expanded = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}expanded")
-        expanded.set("objectName", f'Image{uuid.uuid4().hex[:6]}')
+        expanded.set("objectName", f"Bitmap{uuid.uuid4().hex[:4]}")
         expanded.set("ID", "0")
-        expanded.set("lock", "0")
+        expanded.set("lock", "2")
         expanded.set("templateMergeTarget", "LABELLIST")
         expanded.set("templateMergeType", "NONE")
         expanded.set("templateMergeID", "0")
         expanded.set("linkStatus", "NONE")
         expanded.set("linkID", "0")
 
-        # Add image style
+        # Get image file name
+        original_image_path = os.path.basename(image_obj.file_path)
+        image_extension = os.path.splitext(original_image_path)[1].lower()
+
+        # Determine if we need to convert this image to BMP
+        # BMP is the most compatible format, but PNG should work in newer versions
+        if image_obj.convert_to_bmp:
+            # Create a unique name for the BMP in the LBX file
+            dest_filename = f"Object{uuid.uuid4().hex[:4]}.bmp"
+            image_obj.needs_conversion = True
+        else:
+            # Use the original filename when not converting
+            dest_filename = original_image_path
+            image_obj.needs_conversion = image_extension not in ['.png', '.bmp']
+
+        # Store the destination filename
+        image_obj.dest_filename = dest_filename
+
+        # Create image style with proper structure matching the example
         image_style = etree.SubElement(image_elem, "{http://schemas.brother.info/ptouch/2007/lbx/image}imageStyle")
-        image_style.set("originalSize", "true")
-        image_style.set("dither", "true")
-        image_style.set("monochrome", "true")
-        image_style.set("rotation", "0")
-        image_style.set("brightness", "0")
-        image_style.set("contrast", "0")
-        image_style.set("threshold", "0")
-        image_style.set("transparent", "false")
-        image_style.set("transparentColor", "#FFFFFF")
+        image_style.set("originalName", original_image_path)
+        image_style.set("alignInText", "NONE")
+        image_style.set("firstMerge", "true")
+        image_style.set("IpName", "")
+        image_style.set("fileName", dest_filename)
 
-        # Add image data reference
-        image_path = os.path.basename(image_obj.file_path)
-        image_data = etree.SubElement(image_elem, "{http://schemas.brother.info/ptouch/2007/lbx/image}imageData")
-        image_data.set("originalName", image_path)
+        # Add transparent element
+        transparent = etree.SubElement(image_style, "{http://schemas.brother.info/ptouch/2007/lbx/image}transparent")
+        transparent.set("flag", "false")
+        transparent.set("color", "#FFFFFF")
 
-        # Store the image path as an attribute for later use when writing
-        image_data.attrib["_text_content"] = image_path
+        # Add trimming element
+        trimming = etree.SubElement(image_style, "{http://schemas.brother.info/ptouch/2007/lbx/image}trimming")
+        trimming.set("flag", "false")
+        trimming.set("shape", "RECTANGLE")
+        trimming.set("trimOrgX", "0pt")
+        trimming.set("trimOrgY", "0pt")
+        trimming.set("trimOrgWidth", "0pt")
+        trimming.set("trimOrgHeight", "0pt")
+
+        # Add original position element
+        org_pos = etree.SubElement(image_style, "{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos")
+        org_pos.set("x", image_obj.x)
+        org_pos.set("y", image_obj.y)
+        org_pos.set("width", image_obj.width)
+        org_pos.set("height", image_obj.height)
+
+        # Add effect element - use different settings based on file type
+        effect = etree.SubElement(image_style, "{http://schemas.brother.info/ptouch/2007/lbx/image}effect")
+        effect.set("effect", image_obj.effect_type)  # Use the property based on format
+        effect.set("brightness", "50")
+        effect.set("contrast", "50")
+        effect.set("photoIndex", "4")
+
+        # Add mono element - use different settings based on file type
+        mono = etree.SubElement(image_style, "{http://schemas.brother.info/ptouch/2007/lbx/image}mono")
+        mono.set("operationKind", image_obj.operation_kind)  # Use the property based on format
+        mono.set("reverse", "0")
+        mono.set("ditherKind", "MESH")
+        mono.set("threshold", "128")
+        mono.set("gamma", "100")
+        mono.set("ditherEdge", "0")
+        mono.set("rgbconvProportionRed", "30")
+        mono.set("rgbconvProportionGreen", "59")
+        mono.set("rgbconvProportionBlue", "11")
+        mono.set("rgbconvProportionReversed", "0")
 
         return image_elem
 
@@ -631,6 +699,44 @@ class LBXCreator:
         with open(self.prop_xml_path, 'w', encoding='utf-8') as f:
             f.write(minified_prop_xml)
 
+        # Process images
+        image_files = []
+        for image_obj in self.config.image_objects:
+            if os.path.exists(image_obj.file_path):
+                if image_obj.needs_conversion:
+                    try:
+                        # Use PIL to convert the image
+                        from PIL import Image
+
+                        # Create the destination file path in the temp directory
+                        dest_path = os.path.join(self.temp_dir, image_obj.dest_filename)
+
+                        # Open and convert the image
+                        img = Image.open(image_obj.file_path)
+
+                        # Convert to RGB mode if needed (BMP doesn't support LA mode)
+                        if img.mode in ('RGBA', 'LA'):
+                            background = Image.new('RGB', img.size, (255, 255, 255))
+                            background.paste(img, mask=img.split()[3] if img.mode == 'RGBA' else img.split()[1])
+                            img = background
+                        elif img.mode != 'RGB':
+                            img = img.convert('RGB')
+
+                        # Save as BMP
+                        img.save(dest_path, "BMP")
+
+                        # Add to the list of image files to include in the ZIP
+                        image_files.append((dest_path, image_obj.dest_filename))
+                        print(f"Converted {image_obj.file_path} to BMP format: {image_obj.dest_filename}")
+                    except Exception as e:
+                        print(f"Error converting image {image_obj.file_path}: {e}")
+                else:
+                    # No conversion needed, just copy the file
+                    dest_path = os.path.join(self.temp_dir, image_obj.dest_filename)
+                    shutil.copy2(image_obj.file_path, dest_path)
+                    image_files.append((dest_path, image_obj.dest_filename))
+                    print(f"Using original image format for {image_obj.file_path}")
+
         # Create ZIP file (LBX)
         with zipfile.ZipFile(output_path, "w") as zipf:
             # Add label.xml
@@ -640,16 +746,14 @@ class LBXCreator:
             zipf.write(self.prop_xml_path, "prop.xml")
 
             # Add image files
-            for image_obj in self.config.image_objects:
-                if os.path.exists(image_obj.file_path):
-                    zipf.write(image_obj.file_path, os.path.basename(image_obj.file_path))
+            for file_path, file_name in image_files:
+                zipf.write(file_path, file_name)
 
         console.print(f"[green]Created LBX file: {output_path}[/green]")
 
     def cleanup(self) -> None:
         """Clean up temporary files."""
         if self.temp_dir and os.path.exists(self.temp_dir):
-            import shutil
             shutil.rmtree(self.temp_dir)
             self.temp_dir = None
 
@@ -681,29 +785,29 @@ def create_default_text_object(text: str, font_name: str = DEFAULT_FONT, font_si
     return text_obj
 
 def create_image_object(file_path: str, x: str = "10pt", y: str = "2.8pt",
-                        width: str = "20pt", height: str = "20pt") -> ImageObject:
+                        width: str = "20pt", height: str = "20pt", convert_to_bmp: bool = False) -> ImageObject:
     """Create an image object with the specified parameters."""
     image_obj = ImageObject(
         file_path=file_path,
         x=x,
-        y=y,  # Now has a default value directly in the parameter
+        y=y,
         width=width,
-        height=height
+        height=height,
+        convert_to_bmp=convert_to_bmp
     )
 
     return image_obj
 
-def calculate_layout(config: LabelConfig) -> None:
+def calculate_layout(config: LabelConfig, margin: int = 5, side_by_side: bool = False) -> None:
     """Calculate the layout of elements on the label."""
     # Get label size configuration
     size_config = LABEL_SIZES[config.size_mm]
 
-    # Set y-positions for objects based on label size
-    for text_obj in config.text_objects:
-        text_obj.y = size_config['text_object_y']
+    # Set initial y-positions for objects based on label size
+    initial_y = float(size_config['text_object_y'].replace('pt', ''))
 
-    for image_obj in config.image_objects:
-        image_obj.y = size_config['image_object_y']
+    # Position elements vertically
+    current_y = initial_y
 
     # If we have both images and text, position text to the right of images
     if config.image_objects and config.text_objects:
@@ -714,45 +818,35 @@ def calculate_layout(config: LabelConfig) -> None:
             max_image_right = max(max_image_right, image_right)
 
         # Position text objects to the right of images with a margin
-        margin = 5  # 5pt margin
         for text_obj in config.text_objects:
             text_obj.x = f"{max_image_right + margin}pt"
 
-    # Center all elements vertically
-    if config.text_objects or config.image_objects:
-        # Calculate available height
-        available_height = float(size_config['background_height'].replace('pt', ''))
+    # Position image objects first
+    for image_obj in config.image_objects:
+        image_obj.y = f"{current_y}pt"
+        if not side_by_side:
+            current_y += float(image_obj.height.replace('pt', '')) + 5  # 5pt spacing
 
-        # Calculate total height of all objects
-        total_height = 0
+    # Position text objects vertically
+    if side_by_side and config.image_objects and config.text_objects:
+        # In side-by-side mode with both images and text, align text vertically with the first image
+        image_y = float(config.image_objects[0].y.replace('pt', ''))
         for text_obj in config.text_objects:
-            total_height += float(text_obj.height.replace('pt', ''))
-
-        for image_obj in config.image_objects:
-            total_height += float(image_obj.height.replace('pt', ''))
-
-        # Calculate vertical spacing
-        if len(config.text_objects) + len(config.image_objects) > 1:
-            spacing = 5  # 5pt spacing between elements
-            total_height += spacing * (len(config.text_objects) + len(config.image_objects) - 1)
-        else:
-            spacing = 0
-
-        # Calculate starting y-position to center all elements
-        start_y = float(size_config['background_y'].replace('pt', '')) + (available_height - total_height) / 2
-
-        # Position elements vertically
-        current_y = start_y
-
-        # Position image objects first
-        for image_obj in config.image_objects:
-            image_obj.y = f"{current_y}pt"
-            current_y += float(image_obj.height.replace('pt', '')) + spacing
-
-        # Position text objects next
-        for text_obj in config.text_objects:
+            text_obj.y = f"{image_y}pt"
+    else:
+        # Standard stacked layout
+        for i, text_obj in enumerate(config.text_objects):
             text_obj.y = f"{current_y}pt"
-            current_y += float(text_obj.height.replace('pt', '')) + spacing
+            current_y += float(text_obj.height.replace('pt', '')) + 5  # 5pt spacing between text elements
+
+    # If no elements, use default positions
+    if not config.text_objects and not config.image_objects:
+        return
+
+    # Adjust overall vertical centering if needed
+    if len(config.text_objects) + len(config.image_objects) > 1:
+        # No additional centering needed as we're stacking elements vertically
+        pass
 
 def validate_input(text: Optional[List[str]], images: Optional[List[str]]) -> bool:
     """Validate input parameters and display errors if any."""
@@ -805,65 +899,55 @@ def create(
     images: Optional[List[str]] = typer.Option(None, "--image", "-img", help="Path to image file (can be specified multiple times)"),
     width: Optional[str] = typer.Option(None, "--width", "-w", help="Width of the label (auto by default)"),
     height: Optional[str] = typer.Option(None, "--height", "-h", help="Height of the label (auto by default)"),
-    auto_length: bool = typer.Option(True, "--auto-length", "-a", help="Automatically adjust label length based on content")
+    auto_length: bool = typer.Option(True, "--auto-length/--no-auto-length", "-a", help="Automatically adjust label length based on content"),
+    convert_images: bool = typer.Option(False, "--convert-images/--no-convert-images", help="Convert images to BMP for maximum compatibility"),
+    margin: int = typer.Option(5, "--margin", "-m", help="Margin between elements in pt"),
+    side_by_side: bool = typer.Option(False, "--side-by-side/--stacked", help="Position text side-by-side with images instead of stacking")
 ) -> None:
-    """Create a Brother P-Touch LBX label."""
-    # Validate size
-    if size not in LABEL_SIZES:
-        console.print(f"[bold red]Error: Invalid label size. Must be one of: {list(LABEL_SIZES.keys())}[/bold red]")
-        raise typer.Exit(1)
-
+    """Create a new LBX label file with text and images."""
     # Validate input
     if not validate_input(text, images):
-        raise typer.Exit(1)
+        raise typer.Exit(code=1)
 
     # Create label configuration
-    config = LabelConfig(
-        size_mm=size,
-        auto_length=auto_length
-    )
-
-    # Set custom height if provided
-    if height:
-        config.height = height if height.endswith('pt') else f"{height}pt"
-        config.auto_length = False
+    config = LabelConfig(size_mm=size, auto_length=auto_length)
 
     # Add text objects
     if text:
-        font_weight = "700" if bold else "400"
+        font_weight = "700" if bold else "400"  # 400 = normal, 700 = bold
         font_italic = "true" if italic else "false"
 
-        for t in text:
+        for text_string in text:
             text_obj = create_default_text_object(
-                text=t,
+                text=text_string,
                 font_name=font,
                 font_size=font_size,
                 font_weight=font_weight,
-                font_italic=font_italic
+                font_italic=font_italic,
+                width=width if width else "120pt"
             )
             config.text_objects.append(text_obj)
 
     # Add image objects
     if images:
-        for img_path in images:
-            image_obj = create_image_object(file_path=img_path)
+        for image_path in images:
+            image_obj = create_image_object(
+                file_path=image_path,
+                convert_to_bmp=convert_images
+            )
             config.image_objects.append(image_obj)
 
     # Calculate layout
-    calculate_layout(config)
+    calculate_layout(config, margin=margin, side_by_side=side_by_side)
 
     # Print label information
     print_label_info(config)
 
-    # Create LBX file
+    # Create the LBX file
     creator = LBXCreator(config)
-
     try:
         creator.create_lbx(output)
-        console.print(f"\n[bold green]LBX file created successfully: {output}[/bold green]")
-    except Exception as e:
-        console.print(f"[bold red]Error creating LBX file: {str(e)}[/bold red]")
-        raise typer.Exit(1)
+        print(f"\nLBX file created successfully: {output}")
     finally:
         creator.cleanup()
 

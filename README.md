@@ -68,8 +68,8 @@ The project uses pytest for testing. To run the tests:
 # Install pytest if you haven't already
 pip install pytest
 
-# Run all tests
-pytest
+# Run all tests with an HTML report
+pytest --html=report.html
 
 # Run tests with more detailed output
 pytest -xvs

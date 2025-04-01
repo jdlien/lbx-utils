@@ -931,14 +931,14 @@ def tweak_text(root: Element, xml_path: str, options: Dict[str, Any] = {}) -> El
 
     # Apply custom text replacements
     for find_text, replace_text in options.get('custom_replacements', []):
-        replacements = editor.find_replace_all(find_text, replace_text, not options.get('ignore_case', False))
+        replacements = editor.find_replace_all(find_text, replace_text, case_sensitive=not options.get('ignore_case', False))
         if replacements > 0:
             log_message(f"Replaced {replacements} occurrences of '{find_text}' with '{replace_text}'")
             total_replacements += replacements
 
     # Apply regex replacements
     for pattern, replace_text in options.get('regex_replacements', []):
-        replacements = editor.regex_find_replace_all(pattern, replace_text, not options.get('ignore_case', False))
+        replacements = editor.regex_find_replace_all(pattern, replace_text, case_sensitive=not options.get('ignore_case', False))
         if replacements > 0:
             log_message(f"Applied regex replacement pattern '{pattern}' to {replacements} occurrences")
             total_replacements += replacements

@@ -181,6 +181,85 @@ Creates custom shapes:
 
 ### Image Elements
 
+Images in LBX files have specific requirements for proper rendering in P-touch Editor:
+
+1. **Image Format**:
+
+   - BMP (Bitmap) files are commonly used in LBX archives and provide the most reliable compatibility
+   - PNG files should also work well, especially in newer versions of P-Touch Editor
+   - Other image formats may have inconsistent support
+   - Both BMP and PNG are supported formats, though BMP may offer better compatibility with older software versions
+
+2. **XML Structure**: The proper structure for image elements includes:
+
+   - `<image:image>` as the main container
+   - `<pt:objectStyle>` for position and general styling
+   - `<image:imageStyle>` with specific image attributes and nested elements
+
+3. **Required Sub-Elements**: The `imageStyle` element must include these nested elements:
+   - `<image:transparent>` - Controls image transparency
+   - `<image:trimming>` - Controls image cropping
+   - `<image:orgPos>` - Original position information (must match objectStyle)
+   - `<image:effect>` - Image effects (monochrome, brightness, etc.)
+   - `<image:mono>` - Monochrome conversion settings
+
+### Example Image XML Structure
+
+```xml
+<image:image>
+  <pt:objectStyle x="10pt" y="12.7pt" width="20pt" height="20pt" backColor="#FFFFFF" backPrintColorNumber="0" ropMode="COPYPEN" angle="0" anchor="TOPLEFT" flip="NONE">
+    <!-- pen, brush and expanded elements -->
+  </pt:objectStyle>
+  <image:imageStyle originalName="source.png" alignInText="NONE" firstMerge="true" IpName="" fileName="image.png">
+    <image:transparent flag="false" color="#FFFFFF"/>
+    <image:trimming flag="false" shape="RECTANGLE" trimOrgX="0pt" trimOrgY="0pt" trimOrgWidth="0pt" trimOrgHeight="0pt"/>
+    <image:orgPos x="10pt" y="12.7pt" width="20pt" height="20pt"/>
+    <image:effect effect="MONO" brightness="50" contrast="50" photoIndex="4"/>
+    <image:mono operationKind="ERRORDIFFUSION" reverse="0" ditherKind="MESH" threshold="128" gamma="100" ditherEdge="0" rgbconvProportionRed="30" rgbconvProportionGreen="59" rgbconvProportionBlue="11" rgbconvProportionReversed="0"/>
+  </image:imageStyle>
+</image:image>
+```
+
+### Key Attributes
+
+- **imageStyle**:
+
+  - `originalName`: The original filename of the source image
+  - `fileName`: The filename in the LBX archive (may be original name or a generated name like "Object[uuid].bmp")
+
+- **transparent**:
+
+  - `flag`: Whether transparency is enabled
+  - `color`: The color to treat as transparent
+
+- **effect**:
+
+  - `effect`: Type of effect (usually "MONO" for label printers)
+  - `brightness`/`contrast`: Image adjustments
+
+- **mono**:
+  - `operationKind`: Method for converting to monochrome (typically "ERRORDIFFUSION")
+  - `threshold`: Threshold for black/white conversion
+
+### Common Issues
+
+1. If images don't appear in P-touch Editor:
+
+   - Check that the image file format is supported (BMP is most reliable, PNG should work)
+   - Verify the correct XML structure with all required nested elements
+   - Check that filename references match actual files in the archive
+
+2. If images appear distorted:
+
+   - Ensure position information is consistent between `objectStyle` and `orgPos` elements
+   - Check image dimensions against the label size
+
+3. If transparency doesn't work correctly:
+   - Try converting the image to BMP with a white background
+   - Verify the `transparent` element settings
+
+### Clipart Elements
+
 #### `image:clipart`
 
 Inserts built-in clipart:

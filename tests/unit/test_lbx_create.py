@@ -134,14 +134,102 @@ class LBXCreateTestCase(unittest.TestCase):
     def test_02_multiple_text_elements(self):
         """Test creating a label with multiple text elements."""
         output_file = os.path.join(OUTPUT_DIR, "02_multiple_text.lbx")
-        self._run_lbx_create(
+
+        # Run lbx_create to generate the test file
+        result = self._run_lbx_create(
             output_file,
             "--text", "First Line",
             "--text", "Second Line",
             "--text", "Third Line",
             "--size", "24"
         )
-        self._verify_lbx_file(output_file)
+
+        # Extract and verify the file contents
+        extract_dir = os.path.join(OUTPUT_DIR, "02_multiple_text")
+        label_xml_path = os.path.join(extract_dir, "label.xml")
+
+        # Check if label.xml exists
+        self.assertTrue(os.path.exists(label_xml_path), "label.xml not found in extracted LBX")
+
+        # Parse the label XML
+        import xml.etree.ElementTree as ET
+
+        # Define namespaces to properly parse the XML
+        namespaces = {
+            'pt': 'http://schemas.brother.info/ptouch/2007/lbx/main',
+            'text': 'http://schemas.brother.info/ptouch/2007/lbx/text',
+            'style': 'http://schemas.brother.info/ptouch/2007/lbx/style',
+        }
+
+        tree = ET.parse(label_xml_path)
+        root = tree.getroot()
+
+        # Find all text objects - using the text:text path
+        text_objects = root.findall('.//text:text', namespaces)
+
+        # Verify we have exactly 3 text objects
+        self.assertEqual(len(text_objects), 3, "Expected exactly 3 text objects")
+
+        # Extract position information from the objectStyle elements within text elements
+        positions = []
+        for i, obj in enumerate(text_objects):
+            # Find the objectStyle element
+            obj_style = obj.find('./pt:objectStyle', namespaces)
+            if obj_style is not None:
+                x = obj_style.get('x')
+                y = obj_style.get('y')
+
+                # Check text content to ensure it matches our expected order
+                data_elem = obj.find('./pt:data', namespaces)
+                if data_elem is not None and data_elem.text:
+                    text_content = data_elem.text
+                else:
+                    text_content = f"Unknown text content in element {i+1}"
+
+                positions.append({
+                    'index': i,
+                    'x': x,
+                    'y': y,
+                    'text': text_content
+                })
+
+                # Verify that x and y attributes exist and have valid pt values
+                self.assertIsNotNone(x, f"Text element {i+1} is missing x position")
+                self.assertIsNotNone(y, f"Text element {i+1} is missing y position")
+                if x is not None:
+                    self.assertTrue(x.endswith('pt'), f"Text element {i+1} has invalid x position format: {x}")
+                if y is not None:
+                    self.assertTrue(y.endswith('pt'), f"Text element {i+1} has invalid y position format: {y}")
+
+        # Verify text contents to ensure the order matches our input
+        expected_texts = ["First Line", "Second Line", "Third Line"]
+        for i, pos in enumerate(positions):
+            self.assertEqual(pos['text'], expected_texts[i],
+                            f"Text element {i+1} has incorrect content: {pos['text']} (expected: {expected_texts[i]})")
+
+        # Sort positions by y coordinate to check vertical alignment
+        sorted_positions = sorted(positions, key=lambda p: float(p['y'].rstrip('pt')))
+
+        # Check that the order is maintained after sorting by vertical position
+        for i, pos in enumerate(sorted_positions):
+            self.assertEqual(pos['index'], i, f"Text element order doesn't match vertical position ordering")
+
+        # Verify that y positions are increasing (each text is below the previous)
+        for i in range(1, len(sorted_positions)):
+            y_prev = float(sorted_positions[i-1]['y'].rstrip('pt'))
+            y_curr = float(sorted_positions[i]['y'].rstrip('pt'))
+
+            self.assertGreater(y_curr, y_prev,
+                f"Text element {sorted_positions[i]['index']+1} (y={y_curr}pt) should be positioned below " +
+                f"element {sorted_positions[i-1]['index']+1} (y={y_prev}pt)")
+
+            # Optional: Check vertical spacing is consistent
+            if i > 1:
+                spacing_prev = float(sorted_positions[i-1]['y'].rstrip('pt')) - float(sorted_positions[i-2]['y'].rstrip('pt'))
+                spacing_curr = y_curr - y_prev
+                self.assertAlmostEqual(spacing_curr, spacing_prev, delta=0.1,
+                    msg=f"Vertical spacing between elements {i} and {i+1} ({spacing_curr}pt) differs from " +
+                        f"spacing between elements {i-1} and {i} ({spacing_prev}pt)")
 
     def test_03_formatted_text(self):
         """Test creating a label with formatted text."""
@@ -192,19 +280,92 @@ class LBXCreateTestCase(unittest.TestCase):
             "--size", "24"
         )
         file_list = self._verify_lbx_file(output_file)
-        self.assertIn(os.path.basename(IMAGE1), file_list, "Image file not found in LBX")
+
+        # With no conversion, the original image filename should be in the archive
+        original_filename = os.path.basename(IMAGE1)
+        self.assertIn(original_filename, file_list, f"Original image {original_filename} not found in LBX")
 
     def test_07_text_and_image(self):
-        """Test creating a label with text and an image."""
+        """Test creating a label with text that's exactly to the right of an image with no gap."""
         output_file = os.path.join(OUTPUT_DIR, "07_text_and_image.lbx")
         self._run_lbx_create(
             output_file,
-            "--text", "Image with Text",
+            "--text", "Text Touching Image's Left Edge",
             "--image", IMAGE1,
+            "--margin", "0",  # No margin between image and text
+            "--side-by-side",  # Position text side-by-side with image
             "--size", "24"
         )
         file_list = self._verify_lbx_file(output_file)
-        self.assertIn(os.path.basename(IMAGE1), file_list, "Image file not found in LBX")
+
+        # With no conversion, the original image filename should be in the archive
+        original_filename = os.path.basename(IMAGE1)
+        self.assertIn(original_filename, file_list, f"Original image {original_filename} not found in LBX")
+
+        # Verify text is positioned exactly to the right of the image with no gap
+        extract_dir = os.path.join(OUTPUT_DIR, os.path.splitext(os.path.basename(output_file))[0])
+        label_xml_path = os.path.join(extract_dir, "label.xml")
+        self.assertTrue(os.path.exists(label_xml_path), "label.xml not found in extracted LBX")
+
+        # Parse the label XML
+        import xml.etree.ElementTree as ET
+        namespaces = {
+            'pt': 'http://schemas.brother.info/ptouch/2007/lbx/main',
+            'text': 'http://schemas.brother.info/ptouch/2007/lbx/text',
+            'image': 'http://schemas.brother.info/ptouch/2007/lbx/image',
+        }
+
+        tree = ET.parse(label_xml_path)
+        root = tree.getroot()
+
+        # Find the image and text objects
+        image_objs = root.findall('.//image:image', namespaces)
+        text_objs = root.findall('.//text:text', namespaces)
+
+        self.assertEqual(len(image_objs), 1, "Expected exactly 1 image object")
+        self.assertEqual(len(text_objs), 1, "Expected exactly 1 text object")
+
+        # Get positions
+        image_style = image_objs[0].find('./pt:objectStyle', namespaces)
+        text_style = text_objs[0].find('./pt:objectStyle', namespaces)
+
+        # Make sure the style elements exist
+        self.assertIsNotNone(image_style, "Image style element not found")
+        self.assertIsNotNone(text_style, "Text style element not found")
+
+        # Only proceed if both styles exist
+        if image_style is not None and text_style is not None:
+            image_x_attr = image_style.get('x')
+            image_width_attr = image_style.get('width')
+            image_y_attr = image_style.get('y')
+            text_x_attr = text_style.get('x')
+            text_y_attr = text_style.get('y')
+
+            # Ensure attributes exist
+            self.assertIsNotNone(image_x_attr, "Image x position attribute not found")
+            self.assertIsNotNone(image_width_attr, "Image width attribute not found")
+            self.assertIsNotNone(image_y_attr, "Image y position attribute not found")
+            self.assertIsNotNone(text_x_attr, "Text x position attribute not found")
+            self.assertIsNotNone(text_y_attr, "Text y position attribute not found")
+
+            # Only proceed if all attributes exist
+            if (image_x_attr is not None and image_width_attr is not None and
+                image_y_attr is not None and text_x_attr is not None and
+                text_y_attr is not None):
+
+                image_x = float(image_x_attr.replace('pt', ''))
+                image_width = float(image_width_attr.replace('pt', ''))
+                image_y = float(image_y_attr.replace('pt', ''))
+                text_x = float(text_x_attr.replace('pt', ''))
+                text_y = float(text_y_attr.replace('pt', ''))
+
+                # Verify horizontal positioning - text is positioned exactly at the right edge of the image
+                self.assertEqual(text_x, image_x + image_width,
+                                f"Text should be positioned at x={image_x + image_width}pt (image_x + image_width), but is at x={text_x}pt")
+
+                # Verify vertical positioning - text and image have the same y-coordinate
+                self.assertEqual(text_y, image_y,
+                                f"Text should be aligned vertically with image at y={image_y}pt, but is at y={text_y}pt")
 
     def test_08_multiple_images(self):
         """Test creating a label with multiple images."""
@@ -216,8 +377,81 @@ class LBXCreateTestCase(unittest.TestCase):
             "--size", "24"
         )
         file_list = self._verify_lbx_file(output_file)
-        self.assertIn(os.path.basename(IMAGE1), file_list, "First image not found in LBX")
-        self.assertIn(os.path.basename(IMAGE2), file_list, "Second image not found in LBX")
+
+        # With no conversion, the original image filenames should be in the archive
+        image1_filename = os.path.basename(IMAGE1)
+        image2_filename = os.path.basename(IMAGE2)
+        self.assertIn(image1_filename, file_list, f"Original image {image1_filename} not found in LBX")
+        self.assertIn(image2_filename, file_list, f"Original image {image2_filename} not found in LBX")
+
+        # Now also verify the positioning of the images in the XML
+        extract_dir = os.path.join(OUTPUT_DIR, os.path.splitext(os.path.basename(output_file))[0])
+        label_xml_path = os.path.join(extract_dir, "label.xml")
+
+        # Check if label.xml exists
+        self.assertTrue(os.path.exists(label_xml_path), "label.xml not found in extracted LBX")
+
+        # Parse the label XML
+        import xml.etree.ElementTree as ET
+
+        # Define namespaces to properly parse the XML
+        namespaces = {
+            'pt': 'http://schemas.brother.info/ptouch/2007/lbx/main',
+            'text': 'http://schemas.brother.info/ptouch/2007/lbx/text',
+            'style': 'http://schemas.brother.info/ptouch/2007/lbx/style',
+            'image': 'http://schemas.brother.info/ptouch/2007/lbx/image',
+        }
+
+        tree = ET.parse(label_xml_path)
+        root = tree.getroot()
+
+        # Find all image objects
+        image_objects = root.findall('.//image:image', namespaces)
+
+        # Verify we have exactly 2 image objects
+        self.assertEqual(len(image_objects), 2, "Expected exactly 2 image objects")
+
+        # Extract position information from the objectStyle elements
+        positions = []
+        for i, obj in enumerate(image_objects):
+            # Find the objectStyle element
+            obj_style = obj.find('./pt:objectStyle', namespaces)
+            if obj_style is not None:
+                x = obj_style.get('x')
+                y = obj_style.get('y')
+
+                # Get image information from imageStyle element
+                image_style = obj.find('./image:imageStyle', namespaces)
+                image_name = "Unknown"
+                if image_style is not None:
+                    image_name = image_style.get('originalName', f"Unknown image in element {i+1}")
+
+                positions.append({
+                    'index': i,
+                    'x': x,
+                    'y': y,
+                    'image': image_name
+                })
+
+                # Verify that x and y attributes exist and have valid pt values
+                self.assertIsNotNone(x, f"Image element {i+1} is missing x position")
+                self.assertIsNotNone(y, f"Image element {i+1} is missing y position")
+                if x is not None:
+                    self.assertTrue(x.endswith('pt'), f"Image element {i+1} has invalid x position format: {x}")
+                if y is not None:
+                    self.assertTrue(y.endswith('pt'), f"Image element {i+1} has invalid y position format: {y}")
+
+        # Sort positions by y coordinate to check vertical alignment
+        sorted_positions = sorted(positions, key=lambda p: float(p['y'].rstrip('pt')))
+
+        # Verify that y positions are increasing (each image is below the previous)
+        for i in range(1, len(sorted_positions)):
+            y_prev = float(sorted_positions[i-1]['y'].rstrip('pt'))
+            y_curr = float(sorted_positions[i]['y'].rstrip('pt'))
+
+            self.assertGreater(y_curr, y_prev,
+                f"Image element {sorted_positions[i]['index']+1} (y={y_curr}pt) should be positioned below " +
+                f"element {sorted_positions[i-1]['index']+1} (y={y_prev}pt)")
 
     def test_09_multiple_images_and_text(self):
         """Test creating a label with multiple images and text."""
@@ -231,8 +465,12 @@ class LBXCreateTestCase(unittest.TestCase):
             "--size", "24"
         )
         file_list = self._verify_lbx_file(output_file)
-        self.assertIn(os.path.basename(IMAGE1), file_list, "First image not found in LBX")
-        self.assertIn(os.path.basename(IMAGE2), file_list, "Second image not found in LBX")
+
+        # With no conversion, the original image filenames should be in the archive
+        image1_filename = os.path.basename(IMAGE1)
+        image2_filename = os.path.basename(IMAGE2)
+        self.assertIn(image1_filename, file_list, f"Original image {image1_filename} not found in LBX")
+        self.assertIn(image2_filename, file_list, f"Original image {image2_filename} not found in LBX")
 
     def test_10_different_sizes(self):
         """Test creating labels with different sizes."""
@@ -284,8 +522,74 @@ class LBXCreateTestCase(unittest.TestCase):
             "--size", "24"
         )
         file_list = self._verify_lbx_file(output_file)
-        self.assertIn(os.path.basename(IMAGE1), file_list, "First image not found in LBX")
-        self.assertIn(os.path.basename(IMAGE2), file_list, "Second image not found in LBX")
+
+        # With no conversion, the original image filenames should be in the archive
+        image1_filename = os.path.basename(IMAGE1)
+        image2_filename = os.path.basename(IMAGE2)
+        self.assertIn(image1_filename, file_list, f"Original image {image1_filename} not found in LBX")
+        self.assertIn(image2_filename, file_list, f"Original image {image2_filename} not found in LBX")
+
+    def test_14_image_conversion(self):
+        """Test image conversion to BMP format."""
+        output_file = os.path.join(OUTPUT_DIR, "14_image_conversion.lbx")
+        self._run_lbx_create(
+            output_file,
+            "--text", "Converted Image Test",
+            "--image", IMAGE1,
+            "--image", IMAGE2,
+            "--convert-images",  # Explicitly convert to BMP
+            "--size", "24"
+        )
+        file_list = self._verify_lbx_file(output_file)
+
+        # When convert_images is true, images should be converted to BMP
+        # and named with Object*.bmp pattern
+        bmp_count = 0
+        original_image1 = os.path.basename(IMAGE1)
+        original_image2 = os.path.basename(IMAGE2)
+
+        # Check for BMP files and make sure original filenames are NOT there
+        for fname in file_list:
+            if fname.startswith("Object") and fname.endswith(".bmp"):
+                bmp_count += 1
+            # Original filenames should not be present
+            self.assertNotEqual(fname, original_image1, "Original image should not be in LBX when converting")
+            self.assertNotEqual(fname, original_image2, "Original image should not be in LBX when converting")
+
+        # Verify we have the right number of converted images
+        self.assertEqual(bmp_count, 2, "Expected exactly 2 BMP files in LBX when using --convert-images")
+
+        # Verify the XML structure includes references to the converted filenames
+        extract_dir = os.path.join(OUTPUT_DIR, os.path.splitext(os.path.basename(output_file))[0])
+        label_xml_path = os.path.join(extract_dir, "label.xml")
+        self.assertTrue(os.path.exists(label_xml_path), "label.xml not found in extracted LBX")
+
+        # Parse the label XML
+        import xml.etree.ElementTree as ET
+        namespaces = {
+            'pt': 'http://schemas.brother.info/ptouch/2007/lbx/main',
+            'image': 'http://schemas.brother.info/ptouch/2007/lbx/image',
+        }
+
+        tree = ET.parse(label_xml_path)
+        root = tree.getroot()
+
+        # Verify that image references in XML have the proper structure
+        image_styles = root.findall('.//image:imageStyle', namespaces)
+        self.assertEqual(len(image_styles), 2, "Expected 2 image style elements in XML")
+
+        for image_style in image_styles:
+            filename = image_style.get('fileName')
+            self.assertIsNotNone(filename, "fileName attribute missing in imageStyle")
+            if filename is not None:
+                self.assertTrue(filename.startswith("Object") and filename.endswith(".bmp"),
+                               f"Converted image filename {filename} doesn't match expected pattern")
+
+            # Should still have original filename stored in originalName attribute
+            original_name = image_style.get('originalName')
+            self.assertIsNotNone(original_name, "originalName attribute missing in imageStyle")
+            self.assertIn(original_name, [original_image1, original_image2],
+                         f"originalName {original_name} not found in expected values")
 
 
 if __name__ == "__main__":
