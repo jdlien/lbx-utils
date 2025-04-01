@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Brother P-Touch LBX Text Schema
+
+  This schema defines the structure for text elements in a Brother P-Touch label.
+  The text namespace handles text objects, font information, and text formatting.
+
+  CRITICAL FINDINGS:
+  1. The stringItem elements MUST be present after pt:data
+  2. The sum of charLen values across all stringItem elements must equal the length of the text in pt:data
+  3. Each stringItem must have its own ptFontInfo with logFont and fontExt
+  4. If a stringItem is removed, the corresponding text must be removed from pt:data
+  5. Order of elements is strictly important and must be preserved
+
+  XML FORMATTING REQUIREMENTS:
+  1. For compatibility with Brother P-Touch Editor, all XML content (except the XML declaration)
+     MUST be on a single line with no line breaks or unnecessary whitespace
+  2. Only the XML declaration line should be separate, with all content following on one line
+  3. While the XML structure should be minified, preserve text content as-is (including whitespace)
+  4. Failure to follow these formatting rules can cause the P-Touch Editor to crash or fail to open files
+
+  NEW FINDINGS FROM 8mm-vertical.lbx and 4-up-smoking.lbx:
+  1. Vertical text is supported using textStyle vertical="true"
+  2. Multiple textControl modes exist: FREE, LONGTEXTFIXED, FIXEDFRAME
+  3. Different font sizes can be used within the same text block using separate stringItem elements
+  4. Line spacing can be adjusted (e.g., lineSpace="-25" for tighter spacing)
+  5. Character spacing can be adjusted for visual effect
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:pt="http://schemas.brother.info/ptouch/2007/lbx/main"
+           xmlns:text="http://schemas.brother.info/ptouch/2007/lbx/text"
+           elementFormDefault="qualified"
+           targetNamespace="http://schemas.brother.info/ptouch/2007/lbx/text">
+
+  <!-- Import main namespace -->
+  <xs:import namespace="http://schemas.brother.info/ptouch/2007/lbx/main" schemaLocation="lbx_label_schema.xsd"/>
+
+  <!-- Text object -->
+  <xs:element name="text">
+    <xs:annotation>
+      <xs:documentation>
+        Represents a text object on the label.
+        Contains positioning, font information, and the text content.
+
+        CRITICAL: The sequence of child elements must be maintained exactly as defined here.
+        Changing the order or omitting elements will cause the text not to display.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <!-- The object's position and style -->
+        <xs:element ref="pt:objectStyle"/>
+
+        <!-- Default font info for the entire text object -->
+        <xs:element ref="text:ptFontInfo"/>
+
+        <!-- Text control settings -->
+        <xs:element ref="text:textControl"/>
+
+        <!-- Text alignment settings -->
+        <xs:element ref="text:textAlign"/>
+
+        <!-- Text style settings -->
+        <xs:element ref="text:textStyle"/>
+
+        <!-- The actual text content -->
+        <xs:element ref="pt:data"/>
+
+        <!-- One or more string items defining text segments with specific formatting -->
+        <xs:element ref="text:stringItem" minOccurs="1" maxOccurs="unbounded">
+          <xs:annotation>
+            <xs:documentation>
+              CRITICAL: There must be at least one stringItem.
+              The sum of all charLen values must equal the length of the text in pt:data.
+            </xs:documentation>
+          </xs:annotation>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Font information element -->
+  <xs:element name="ptFontInfo">
+    <xs:annotation>
+      <xs:documentation>
+        Contains font information for the text.
+        Used both at the text object level and within each stringItem.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <!-- Logical font information -->
+        <xs:element ref="text:logFont"/>
+
+        <!-- Extended font information -->
+        <xs:element ref="text:fontExt"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Logical font properties -->
+  <xs:element name="logFont">
+    <xs:annotation>
+      <xs:documentation>
+        Defines the basic font properties like family, weight, and style.
+
+        CRITICAL: For compatibility with P-Touch Editor, use name="Helsinki" and pitchAndFamily="2".
+        Using other fonts may cause the editor to crash when opening the file.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="name" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Font family name. Use "Helsinki" for maximum compatibility with P-Touch Editor.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="width" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Font width. Usually "0" for normal width.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="italic" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether the font is italic or not. "true" or "false".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="weight" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Font weight. "400" for normal, "700" for bold.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="charSet" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Character set. Usually "0".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="pitchAndFamily" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Font pitch and family. For compatibility, use "2" when using the Helsinki font.
+            The value "34" is often used with other fonts but may cause compatibility issues.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Extended font properties -->
+  <xs:element name="fontExt">
+    <xs:annotation>
+      <xs:documentation>
+        Defines extended font properties like effects, size, and color.
+
+        CRITICAL: For compatibility with P-Touch Editor, use size="21.7pt" and orgSize="28.8pt".
+        Using other font sizes may cause the editor to crash when opening the file.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="effect" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Text effect. Usually "NOEFFECT".
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="NOEFFECT"/>
+            <xs:enumeration value="SHADOW"/>
+            <xs:enumeration value="OUTLINE"/>
+            <!-- Other effects found in samples -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="underline" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Underline style. "0" for none.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="strikeout" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Strikeout style. "0" for none.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="size" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Font size with unit. For maximum compatibility, use "21.7pt".
+            Other commonly used sizes include 6pt, 8pt, and 12pt, but default to
+            21.7pt for best compatibility with P-Touch Editor.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="orgSize" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Original size for reference. Use "28.8pt" for maximum compatibility.
+            Usually 3.6x the size for other values when needed.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="textColor" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Text color in hexadecimal RGB format. Example: "#000000" for black.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="textPrintColorNumber" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Printer color number for the text. Usually "1".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Text control properties -->
+  <xs:element name="textControl">
+    <xs:annotation>
+      <xs:documentation>
+        Defines text control settings like wrapping and sizing behavior.
+
+        CRITICAL: For compatibility with P-Touch Editor, use control="AUTOLEN" and autoLF="false".
+        Using control="FREE" or autoLF="true" may cause the editor to crash when opening the file.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="control" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Text control mode. Options include:
+            - AUTOLEN: Preferred for P-Touch Editor compatibility
+            - FREE: Standard text flow with automatic wrapping, may cause issues when opening files
+            - LONGTEXTFIXED: Used for vertical text in 8mm-vertical.lbx, creates vertical flow.
+            - FIXEDFRAME: Used in 4-up-smoking.lbx, constrains text to a fixed frame.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="FREE"/>
+            <xs:enumeration value="AUTOLEN"/>
+            <xs:enumeration value="LONGTEXTFIXED"/>
+            <xs:enumeration value="FIXEDFRAME"/>
+            <!-- Other control types discovered in samples -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="clipFrame" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to clip text to frame boundaries.
+            - "true": Text that doesn't fit will be clipped (hidden).
+            - "false": Text may extend beyond the frame boundaries.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="aspectNormal" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to maintain normal aspect ratio when scaling text.
+            - "true": Preserve width-to-height ratio.
+            - "false": Allow distortion of text for fitting.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="shrink" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to shrink text to fit within the frame.
+            - "true": Automatically reduce font size to fit.
+            - "false": Maintain font size even if text doesn't fit.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="autoLF" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to automatically break lines to fit within the frame width.
+
+            CRITICAL: For compatibility with P-Touch Editor, use autoLF="false".
+            Setting autoLF="true" may cause the editor to crash when opening the file.
+
+            - "true": Add line breaks automatically.
+            - "false": Only break at explicit newlines.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="avoidImage" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to flow text around images or other objects.
+            - "true": Text will wrap around other objects.
+            - "false": Text will appear on top of other objects.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Text alignment properties -->
+  <xs:element name="textAlign">
+    <xs:annotation>
+      <xs:documentation>
+        Defines text alignment settings.
+
+        CRITICAL: For compatibility with P-Touch Editor, use verticalAlignment="TOP" rather than "CENTER".
+        Using "CENTER" may cause the editor to crash when opening the file.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="horizontalAlignment" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Horizontal text alignment.
+            For vertical text (textStyle vertical="true"), this actually controls vertical positioning.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="JUSTIFY"/>
+            <xs:enumeration value="LEFT"/>
+            <xs:enumeration value="CENTER"/>
+            <xs:enumeration value="RIGHT"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="verticalAlignment" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Vertical text alignment.
+
+            CRITICAL: For compatibility with P-Touch Editor, prefer "TOP" rather than "CENTER".
+
+            For vertical text (textStyle vertical="true"), this actually controls horizontal positioning.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="CENTER"/>
+            <xs:enumeration value="TOP"/>
+            <xs:enumeration value="BOTTOM"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="inLineAlignment" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            In-line text alignment. Controls how characters align relative to each other.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="BASELINE"/>
+            <xs:enumeration value="CENTER"/>
+            <!-- Other alignment types found in samples -->
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Text style properties -->
+  <xs:element name="textStyle">
+    <xs:annotation>
+      <xs:documentation>
+        Defines additional text styling properties including vertical text orientation.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="vertical" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether the text is displayed vertically (top-to-bottom).
+            - "true": Text flows vertically (as used in 8mm-vertical.lbx).
+            - "false": Text flows horizontally (left-to-right or right-to-left).
+
+            NOTE: When vertical="true", use with textControl control="LONGTEXTFIXED"
+            and orientation="portrait" for best results on narrow tapes.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="nullBlock" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether the text is a null block (placeholder with no content).
+            Usually "false" for regular text.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="charSpace" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Character spacing adjustment as a percentage.
+            - "0": Normal spacing.
+            - Positive values: Add space between characters.
+            - Negative values: Reduce space between characters.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="lineSpace" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Line spacing adjustment as a percentage.
+            - "0": Normal spacing.
+            - "-10": Slightly reduced spacing (common).
+            - "-25": Significantly reduced spacing (used in 4-up-smoking.lbx).
+
+            For vertical text, this controls horizontal spacing between character columns.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="orgPoint" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Original point size reference. Usually matches the font size with "pt" suffix.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="combinedChars" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to enable character combining (for languages that support it).
+            Usually "false" for Latin-script text.
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="true"/>
+            <xs:enumeration value="false"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- String item element - critical for text formatting -->
+  <xs:element name="stringItem">
+    <xs:annotation>
+      <xs:documentation>
+        Represents a segment of text with specific formatting.
+        CRITICAL: The sum of all stringItem charLen values must equal the total
+        length of the text in pt:data, and they must appear in the correct sequence.
+        Each stringItem must contain a ptFontInfo element.
+
+        In 4-up-smoking.lbx, multiple stringItem elements with different font sizes
+        are used within the same text block to create visual hierarchy.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <!-- Font information for this text segment -->
+        <xs:element ref="text:ptFontInfo"/>
+      </xs:sequence>
+      <xs:attribute name="charLen" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            The length in characters of this text segment.
+            CRITICAL: Must accurately reflect the length of the corresponding
+            portion of text in pt:data.
+
+            IMPORTANT: Count carefully! Each character (including spaces and newlines)
+            counts as 1. Exception: some Unicode characters like emoji or combined
+            characters may count differently.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

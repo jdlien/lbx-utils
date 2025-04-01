@@ -13,7 +13,7 @@ import unittest
 import tempfile
 import importlib.util
 import xml.etree.ElementTree as ET
-from lbx_text_edit import LBXTextEditor, TextObject, StringItem, FontInfo, NAMESPACES
+from lbx_utils.core.lbx_text_edit import LBXTextEditor, TextObject, StringItem, FontInfo, NAMESPACES
 from typing import Optional, Any, Dict, List, TYPE_CHECKING
 
 # To appease the linter, add stub type hints
@@ -90,7 +90,7 @@ except ImportError as e:
     sys.exit(1)
 
 # Path to the test sample
-TEST_SAMPLE = "example-labels/30182.lbx"
+TEST_SAMPLE = "data/label_examples/30182.lbx"
 TEMP_DIR = "test_output"
 
 

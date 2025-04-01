@@ -58,12 +58,17 @@ Icon
 *.swp
 *.swo
 *~
+.ruff_cache/
+.cursor/
 
 # Project specific
+label_examples/
 extracted-images/
 test_output/
 part_images/
+test-images/
 
+# Exclude generated image files by default
 *.png
 *.jpg
 *.jpeg
