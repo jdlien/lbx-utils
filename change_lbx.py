@@ -2,7 +2,16 @@
 # -*- coding: utf-8 -*-
 
 """
-change-lbx.py - Brother P-touch LBX Label File Modifier
+change_lbx.py - Brother P-touch LBX Label File Modifier
+
+This script modifies Brother P-touch LBX files to change label width, font size, and other properties.
+It can also add a center cut line and apply various text transformations.
+
+Basic Usage:
+python3 change_lbx.py input.lbx output.lbx -f 14 -l 24 -c -s 1.5 -m 0.5
+
+For help:
+python3 change_lbx.py --help
 
 A utility for customizing Brother P-touch label (.lbx) files by modifying font size,
 label width, vertical alignment, image scaling, text positioning, and text content.
@@ -18,13 +27,14 @@ Example usage to convert a BrickArchitect label:
 - Scaling images to 150% of original size
 - Setting text margin to 0.5mm from images
 
-python3 change-lbx.py label.lbx label-24mm.lbx -f 14 -l 24 -c -s 1.5 -m 0.5
+python3 change_lbx.py label.lbx label-24mm.lbx -f 14 -l 24 -c -s 1.5 -m 0.5
 
 Text editing examples:
 - Convert dimension notation (2x2 to 2×2): --text-tweaks
 - Find and replace: --find "old text" --replace "new text"
-- Regex replacement: --find r"(\d+)x(\d+)" --replace r"\1×\2" --regex
+- Regex replacement: --find r"(\\d+)x(\\d+)" --replace r"\\1×\\2" --regex
 - Case-insensitive search: --find "Text" --replace "NEW TEXT" --ignore-case
+- Compact multi-line text: automatically combines first two lines with a space when text has more than two lines (enabled by default with --text-tweaks)
 
 Requirements:
 - typer: Modern CLI interface
@@ -146,6 +156,8 @@ class Config:
             'text': 'http://schemas.brother.info/ptouch/2007/lbx/text',
             'image': 'http://schemas.brother.info/ptouch/2007/lbx/image'
         }
+
+        self.PTOUCH_EDITOR_APP_PATH: str = "/Applications/Brother P-Touch Editor.app"
 
 config = Config()
 
@@ -696,6 +708,12 @@ def save_lbx(tree: ElementTree, xml_path: str, output_file: str, temp_dir: str) 
     # Save the modified XML
     tree.write(xml_path, encoding='UTF-8', xml_declaration=True)
 
+    # Verify that the XML has been properly written before creating the LBX
+    with open(xml_path, 'r', encoding='utf-8') as f:
+        xml_content = f.read()
+        if config.verbose:
+            log_message(f"XML content before creating LBX (first 100 chars): {xml_content[:100]}")
+
     # Create a new ZIP file with the modified content
     with zipfile.ZipFile(output_file, 'w') as zipf:
         for root_dir, _, files in os.walk(temp_dir):
@@ -858,7 +876,7 @@ def update_font_sizes(text_elements: List[Element], target_font_size: float) -> 
                     log_message(f"Updated string item font size from {current_size:.1f}pt to {target_font_size}pt")
 
 
-def tweak_text(root: Element, xml_path: str, options: Dict[str, Any] = {}) -> None:
+def tweak_text(root: Element, xml_path: str, options: Dict[str, Any] = {}) -> ElementTree:
     """
     Apply text tweaks to the content of text elements using LBXTextEditor.
 
@@ -866,6 +884,7 @@ def tweak_text(root: Element, xml_path: str, options: Dict[str, Any] = {}) -> No
     - Converting dimension notation (e.g., "2x2" -> "2×2")
     - Custom find and replace operations
     - Regular expression replacements
+    - Compact multi-line text by replacing first newline with space when text has > 2 lines
 
     Args:
         root: Root element of the XML tree
@@ -875,6 +894,10 @@ def tweak_text(root: Element, xml_path: str, options: Dict[str, Any] = {}) -> No
             - regex_replacements: List of (pattern, replace) tuples for regex operations
             - ignore_case: Boolean to control case sensitivity
             - convert_dimension_notation: Boolean to control automatic dimension notation conversion
+            - compact_multiline: Boolean to enable compacting multi-line text by replacing first newline with space
+
+    Returns:
+        Updated ElementTree with modifications
     """
     # Use LBXTextEditor for text editing
     log_message("Using LBXTextEditor for text tweaks")
@@ -890,6 +913,20 @@ def tweak_text(root: Element, xml_path: str, options: Dict[str, Any] = {}) -> No
         replacements = editor.regex_find_replace_all(r'(\d+)\s*[xX]\s*(\d+)', r'\1×\2', case_sensitive=False)
         if replacements > 0:
             log_message(f"Converted {replacements} occurrences of dimension notation (e.g., '4 x 4' -> '4×4')")
+            total_replacements += replacements
+
+    # Compact multi-line text: replace first newline with space when text has more than two lines
+    if options.get('compact_multiline', True):
+        # Find text with at least two newlines (more than two lines)
+        # Use a regex that matches a string containing at least two newlines
+        # and replace only the first newline with a space
+        replacements = editor.regex_find_replace_all(
+            r'^([^\n]*)\n([^\n]*\n.+)$',
+            r'\1 \2',
+            case_sensitive=True
+        )
+        if replacements > 0:
+            log_message(f"Compacted {replacements} multi-line text blocks by replacing first newline with space")
             total_replacements += replacements
 
     # Apply custom text replacements
@@ -910,8 +947,16 @@ def tweak_text(root: Element, xml_path: str, options: Dict[str, Any] = {}) -> No
     if total_replacements > 0:
         log_message(f"Made a total of {total_replacements} text replacements")
         editor.save(xml_path)
+
+        # IMPORTANT: Reload the XML tree from the modified file
+        parser = ET.XMLParser(remove_blank_text=True)
+        updated_tree = ET.parse(xml_path, parser)
+        return updated_tree
     else:
         log_message("No text replacements were needed")
+        # Return the original tree if no changes were made
+        parser = ET.XMLParser(remove_blank_text=True)
+        return ET.parse(xml_path, parser)
 
 
 def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any]) -> None:
@@ -990,7 +1035,6 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
             # Scale images if requested
             if image_scale != 1.0:
                 log_message(f"Scaling images by factor: {image_scale}")
-
             # Scale and position images
             max_image_right_edge = scale_images(image_elements, image_scale, label_size)
 
@@ -1007,25 +1051,29 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
             # Position text elements after images (will preserve positions due to image_scale=1.0)
             position_text(text_elements, max_image_right_edge, label_size, text_margin_pt, image_scale)
 
+        # Apply compatibility tweaks before any text tweaks
+        apply_compatibility_tweaks(root, label_size)
+
+        # Save the current state of the tree
+        tree.write(xml_path, encoding='UTF-8', xml_declaration=True)
+
         # Apply text tweaks if requested
         if options.get('text_tweaks', False):
             log_message("Applying text tweaks...")
 
-            # Pass options to tweak_text function
             # Prepare text tweak options
             text_options = {
                 'convert_dimension_notation': True,  # Default transformation
                 'custom_replacements': options.get('custom_replacements', []),
                 'regex_replacements': options.get('regex_replacements', []),
-                'ignore_case': options.get('ignore_case', False)
+                'ignore_case': options.get('ignore_case', False),
+                'compact_multiline': options.get('compact_multiline', True)  # Enable compacting multi-line text by default
             }
 
-            tweak_text(root, xml_path, text_options)
+            # Get the updated tree from tweak_text
+            tree = tweak_text(root, xml_path, text_options)
         else:
             log_message("Skipping text tweaks (not requested)")
-
-        # Apply compatibility tweaks before saving
-        apply_compatibility_tweaks(root, label_size)
 
         # Save the modified file
         save_lbx(tree, xml_path, output_file_path, temp_dir)
@@ -1034,7 +1082,7 @@ def modify_lbx(lbx_file_path: str, output_file_path: str, options: Dict[str, Any
         # Open the file if requested (macOS only)
         if options.get('open_file', False) and platform.system() == 'Darwin':
             try:
-                subprocess.run(['open', '-a', '/Applications/P-touch Editor.app', output_file_path])
+                subprocess.run(['open', '-a', config.PTOUCH_EDITOR_APP_PATH, output_file_path])
                 log_message("Opened file in P-touch Editor", msg_class=MessageClass.SUCCESS)
             except Exception as e:
                 log_message(f"Warning: Could not open file: {str(e)}", msg_class=MessageClass.WARNING)
@@ -1055,6 +1103,7 @@ def main(
     replace: Optional[str] = typer.Option(None, "--replace", help="Text to replace with"),
     regex: bool = typer.Option(False, "--regex", help="Use regular expressions for pattern matching"),
     ignore_case: bool = typer.Option(False, "--ignore-case", "-i", help="Ignore case in text replacements"),
+    no_compact: bool = typer.Option(False, "--no-compact", help="Disable automatic compacting of multi-line text"),
     open_file: bool = typer.Option(False, "--open", "-o", help="Open the modified file in P-touch Editor after creation (macOS only)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed logging output")
 ) -> int:
@@ -1095,6 +1144,7 @@ def main(
             'custom_replacements': custom_replacements,
             'regex_replacements': regex_replacements,
             'ignore_case': ignore_case,
+            'compact_multiline': not no_compact,  # Enable compact multi-line by default, disable if --no-compact is used
             'open_file': open_file,
             'force': False,  # Default value for force option
             'verbose': verbose  # Add verbose flag to options

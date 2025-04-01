@@ -80,7 +80,7 @@ def test_direct_editor():
             print("\nFAILED: Text was not replaced as expected")
 
 def test_lbx_workflow():
-    """Test the text tweaking in the full LBX workflow using change-lbx.py"""
+    """Test the text tweaking in the full LBX workflow using change_lbx.py"""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create the test XML file
         xml_path = os.path.join(temp_dir, 'label.xml')
@@ -97,7 +97,7 @@ def test_lbx_workflow():
         with zipfile.ZipFile(lbx_path, 'r') as zipf:
             zipf.extractall(extract_dir)
 
-        # Import the tweak_text function from change-lbx.py
+        # Import the tweak_text function from change_lbx.py
         from change_lbx import tweak_text, config
 
         # Get the label.xml path in the extracted directory
@@ -151,5 +151,5 @@ if __name__ == "__main__":
     try:
         test_lbx_workflow()
     except ImportError as e:
-        print(f"Error importing from change-lbx.py: {e}")
+        print(f"Error importing from change_lbx.py: {e}")
         print("Try renaming the file to change_lbx.py for proper module importing")

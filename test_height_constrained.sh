@@ -36,7 +36,7 @@ echo "Generating view angle comparisons for part ${ANGLE_TEST_PART}..."
 
 for longitude in -45 -30 -15 0 15 30 45; do
   echo "  - Generating image with longitude ${longitude}°"
-  python generate-part-image.py $ANGLE_TEST_PART \
+  python generate_part_image.py $ANGLE_TEST_PART \
     -o "./test-images/view-angles/${ANGLE_TEST_PART}-long${longitude}.png" \
     --height $BASE_HEIGHT \
     --edge-thickness $EDGE_THICKNESS \
@@ -56,7 +56,7 @@ for part_info in "${PARTS[@]}"; do
 
   # Generate image with height constraint and cropped transparent parts (default)
   echo "  - Generating height-constrained image with transparent cropping (default)..."
-  python generate-part-image.py $part_number \
+  python generate_part_image.py $part_number \
     -o "./test-images/constraint-comparison/${part_number}-height-cropped.png" \
     --height $BASE_HEIGHT \
     --edge-thickness $EDGE_THICKNESS \
@@ -65,7 +65,7 @@ for part_info in "${PARTS[@]}"; do
 
   # Generate image with height constraint but without cropping transparent parts
   echo "  - Generating height-constrained image WITHOUT transparent cropping..."
-  python generate-part-image.py $part_number \
+  python generate_part_image.py $part_number \
     -o "./test-images/constraint-comparison/${part_number}-height-uncropped.png" \
     --height $BASE_HEIGHT \
     --edge-thickness $EDGE_THICKNESS \
@@ -74,7 +74,7 @@ for part_info in "${PARTS[@]}"; do
 
   # Generate image with width constraint (using the new flag)
   echo "  - Generating width-constrained image (auto-cropped by LDView)..."
-  python generate-part-image.py $part_number \
+  python generate_part_image.py $part_number \
     -o "./test-images/constraint-comparison/${part_number}-width.png" \
     --width $BASE_WIDTH \
     --edge-thickness $EDGE_THICKNESS \

@@ -62,8 +62,8 @@ Icon
 # Project specific
 extracted-images/
 test_output/
+part_images/
 
-test-images/
 *.png
 *.jpg
 *.jpeg

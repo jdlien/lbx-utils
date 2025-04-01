@@ -2,7 +2,7 @@
 
 """
 Script to generate PNG images for all LDraw .dat files in the ldraw/parts directory.
-This uses the generate-part-image.py script to create consistent images.
+This uses the generate_part_image.py script to create consistent images.
 """
 
 import os
@@ -87,10 +87,10 @@ def generate_part_image(
     if output_file.exists() and not force:
         return part_number, True, True  # Success but skipped
 
-    # Use generate-part-image.py script to create the image
+    # Use generate_part_image.py script to create the image
     cmd = [
         sys.executable,
-        "generate-part-image.py",
+        "generate_part_image.py",
         part_number,
         "--output", str(output_file)
     ]

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-Run Tests for LBX Text Editor
+Test Runner Script
 
-This script provides a simple way to run the test suite for lbx-text-edit.py.
-It creates a 'test_output' directory where the test results (modified LBX files)
-will be stored.
+This script provides a simple way to run the test suite for lbx_text_edit.py.
+It handles setting up the test environment and running the tests.
 
 Usage:
     python run_tests.py

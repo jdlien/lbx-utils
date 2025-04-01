@@ -57,6 +57,6 @@ if __name__ == "__main__":
     lbx_path = create_test_lbx()
     print(f"Test both with and without compacting:")
     print(f"1. With compacting (default):")
-    print(f"python change-lbx.py {lbx_path} test_samples/test_multiline_compact.lbx --text-tweaks --verbose")
+    print(f"python change_lbx.py {lbx_path} test_samples/test_multiline_compact.lbx --text-tweaks --verbose")
     print(f"\n2. Without compacting:")
-    print(f"python change-lbx.py {lbx_path} test_samples/test_multiline_nocompact.lbx --text-tweaks --no-compact --verbose")
+    print(f"python change_lbx.py {lbx_path} test_samples/test_multiline_nocompact.lbx --text-tweaks --no-compact --verbose")

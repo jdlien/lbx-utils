@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-lbx-create.py - Create Brother P-Touch LBX labels with text and images
+lbx_create.py - Create Brother P-Touch LBX labels with text and images
 
 This script generates Brother P-Touch LBX labels with configurable text and images.
 It creates label files that are compatible with Brother P-Touch Editor software.
@@ -870,7 +870,7 @@ def create(
 def display_help() -> None:
     """Display help information with examples."""
     console.print(Panel(
-        "[bold cyan]lbx-create.py[/bold cyan] - Create Brother P-Touch LBX label files\n\n"
+        "[bold cyan]lbx_create.py[/bold cyan] - Create Brother P-Touch LBX label files\n\n"
         "This tool creates Brother P-Touch LBX label files with text and images that can be"
         "opened directly in Brother P-Touch Editor software.\n\n"
         "[bold yellow]Key Features:[/bold yellow]\n"
@@ -881,17 +881,17 @@ def display_help() -> None:
         "- Configure label size (9mm, 12mm, 18mm, 24mm)\n\n"
         "[bold yellow]Examples:[/bold yellow]\n\n"
         "[green]Create a basic text label:[/green]\n"
-        "  python lbx-create.py --output mylabel.lbx --text \"Hello World\"\n\n"
+        "  python lbx_create.py --output mylabel.lbx --text \"Hello World\"\n\n"
         "[green]Create a label with multiple text elements:[/green]\n"
-        "  python lbx-create.py --output mylabel.lbx --text \"Line 1\" --text \"Line 2\"\n\n"
+        "  python lbx_create.py --output mylabel.lbx --text \"Line 1\" --text \"Line 2\"\n\n"
         "[green]Create a label with an image:[/green]\n"
-        "  python lbx-create.py --output mylabel.lbx --image logo.png\n\n"
+        "  python lbx_create.py --output mylabel.lbx --image logo.png\n\n"
         "[green]Create a label with text and image:[/green]\n"
-        "  python lbx-create.py --output mylabel.lbx --image logo.png --text \"Company Name\"\n\n"
+        "  python lbx_create.py --output mylabel.lbx --image logo.png --text \"Company Name\"\n\n"
         "[green]Create a label with custom text formatting:[/green]\n"
-        "  python lbx-create.py --output mylabel.lbx --text \"Bold Text\" --bold --font \"Arial\" --font-size 14\n\n"
+        "  python lbx_create.py --output mylabel.lbx --text \"Bold Text\" --bold --font \"Arial\" --font-size 14\n\n"
         "[green]Create a label with a specific size:[/green]\n"
-        "  python lbx-create.py --output mylabel.lbx --text \"12mm Label\" --size 12\n",
+        "  python lbx_create.py --output mylabel.lbx --text \"12mm Label\" --size 12\n",
         title="Help & Examples",
         border_style="blue"
     ))

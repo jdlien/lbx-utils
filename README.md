@@ -10,31 +10,36 @@ LBX is the file format used by Brother P-Touch Editor software for label designs
 
 ## Utilities
 
-### lbx-create.py
+### lbx_create.py
 
-Creates Brother P-Touch LBX label files with text and images.
+Creates new Brother P-touch label files with text and/or images.
+
+#### Examples
 
 ```bash
-# Create a basic text label
-python lbx-create.py create --output mylabel.lbx --text "Hello World" --size 24
-
-# Create a label with multiple text elements
-python lbx-create.py create --output mylabel.lbx --text "Line 1" --text "Line 2" --size 24
-
-# Create a label with an image
-python lbx-create.py create --output mylabel.lbx --image logo.png --size 24
-
-# Create a label with text and image
-python lbx-create.py create --output mylabel.lbx --image logo.png --text "Company Name" --size 24
-
-# Create a label with custom text formatting
-python lbx-create.py create --output mylabel.lbx --text "Bold Text" --bold --font "Helsinki" --size 24
+python lbx_create.py create --output mylabel.lbx --text "Hello World" --size 24
 ```
 
-For more options, run:
+```bash
+python lbx_create.py create --output mylabel.lbx --text "Line 1" --text "Line 2" --size 24
+```
 
 ```bash
-python lbx-create.py --help
+python lbx_create.py create --output mylabel.lbx --image logo.png --size 24
+```
+
+```bash
+python lbx_create.py create --output mylabel.lbx --image logo.png --text "Company Name" --size 24
+```
+
+```bash
+python lbx_create.py create --output mylabel.lbx --text "Bold Text" --bold --font "Helsinki" --size 24
+```
+
+#### Help
+
+```bash
+python lbx_create.py --help
 ```
 
 ## LBX File Format
@@ -91,7 +96,7 @@ LBX files are label documents created with Brother P-Touch Editor software. They
 
 ## Tools Included
 
-### parse-lbx.py
+### parse_lbx.py
 
 A utility to extract information from LBX files:
 
@@ -105,7 +110,7 @@ A utility to extract information from LBX files:
 Usage:
 
 ```
-./parse-lbx.py [options]
+./parse_lbx.py [options]
 
 Options:
   -h, --help           Show this help message and exit
@@ -118,7 +123,7 @@ Options:
   --db                 Use SQLite database for part information and update database
 ```
 
-### change-lbx.py
+### change_lbx.py
 
 A utility for customizing Brother P-touch label (.lbx) files:
 
@@ -131,7 +136,7 @@ A utility for customizing Brother P-touch label (.lbx) files:
 Usage:
 
 ```
-python3 change-lbx.py label.lbx label-24mm.lbx -f 14 -l 24 -c -s 1.5 -m 0.5
+python3 change_lbx.py label.lbx label-24mm.lbx -f 14 -l 24 -c -s 1.5 -m 0.5
 
 Options:
   -f, --font-size      Font size in pt
@@ -141,7 +146,7 @@ Options:
   -m, --margin         Margin between image and text in mm
 ```
 
-## generate-part-image.py
+## generate_part_image.py
 
 A utility to generate grayscale label-friendly images of LEGO parts using LDView.
 This requires LDView to be installed along with the LDraw library.
@@ -159,7 +164,7 @@ This requires LDView to be installed along with the LDraw library.
   - Enables proper BMP to PNG conversion
   - Preserves transparency in extracted images
 - **lxml**: Provides enhanced XML parsing capabilities
-  - Significantly improves vertical centering functionality in change-lbx.py
+  - Significantly improves vertical centering functionality in change_lbx.py
   - Offers better XML handling and manipulation
 - **colorama**: Adds colored terminal output
   - Makes command output more readable with color-coding
@@ -198,8 +203,8 @@ This requires LDView to be installed along with the LDraw library.
 
 4. Make scripts executable (on Unix-based systems):
    ```
-   chmod +x parse-lbx.py
-   chmod +x change-lbx.py
+   chmod +x parse_lbx.py
+   chmod +x change_lbx.py
    ```
 
 # TODO
@@ -238,25 +243,25 @@ No additional dependencies are required beyond the Python standard library.
 
 ```bash
 # List all text objects in an LBX file
-python lbx-text-edit.py list input.lbx
+python lbx_text_edit.py list input.lbx
 
 # Edit a specific text object
-python lbx-text-edit.py edit input.lbx -i 0 -t "New text" -o output.lbx
+python lbx_text_edit.py edit input.lbx -i 0 -t "New text" -o output.lbx
 
 # Find and replace text
-python lbx-text-edit.py replace input.lbx -f "Old text" -r "New text" -o output.lbx
+python lbx_text_edit.py replace input.lbx -f "Old text" -r "New text" -o output.lbx
 
 # Case-insensitive find and replace
-python lbx-text-edit.py replace input.lbx -f "text" -r "TEXT" -i -o output.lbx
+python lbx_text_edit.py replace input.lbx -f "text" -r "TEXT" -i -o output.lbx
 
 # Regular expression find and replace
-python lbx-text-edit.py replace input.lbx -f "(\d+)x(\d+)" -r "\1×\2" --regex -o output.lbx
+python lbx_text_edit.py replace input.lbx -f "(\d+)x(\d+)" -r "\1×\2" --regex -o output.lbx
 ```
 
 ### As a Library
 
 ```python
-from lbx-text-edit import LBXTextEditor
+from lbx_text_edit import LBXTextEditor
 
 # Open an LBX file
 editor = LBXTextEditor()
@@ -290,19 +295,19 @@ This tool automatically handles these requirements when editing text, ensuring t
 ### Convert dimension notation from "2x2" to "2×2"
 
 ```bash
-python lbx-text-edit.py replace label.lbx -f "(\d+)x(\d+)" -r "\1×\2" --regex
+python lbx_text_edit.py replace label.lbx -f "(\d+)x(\d+)" -r "\1×\2" --regex
 ```
 
 ### Add a suffix to all text objects
 
 ```bash
-python lbx-text-edit.py replace label.lbx -f "^(.*)$" -r "\1 Brick" --regex
+python lbx_text_edit.py replace label.lbx -f "^(.*)$" -r "\1 Brick" --regex
 ```
 
 ### Format part numbers
 
 ```bash
-python lbx-text-edit.py replace label.lbx -f "(\d{4})(\d)?" -r "Part #\1-\2" --regex
+python lbx_text_edit.py replace label.lbx -f "(\d{4})(\d)?" -r "Part #\1-\2" --regex
 ```
 
 # LBX Schema Documentation

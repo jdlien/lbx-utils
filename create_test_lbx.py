@@ -54,4 +54,4 @@ def create_test_lbx(output_path="test_samples/test_dimension.lbx"):
 if __name__ == "__main__":
     lbx_path = create_test_lbx()
     print(f"Run the following command to test text tweaks:")
-    print(f"python change-lbx.py {lbx_path} test_samples/test_dimension_modified.lbx --text-tweaks --verbose")
+    print(f"python change_lbx.py {lbx_path} test_samples/test_dimension_modified.lbx --text-tweaks --verbose")

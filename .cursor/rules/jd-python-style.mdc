@@ -9,7 +9,7 @@ alwaysApply: true
 - You can @ files here
 - You can use markdown but dont have to
 
-generate-part-image.py uses LDView. Documentation for using LDView via command line is here:
+generate_part_image.py uses LDView. Documentation for using LDView via command line is here:
 https://trevorsandy.github.io/lpub3d/assets/docs/ldview/Help.html
 
 LDraw file format specification:

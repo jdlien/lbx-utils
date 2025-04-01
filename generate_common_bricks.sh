@@ -91,7 +91,7 @@ for part_entry in "${PARTS[@]}"; do
   echo "Processing $part_number ($description)"
 
   # Generate the image
-  python generate-part-image.py "$part_number" -o "./test-images/$part_number-$clean_desc.png"
+  python generate_part_image.py "$part_number" -o "./test-images/$part_number-$clean_desc.png"
 
   # Add a small delay to prevent overwhelming the system
   sleep 0.2

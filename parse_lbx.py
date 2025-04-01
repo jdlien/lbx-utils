@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 """
-LBX File Text Extractor
-
-This script finds all LBX files in the current directory tree (including subdirectories),
-extracts text content from them, and saves the text to a file with the same base name
-but with a .txt extension.
-
-LBX files are ZIP archives used by Brother P-Touch Editor that contain XML and image files.
+LBX Parser - Extract and modify Brother P-touch LBX label files
 
 Usage:
-  ./parse-lbx.py [options]
+./parse_lbx.py [options]
+
+This script provides tools to extract contents from Brother P-touch LBX label files,
+modify them, and save changes. It handles text elements, images, and label properties.
+
+LBX files are ZIP archives used by Brother P-Touch Editor that contain XML and image files.
 
 Options:
   -h, --help           Show this help message and exit

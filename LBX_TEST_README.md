@@ -2,7 +2,7 @@
 
 # LBX Text Editor Test Suite
 
-This test suite validates the functionality of the `lbx-text-edit.py` tool, which is used to manipulate text in Brother P-touch LBX label files.
+This test suite validates the functionality of the `lbx_text_edit.py` tool, which is used to manipulate text in Brother P-touch LBX label files.
 
 ## Test Coverage
 
@@ -22,9 +22,11 @@ Each test creates a modified LBX file in the `test_output` directory.
 
 ### Prerequisites
 
+To run the test suite, you need the following:
+
 - Python 3.6 or later
-- The original `lbx-text-edit.py` file in the same directory
-- Example LBX file at `example-labels/30182.lbx`
+- The original `lbx_text_edit.py` file in the same directory
+- The test output directory will be created automatically
 
 ### Method 1: Using the run_tests.py Script (Recommended)
 
@@ -94,20 +96,26 @@ This makes it easier to inspect the changes made by each test without having to 
 
 ## Manual Extraction
 
-If you need to manually extract the label.xml from an LBX file, you can use the `lbx-text-edit.py` tool:
+If you need to manually extract the label.xml from an LBX file, you can use the `lbx_text_edit.py` tool:
 
 ```bash
-python lbx-text-edit.py extract test_output/test5_replace_x_with_multiplication.lbx -o output_dir
+python lbx_text_edit.py extract test_output/test5_replace_x_with_multiplication.lbx -o output_dir
 ```
 
 ## Troubleshooting
 
 If you encounter import errors, make sure that:
 
-1. The `lbx-text-edit.py` file is in the same directory as the test files
+1. The `lbx_text_edit.py` file is in the same directory as the test files
 2. You have the necessary permissions to read and write files
 3. The `example-labels/30182.lbx` file exists and is accessible
 
 ## Adding New Tests
 
 To add new tests, simply add new test methods to the `LBXTextEditTests` class in `test_lbx_text_edit.py`. Make sure to follow the naming convention `test_X_description` where X is a number and description indicates what the test does.
+
+## Setup and Configuration
+
+The test suite assumes:
+
+1. The `lbx_text_edit.py` file is in the same directory as the test files

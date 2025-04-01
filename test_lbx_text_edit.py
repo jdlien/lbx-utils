@@ -2,7 +2,7 @@
 """
 Test Suite for LBX Text Editor
 
-This test suite validates the functionality of the lbx-text-edit.py tool by performing
+This test suite validates the functionality of the lbx_text_edit.py tool by performing
 various text manipulation operations on LBX label files.
 """
 
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
 
     NAMESPACES: Dict[str, str]
 
-# Dynamically import the lbx-text-edit module (handling the hyphen in the name)
+# Dynamically import the lbx_text_edit module (handling the hyphen in the name)
 # This approach is used because Python module names cannot contain hyphens
 def import_module_from_path(module_name: str, file_path: str) -> Any:
     """Import a module from a file path, handling any import errors."""
@@ -70,12 +70,12 @@ def import_module_from_path(module_name: str, file_path: str) -> Any:
 # Import the module, assuming it's in the current directory
 try:
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Find the lbx-text-edit.py file in the current directory or parent directory
-    script_path = os.path.join(current_dir, "lbx-text-edit.py")
+    # Find the lbx_text_edit.py file in the current directory or parent directory
+    script_path = os.path.join(current_dir, "lbx_text_edit.py")
     if not os.path.exists(script_path):
         # Try parent directory
         parent_dir = os.path.dirname(current_dir)
-        script_path = os.path.join(parent_dir, "lbx-text-edit.py")
+        script_path = os.path.join(parent_dir, "lbx_text_edit.py")
 
     lbx_text_edit = import_module_from_path("lbx_text_edit", script_path)
 
@@ -86,7 +86,7 @@ try:
     FontInfo = lbx_text_edit.FontInfo
     NAMESPACES = lbx_text_edit.NAMESPACES
 except ImportError as e:
-    print(f"Error importing lbx-text-edit.py: {e}")
+    print(f"Error importing lbx_text_edit.py: {e}")
     sys.exit(1)
 
 # Path to the test sample

@@ -32,7 +32,7 @@ for part_info in "${PARTS[@]}"; do
 
   # Generate image with fixed size (variable line thickness)
   echo "  - Generating fixed size image..."
-  python generate-part-image.py $part_number \
+  python generate_part_image.py $part_number \
     -o "./test-images/scaled/${part_number}-fixed.png" \
     --width $BASE_WIDTH \
     --edge-thickness $EDGE_THICKNESS \
@@ -40,7 +40,7 @@ for part_info in "${PARTS[@]}"; do
 
   # Generate image with scaled size (fixed line thickness)
   echo "  - Generating scaled size image..."
-  python generate-part-image.py $part_number \
+  python generate_part_image.py $part_number \
     -o "./test-images/scaled/${part_number}-scaled.png" \
     --width $BASE_WIDTH \
     --edge-thickness $EDGE_THICKNESS \
