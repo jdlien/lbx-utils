@@ -50,13 +50,13 @@ def create_test_lbx(output_path="test_samples/test_multiline.lbx"):
         with zipfile.ZipFile(output_path, "w") as zipf:
             zipf.write(xml_path, arcname="label.xml")
 
-    print(f"Created test LBX file with multi-line text at: {output_path}")
-    return output_path
+    print(f"Created test LBX file at: {output_path}")
+
+    print(f"Run the following command to test text tweaks with line compacting:")
+    print(f"python -m lbx_utils.lbx_change {output_path} test_samples/test_multiline_compact.lbx --text-tweaks --verbose")
+
+    print(f"Run the following command to test text tweaks without line compacting:")
+    print(f"python -m lbx_utils.lbx_change {output_path} test_samples/test_multiline_nocompact.lbx --text-tweaks --no-compact --verbose")
 
 if __name__ == "__main__":
     lbx_path = create_test_lbx()
-    print(f"Test both with and without compacting:")
-    print(f"1. With compacting (default):")
-    print(f"python change_lbx.py {lbx_path} test_samples/test_multiline_compact.lbx --text-tweaks --verbose")
-    print(f"\n2. Without compacting:")
-    print(f"python change_lbx.py {lbx_path} test_samples/test_multiline_nocompact.lbx --text-tweaks --no-compact --verbose")

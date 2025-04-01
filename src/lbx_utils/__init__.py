@@ -9,7 +9,7 @@ from .lbx_text_edit import LBXTextEditor, TextObject, StringItem, FontInfo, NAME
 from .lbx_create import LBXCreator, LabelConfig, TextObject, ImageObject, FontInfo, StringItem
 
 # Label modification functionality
-from .change_lbx import modify_lbx
+from .lbx_change import modify_lbx
 
 # Label parsing
 from .lbx_parser import extract_text_from_lbx, extract_images_from_lbx

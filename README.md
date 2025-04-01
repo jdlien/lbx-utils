@@ -18,7 +18,7 @@ lbx-utils/
 │   └── lbx_utils/          # Main package
 │       ├── lbx_text_edit.py  # Text editing in LBX files
 │       ├── lbx_create.py     # Create new LBX labels
-│       ├── change_lbx.py     # Modify existing LBX files
+│       ├── lbx_change.py     # Modify existing LBX files
 │       ├── lbx_parser.py     # Parse and extract from LBX files
 │       ├── generate_part_image.py # Generate LEGO part images
 │       └── __main__.py       # CLI entry point
@@ -126,7 +126,7 @@ Edits text within existing LBX files.
 lbx text-edit replace input.lbx -f "2x2" -r "2×2"
 ```
 
-### change_lbx.py
+### lbx_change.py
 
 Modifies existing LBX files (font size, label width, centering, etc).
 

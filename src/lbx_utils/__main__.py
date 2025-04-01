@@ -11,7 +11,7 @@ from typing import Optional
 
 from lbx_utils.lbx_text_edit import main as lbx_text_edit_main
 from lbx_utils.lbx_create import main as lbx_create_main
-from lbx_utils.change_lbx import main as change_lbx_main
+from lbx_utils.lbx_change import main as lbx_change_main
 from lbx_utils.generate_part_image import app as generate_part_image_app
 
 app = typer.Typer(help="LBX Utils - Tools for working with Brother LBX labels")
@@ -32,7 +32,7 @@ def create():
 def change():
     """Modify existing LBX label files."""
     sys.argv = [sys.argv[0]] + sys.argv[2:]
-    change_lbx_main()
+    lbx_change_main()
 
 @app.command("generate-part-image")
 def generate_part_image():

@@ -1,0 +1,362 @@
+items:
+  - test_font_size_change
+  - test_bold_font_size_change
+  - test_label_size_change
+  - test_vertical_centering
+  - test_image_scaling
+  - test_text_margin
+  - test_text_tweaks_dimension_notation
+  - test_find_replace
+  - test_regex_replacement
+  - test_case_insensitive_search
+  - test_compacting_multiline_text
+  - test_combination_of_features
+  - test_compatibility_tweaks
+  - test_text_content_retrieval
+  - test_all_label_sizes[9]
+  - test_all_label_sizes[12]
+  - test_all_label_sizes[18]
+  - test_all_label_sizes[24]
+  - test_all_font_sizes[6]
+  - test_all_font_sizes[8]
+  - test_all_font_sizes[10]
+  - test_all_font_sizes[12]
+  - test_all_font_sizes[14]
+  - test_all_font_sizes[16]
+  - test_create_basic_lbx
+  - test_create_and_modify_label
+  - test_create_with_label_config
+  - test_00_blank_label
+  - test_01_basic_text_label
+  - test_02_multiple_text_elements
+  - test_03_formatted_text
+  - test_04_italic_text
+  - test_05_bold_italic_text
+  - test_06_single_image
+  - test_07_text_and_image
+  - test_08_multiple_images
+  - test_09_multiple_images_and_text
+  - test_10_different_sizes
+  - test_11_fixed_height
+  - test_12_custom_width
+  - test_13_complex_label
+  - test_delete_first_string_item
+  - test_merge_all_string_items
+  - test_remove_first_newline
+  - test_replace_all_newlines
+  - test_replace_x_with_multiplication
+  - test_add_new_string_item_comic_sans
+  - test_combined_operations
+  - test_load_text_objects
+  - test_string_items_loaded
+  - test_edit_text_single_item
+  - test_edit_text_multiple_items
+  - test_find_replace
+  - test_regex_find_replace
+  - test_save_and_reload
+  - test_validation
+  - test_empty_text
+  - test_add_string_item
+  - test_direct_editor
+  - test_lbx_workflow
+results:
+  -
+    name: test_font_size_change
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_bold_font_size_change
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_label_size_change
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_vertical_centering
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_image_scaling
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_text_margin
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_text_tweaks_dimension_notation
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_find_replace
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_regex_replacement
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_case_insensitive_search
+    setup: passed
+    call: skipped
+    teardown: passed
+  -
+    name: test_compacting_multiline_text
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_combination_of_features
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_compatibility_tweaks
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_text_content_retrieval
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_label_sizes[9]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_label_sizes[12]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_label_sizes[18]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_label_sizes[24]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_font_sizes[6]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_font_sizes[8]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_font_sizes[10]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_font_sizes[12]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_font_sizes[14]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_all_font_sizes[16]
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_create_basic_lbx
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_create_and_modify_label
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_create_with_label_config
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_00_blank_label
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_01_basic_text_label
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_02_multiple_text_elements
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_03_formatted_text
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_04_italic_text
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_05_bold_italic_text
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_06_single_image
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_07_text_and_image
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_08_multiple_images
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_09_multiple_images_and_text
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_10_different_sizes
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_11_fixed_height
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_12_custom_width
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_13_complex_label
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_delete_first_string_item
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_merge_all_string_items
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_remove_first_newline
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_replace_all_newlines
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_replace_x_with_multiplication
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_add_new_string_item_comic_sans
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_combined_operations
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_load_text_objects
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_string_items_loaded
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_edit_text_single_item
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_edit_text_multiple_items
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_find_replace
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_regex_find_replace
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_save_and_reload
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_validation
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_empty_text
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_add_string_item
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_direct_editor
+    setup: passed
+    call: passed
+    teardown: passed
+  -
+    name: test_lbx_workflow
+    setup: passed
+    call: passed
+    teardown: passed

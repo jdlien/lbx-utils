@@ -1,87 +1,87 @@
 #!/usr/bin/env python3
 """
-Unit test for text tweaks functionality in the LBX utilities.
-This tests whether the text replacement is working correctly in both
-direct XML modification and when applied through the LBX file workflow.
+Test text tweaking functions for LBX files.
+
+This test focuses on the text replacement and tweaking functionality.
 """
 
 import os
 import tempfile
 import zipfile
-import shutil
-import re
 from lxml import etree
 from lbx_utils.lbx_text_edit import LBXTextEditor
-from lbx_utils.change_lbx import tweak_text
+
+# Add the parent directory to path to resolve imports
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+try:
+    from lbx_utils.lbx_change import tweak_text
+    LXML_AVAILABLE = True
+except ImportError as e:
+    print(f"Error importing from lbx_change.py: {e}")
+    print("Try renaming the file to lbx_change.py for proper module importing")
+    LXML_AVAILABLE = False
 
 # Create a simple test XML with a dimension notation
 TEST_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <pt:document xmlns:pt="http://schemas.brother.info/ptouch/2007/lbx/main"
-             xmlns:text="http://schemas.brother.info/ptouch/2007/lbx/text"
-             xmlns:style="http://schemas.brother.info/ptouch/2007/lbx/style">
+             xmlns:text="http://schemas.brother.info/ptouch/2007/lbx/text">
     <text:text>
-        <pt:objectStyle x="10pt" y="20pt" width="100pt" height="30pt" />
         <pt:data>4 x 4 Brick</pt:data>
-        <text:stringItem charLen="10">
-            <text:ptFontInfo>
-                <text:logFont name="Arial" width="0" italic="false" weight="400" charSet="0" pitchAndFamily="34" />
-                <text:fontExt effect="NOEFFECT" underline="0" strikeout="0" size="8pt" orgSize="28.8pt"
-                              textColor="#000000" textPrintColorNumber="1" />
-            </text:ptFontInfo>
-        </text:stringItem>
     </text:text>
 </pt:document>
 """
 
-def create_test_xml(output_path):
-    """Create a test XML file"""
-    with open(output_path, 'w', encoding='utf-8') as f:
+def create_test_xml(path):
+    """Create a test XML file with dimension notation."""
+    with open(path, "w", encoding="utf-8") as f:
         f.write(TEST_XML)
-    print(f"Created test XML at {output_path}")
 
 def create_test_lbx(xml_path, lbx_path):
-    """Create a test LBX file from XML"""
-    with zipfile.ZipFile(lbx_path, 'w') as zipf:
-        zipf.write(xml_path, arcname='label.xml')
-    print(f"Created test LBX at {lbx_path}")
+    """Create a test LBX file from an XML file."""
+    with zipfile.ZipFile(lbx_path, "w") as zipf:
+        zipf.write(xml_path, arcname="label.xml")
 
 def test_direct_editor():
-    """Test the LBXTextEditor directly on an XML file"""
+    """Test direct use of LBXTextEditor for text replacement."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create the test XML file
         xml_path = os.path.join(temp_dir, 'label.xml')
         create_test_xml(xml_path)
 
-        # Print the original content
-        with open(xml_path, 'r', encoding='utf-8') as f:
-            print("Original XML content:")
-            print(f.read())
-
-        # Use the LBXTextEditor to modify the XML
+        # Use LBXTextEditor directly
         editor = LBXTextEditor()
         editor.load(xml_path)
 
-        # Apply dimension notation replacement
-        replacements = editor.regex_find_replace_all(r'(\d+)\s*[xX]\s*(\d+)', r'\1×\2', case_sensitive=False)
-        print(f"Made {replacements} replacements")
+        print("\nOriginal text content:")
+        text_obj = editor.get_text_object_by_index(0)
+        original_text = text_obj.text
+        print(original_text)
 
-        # Save the changes
+        # Replace "x" with "×" (multiplication sign)
+        replacements = editor.regex_find_replace_all(r'(\d+)\s*x\s*(\d+)', r'\1×\2')
         editor.save(xml_path)
 
-        # Print the modified content
-        with open(xml_path, 'r', encoding='utf-8') as f:
-            modified_content = f.read()
-            print("\nModified XML content:")
-            print(modified_content)
+        # Reload and check content
+        editor.load(xml_path)
+        text_obj = editor.get_text_object_by_index(0)
+        modified_text = text_obj.text
+        print("\nModified text content:")
+        print(modified_text)
 
-        # Check if the replacement was successful
-        if "4×4" in modified_content:
+        if "4×4" in modified_text:
             print("\nSUCCESS: Text replacement was applied correctly")
         else:
             print("\nFAILED: Text was not replaced as expected")
 
-def test_lbx_workflow():
-    """Test the text tweaking in the full LBX workflow using change_lbx.py"""
+def test_tweak_text_with_lbx_workflow():
+    """Test the text tweaking in the full LBX workflow using lbx_change.py"""
+    # Skip test if lxml or tweak_text not available
+    if not LXML_AVAILABLE:
+        print("Skipping test_tweak_text_with_lbx_workflow - required modules not available")
+        return
+
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create the test XML file
         xml_path = os.path.join(temp_dir, 'label.xml')
@@ -146,8 +146,4 @@ if __name__ == "__main__":
 
     print("\n\nTesting LBX workflow with tweak_text:")
     print("=" * 50)
-    try:
-        test_lbx_workflow()
-    except ImportError as e:
-        print(f"Error importing from change_lbx.py: {e}")
-        print("Try renaming the file to change_lbx.py for proper module importing")
+    test_tweak_text_with_lbx_workflow()

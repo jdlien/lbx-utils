@@ -38,9 +38,9 @@ setup(
         "console_scripts": [
             "lbx-text-edit=lbx_utils.lbx_text_edit:main",
             "lbx-create=lbx_utils.lbx_create:main",
-            "lbx-change=lbx_utils.change_lbx:main",
-            "lbx-generate-part-image=lbx_utils.generate_part_image:app",
-            "lbx=lbx_utils.__main__:app",
+            "lbx-change=lbx_utils.lbx_change:main",
+            "lbx-gen-img=lbx_utils.generate_part_image:app",
+            "lbx-utils=lbx_utils.__main__:app",
         ],
     },
 )

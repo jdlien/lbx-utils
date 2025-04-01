@@ -14,4 +14,4 @@ input_file="$1"
 # Create output filename by adding -24mm before the extension
 output_file="${input_file%.*}-24mm.${input_file##*.}"
 
-python3 change_lbx.py -f 14 -l 24 -c -s 1.5 -m 0.5 "$input_file" "$output_file"
+python3 -m lbx_utils.lbx_change -f 14 -l 24 -c -s 1.5 -m 0.5 "$input_file" "$output_file"
