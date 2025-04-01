@@ -75,3 +75,7 @@ test-images/
 *.gif
 *.bmp
 *.tiff
+
+# Generated test files
+*progress.yaml
+report.html
