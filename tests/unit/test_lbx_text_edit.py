@@ -15,7 +15,7 @@ from lbx_utils.lbx_text_edit import LBXTextEditor, TextObject, StringItem, FontI
 
 # Path aliases used by tests in this module
 TEST_SAMPLE = "data/label_examples/30182.lbx"
-TEMP_DIR = "test_output"
+TEMP_DIR = "test_output/lbx_text_edit"
 
 # Test functions
 @pytest.mark.unit

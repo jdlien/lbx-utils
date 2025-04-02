@@ -180,6 +180,10 @@ For detailed specifications, see the [LBX Specification](data/schema/lbx-specifi
   - typer>=0.9.0
   - rich>=13.7.0
 
+## TODO
+
+- Ensure that lbx_create allows for accurate positioning in absolute terms or relative to other objects.
+
 ## License
 
 MIT

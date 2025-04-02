@@ -18,7 +18,7 @@ import unittest
 from pathlib import Path
 
 # Test configuration
-OUTPUT_DIR = "test_output"
+OUTPUT_DIR = "test_output/lbx_create"
 TEST_IMAGES_DIR = "test_images"
 IMAGE1 = os.path.join(TEST_IMAGES_DIR, "3004.png")
 IMAGE2 = os.path.join(TEST_IMAGES_DIR, "3005.png")

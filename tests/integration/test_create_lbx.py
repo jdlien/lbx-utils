@@ -186,8 +186,8 @@ def test_create_with_label_config(output_path):
 @pytest.mark.integration
 def test_create_with_images_and_centered_text(output_path):
     """Test creating a label with images on both sides of text and vertical centering."""
-    # Create test image paths
-    test_images_dir = Path("test_images")
+    # Create test image paths in the test output directory
+    test_images_dir = TEST_OUTPUT_DIR / "images"
     test_images_dir.mkdir(exist_ok=True)
     image1_path = test_images_dir / "test_img1.png"
     image2_path = test_images_dir / "test_img2.png"

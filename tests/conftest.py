@@ -14,6 +14,11 @@ from pathlib import Path
 
 # Constants
 TEMP_DIR = "test_output"
+XML_DIR = os.path.join(TEMP_DIR, "xml")
+# Subdirectories for different test types
+LBX_TEXT_EDIT_DIR = os.path.join(TEMP_DIR, "lbx_text_edit")
+LBX_CREATE_DIR = os.path.join(TEMP_DIR, "lbx_create")
+LBX_CHANGE_DIR = os.path.join(TEMP_DIR, "lbx_change")
 TEST_DATA_DIR = Path("data/label_examples")
 TEST_SAMPLE = TEST_DATA_DIR / "30182.lbx"
 
@@ -23,6 +28,11 @@ def temp_dir():
     # Create the directory if it doesn't exist
     if not os.path.exists(TEMP_DIR):
         os.makedirs(TEMP_DIR)
+
+    # Create all required subdirectories
+    for subdir in [XML_DIR, LBX_TEXT_EDIT_DIR, LBX_CREATE_DIR, LBX_CHANGE_DIR]:
+        if not os.path.exists(subdir):
+            os.makedirs(subdir)
 
     yield TEMP_DIR
 
@@ -34,10 +44,9 @@ def temp_dir():
 @pytest.fixture(scope="session")
 def xml_dir(temp_dir):
     """Provide a directory for extracted XML files."""
-    xml_dir_path = os.path.join(temp_dir, "xml")
-    if not os.path.exists(xml_dir_path):
-        os.makedirs(xml_dir_path)
-    return xml_dir_path
+    if not os.path.exists(XML_DIR):
+        os.makedirs(XML_DIR)
+    return XML_DIR
 
 @pytest.fixture(scope="session")
 def test_sample():
@@ -65,8 +74,12 @@ def extract_label_xml_files(temp_dir, xml_dir):
     # After tests complete, extract XML files
     print("\nExtracting label.xml files for easier analysis...")
 
-    # Find all LBX files in the output directory
-    lbx_files = glob.glob(os.path.join(temp_dir, "*.lbx"))
+    # Find all LBX files in the output directory and its subdirectories
+    lbx_files = []
+    for root, _, files in os.walk(temp_dir):
+        for file in files:
+            if file.endswith('.lbx'):
+                lbx_files.append(os.path.join(root, file))
 
     if not lbx_files:
         print("No LBX files found in the output directory.")
@@ -103,7 +116,7 @@ def create_test_lbx_file():
 
     def _create(output_path=None):
         if output_path is None:
-            output_path = os.path.join(TEMP_DIR, "test_dimension.lbx")
+            output_path = os.path.join(LBX_CREATE_DIR, "test_dimension.lbx")
         return create_test_lbx(output_path)
 
     return _create
