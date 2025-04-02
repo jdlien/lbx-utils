@@ -1,0 +1,66 @@
+# 09_rich_text_fragments.lbx.yml
+# Label with rich text using fragments
+
+size: 12mm
+width: 90mm
+orientation: landscape
+
+# Title
+- type: text
+  content: "Rich Text Demo"
+  x: 45
+  y: 10
+  size: 14
+  bold: true
+  align: center
+
+# Rich text using fragments approach
+- type: richtext
+  x: 10
+  y: 30
+  align: left
+  size: 10
+  fragments:
+    - content: "This example shows "
+    - content: "rich text formatting"
+      bold: true
+      color: "#0000FF"
+    - content: " using "
+    - content: "fragments"
+      italic: true
+      font: "Helvetica Neue"
+    - content: "."
+
+# Another rich text example
+- type: richtext
+  x: 10
+  y: 50
+  align: left
+  size: 10
+  fragments:
+    - content: "Product: "
+    - content: "Widget XL"
+      bold: true
+    - content: " - Price: "
+    - content: "$19.99"
+      bold: true
+      underline: true
+    - content: " (On Sale!)"
+      italic: true
+      color: "#FF0000"
+
+# Warning message with mixed formatting
+- type: richtext
+  x: 10
+  y: 70
+  align: center
+  size: 10
+  fragments:
+    - content: "Warning: "
+      bold: true
+      color: "#FF0000"
+    - content: "This product contains small parts and is "
+    - content: "not suitable"
+      bold: true
+      underline: true
+    - content: " for children under 3 years old."

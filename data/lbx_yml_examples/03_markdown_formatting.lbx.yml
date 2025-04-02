@@ -1,0 +1,39 @@
+# 03_markdown_formatting.lbx.yml
+# Demonstrates text with Markdown formatting
+
+size: 12mm
+width: 90mm
+orientation: landscape
+
+# Title
+- type: text
+  content: "**Markdown Formatting Demo**"
+  x: 45
+  y: 10
+  size: 14
+  align: center
+  markdown: true
+
+# Example of bold, italic, and underline
+- type: text
+  content: "This text has **bold**, *italic*, and ++underlined++ words."
+  x: 10
+  y: 30
+  size: 10
+  markdown: true
+
+# Example of combined formatting
+- type: text
+  content: "You can also have **_bold and italic_** text."
+  x: 10
+  y: 45
+  size: 10
+  markdown: true
+
+# Example with strikethrough
+- type: text
+  content: "This is ~~strikethrough~~ text."
+  x: 10
+  y: 60
+  size: 10
+  markdown: true

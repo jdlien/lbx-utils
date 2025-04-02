@@ -1,0 +1,189 @@
+# 12_comprehensive_example.lbx.yml
+# Comprehensive example showcasing most features of the LBX YAML format
+
+size: 24mm
+width: auto
+length: auto
+orientation: landscape
+margin: 8
+background: "#F8F8F8"
+color: "#000000"
+
+# Root level layout properties
+direction: column
+align: center
+gap: 10
+padding: 5
+
+# Header section
+- type: group
+  id: header
+  direction: row
+  justify: between
+  align: center
+  width: auto
+  height: 40
+  objects:
+    # Logo with transparency
+    - type: image
+      source: "company_logo.png"
+      width: 35
+      height: 35
+      monochrome: true
+      transparency: true
+      transparency_color: "#FFFFFF"
+
+    # Title with rich text fragments
+    - type: richtext
+      align: center
+      size: 14
+      fragments:
+        - content: "ACME "
+          font: "Helsinki"
+          bold: true
+        - content: "Corporation"
+          font: "Helsinki"
+          italic: true
+          color: "#1A5276"
+
+    # Date with markup
+    - type: text
+      content: "Date: **2023-04-15**"
+      size: 10
+      align: right
+      markdown: true
+
+# Basic text with no optional properties
+- type: text
+  content: "Reference ID: 12345"
+
+# Product information section
+- type: group
+  id: product_info
+  direction: row
+  justify: start
+  align: start
+  gap: 15
+  wrap: true
+  objects:
+    # Left column - Product image and QR code
+    - type: group
+      direction: column
+      align: center
+      gap: 8
+      width: 130
+      objects:
+        # Product image
+        - type: image
+          source: "product.png"
+          width: 120
+          height: 100
+          monochrome: false
+
+        # QR code with settings
+        - type: barcode
+          barcodeType: qr
+          data: "https://example.com/products/xyz-42"
+          size: 60
+          errorCorrection: H
+          model: 2
+          cellSize: 2
+
+    # Right column - Specifications
+    - type: group
+      direction: column
+      align: start
+      gap: 5
+      width: 180
+      objects:
+        # Title with underline
+        - type: text
+          content: "Product Specifications"
+          size: 14
+          bold: true
+          underline: true
+
+        # Text with wrapping
+        - type: text
+          content: "This premium product meets all regulatory requirements and has been tested for durability under extreme conditions."
+          size: 9
+          wrap: 170
+
+        # Specifications with nested layout
+        - type: group
+          direction: column
+          gap: 3
+          objects:
+            - type: text
+              content: "• Model: XYZ-42"
+              size: 9
+
+            - type: text
+              content: "• Dimensions: 10cm × 15cm × 5cm"
+              size: 9
+
+            - type: text
+              content: "• Weight: 250g"
+              size: 9
+
+            - type: text
+              content: "• Power: 5V DC, 2A"
+              size: 9
+
+# Pricing information with auto-sizing
+- type: group
+  direction: row
+  justify: center
+  align: center
+  gap: 20
+  width: auto
+  height: auto
+  padding: 5
+  objects:
+    # Standard price
+    - type: text
+      content: "~~$24.99~~"
+      size: 12
+      markdown: true
+
+    # Sale price
+    - type: text
+      content: "**$19.99**"
+      size: 14
+      color: "#FF0000"
+      markdown: true
+
+    # Discount percentage
+    - type: text
+      content: "SAVE 20%"
+      size: 12
+      bold: true
+
+# Footer with barcode and flexbox layout
+- type: group
+  id: footer
+  direction: row
+  justify: between
+  align: center
+  gap: 8
+  padding: 5
+  objects:
+    # Part number
+    - type: text
+      content: "P/N: XYZ-42-A"
+      size: 9
+
+    # Serial number barcode
+    - type: barcode
+      barcodeType: code128
+      data: "SN123456789"
+      size: 35
+      humanReadable: true
+
+    # Company website
+    - type: text
+      content: "www.example.com"
+      size: 9
+      align: right
+      flex:
+        grow: 1

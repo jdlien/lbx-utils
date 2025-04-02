@@ -77,17 +77,16 @@ The parser will identify array elements at the root level as objects, while othe
 
 ## 3. Label Properties
 
-The `label` section defines the global properties of the label.
+The label properties define the global characteristics of the label.
 
 ```yaml
-label:
-  size: 24mm # Tape size (9mm, 12mm, 18mm, 24mm)
-  width: 100mm # Fixed width (or "auto" for automatic sizing)
-  length: auto # Fixed length or "auto" for automatic sizing
-  orientation: landscape # Label orientation (landscape, portrait)
-  margin: 5 # Optional: Additional margin beyond the minimum
-  background: "#FFFFFF" # Background color. This doesn't affect printing, but is shown in preview.
-  color: "#000000" # Color of the label ink. Only affects preview.
+size: 24mm # Tape size (9mm, 12mm, 18mm, 24mm)
+width: 100mm # Fixed width (or "auto" for automatic sizing)
+length: auto # Fixed length or "auto" for automatic sizing
+orientation: landscape # Label orientation (landscape, portrait)
+margin: 5 # Optional: Additional margin beyond the minimum
+background: "#FFFFFF" # Background color. This doesn't affect printing, but is shown in preview.
+color: "#000000" # Color of the label ink. Only affects preview.
 ```
 
 ### 3.1 Required Properties
@@ -107,6 +106,21 @@ label:
 | `color`      | Label text color       | "#000000" |
 
 Note: `width` is technically the length when `orientation` is `landscape`. When `orientation` is `portrait`, `width` is the height.
+
+### 3.3 Layout Properties at Root Level
+
+The root level can also include layout properties that apply to all objects on the label, effectively making the label itself act as an implicit group container. This eliminates the need for a wrapper group when aligning all objects.
+
+| Property    | Description                     | Values                                                  | Default |
+| ----------- | ------------------------------- | ------------------------------------------------------- | ------- |
+| `direction` | Main axis direction             | `row`, `column`, `row-reverse`, `column-reverse`        | `row`   |
+| `justify`   | Alignment along main axis       | `start`, `end`, `center`, `between`, `around`, `evenly` | `start` |
+| `align`     | Alignment along cross axis      | `start`, `end`, `center`, `stretch`                     | `start` |
+| `gap`       | Spacing between items           | Number                                                  | 0       |
+| `padding`   | Internal padding within label   | Number or object with top/right/bottom/left             | 0       |
+| `wrap`      | Whether items wrap to next line | `true`, `false`                                         | `false` |
+
+These properties function identically to those available for group objects, except they apply to all objects at the root level.
 
 ## 4. Objects
 
@@ -142,7 +156,62 @@ Text objects display text content on the label.
   vertical: false # Vertical text orientation
 ```
 
-#### 4.2.1 Text-Specific Properties
+#### 4.2.1 Multiline Text Content
+
+YAML offers several ways to include multiline text:
+
+```yaml
+# Using | (literal block scalar) - preserves line breaks
+- type: text
+  content: |
+    First line
+    Second line
+    Third line
+  x: 10
+  y: 20
+  size: 12
+
+# Using > (folded block scalar) - converts line breaks to spaces
+- type: text
+  content: >
+    This is a long sentence
+    that will be folded into
+    a single line with spaces.
+  x: 30
+  y: 20
+  size: 12
+
+# Using quoted string with escape characters
+- type: text
+  content: "First line\nSecond line\nThird line"
+  x: 50
+  y: 20
+  size: 12
+```
+
+Block scalars (| and >) can include indentation indicators and chomping indicators:
+
+```yaml
+# Keep trailing newline (default)
+content: |
+  Text with
+  multiple lines
+
+# Strip trailing newline
+content: |-
+  Text with
+  multiple lines
+
+# Folded text with preserved paragraph breaks
+content: >+
+  Paragraph one
+  still part of paragraph one
+
+  Paragraph two
+  still part of paragraph two
+```
+
+#### 4.2.2 Text-Specific Properties
 
 | Property    | Description               | Values                      | Default    |
 | ----------- | ------------------------- | --------------------------- | ---------- |
@@ -156,6 +225,55 @@ Text objects display text content on the label.
 | `color`     | Text color                | Hex color (e.g., `#000000`) | `#000000`  |
 | `wrap`      | Text wrapping behavior    | `true`, `false`, Number     | `true`     |
 | `shrink`    | Reduce font size to fit   | `true`, `false`             | `false`    |
+
+#### 4.2.3 Rich Text Formatting
+
+For text that requires mixed formatting (like having some words bold or italic within a sentence), there are two supported approaches:
+
+##### 1. Text Fragments Array
+
+The most flexible approach is to use an array of text fragments, each with its own formatting:
+
+```yaml
+- type: richtext
+  x: 10
+  y: 20
+  align: left # Common properties apply to all fragments
+  fragments:
+    - content: "This is "
+    - content: "bold"
+      bold: true
+    - content: " and this is "
+    - content: "italic"
+      italic: true
+      font: "Helvetica Neue"
+    - content: " text."
+```
+
+Each fragment can have its own formatting properties that override the common properties defined at the text object level.
+
+##### 2. Markdown-Inspired Syntax
+
+For simpler cases, a lightweight Markdown-inspired syntax can be used:
+
+```yaml
+- type: text
+  content: "This is **bold** and this is *italic* text and __underlined__ text."
+  x: 10
+  y: 20
+  markdown: true # Enable markdown parsing (default)
+```
+
+Supported Markdown syntax:
+
+- `**text**` or `__text__` - Bold text
+- `*text*` or `_text_` - Italic text
+- `++text++` - Underlined text
+- `~~text~~` - Strikethrough text
+
+Multiple styles can be combined: `**_Bold and italic_**`
+
+Note: Since this syntax lives inside YAML strings, care must be taken with escaping when using certain characters. Always use quotes around content that contains Markdown formatting.
 
 ### 4.3 Image Objects
 
@@ -199,10 +317,47 @@ Barcode objects render various barcode formats.
 
 #### 4.4.1 Barcode-Specific Properties
 
-| Property          | Description               | Values             | Default |
-| ----------------- | ------------------------- | ------------------ | ------- |
-| `size`            | Barcode size              | Number             | 30      |
-| `errorCorrection` | QR error correction level | `L`, `M`, `Q`, `H` | `M`     |
+| Property          | Description                     | Values                                           | Default |
+| ----------------- | ------------------------------- | ------------------------------------------------ | ------- |
+| `size`            | Barcode size                    | Number                                           | 30      |
+| `errorCorrection` | QR error correction level       | `L`, `M`, `Q`, `H`                               | `M`     |
+| `model`           | QR code model                   | `1`, `2`                                         | `2`     |
+| `cellSize`        | Size of each QR code cell       | Number                                           | auto    |
+| `margin`          | Include quiet zone/margin       | `true`, `false`                                  | `true`  |
+| `version`         | QR code version (size/capacity) | `auto`, `1`-`40`                                 | `auto`  |
+| `protocol`        | Barcode type                    | `qr`, `code39`, `code128`, `ean13`, `ean8`, etc. | `qr`    |
+| `humanReadable`   | Show human-readable text        | `true`, `false`                                  | `false` |
+
+#### 4.4.2 QR Code Error Correction Levels
+
+QR codes support different error correction levels that affect their ability to be read when damaged:
+
+| Level | Name           | Description                                                       |
+| ----- | -------------- | ----------------------------------------------------------------- |
+| `L`   | Low (7%)       | Recovers approximately 7% of damaged data. Highest data capacity. |
+| `M`   | Medium (15%)   | Recovers approximately 15% of damaged data. Default level.        |
+| `Q`   | Quartile (25%) | Recovers approximately 25% of damaged data.                       |
+| `H`   | High (30%)     | Recovers approximately 30% of damaged data. Most robust.          |
+
+The higher the error correction level, the larger the QR code will be for the same data.
+
+#### 4.4.3 Barcode Types
+
+The LBX format supports various barcode types:
+
+| Type         | Description              | Additional Properties |
+| ------------ | ------------------------ | --------------------- |
+| `qr`         | QR Code (default)        | `errorCorrection`     |
+| `code39`     | Code 39                  | `humanReadable`       |
+| `code128`    | Code 128                 | `humanReadable`       |
+| `ean13`      | EAN-13                   | n/a                   |
+| `ean8`       | EAN-8                    | n/a                   |
+| `upc-a`      | UPC-A                    | n/a                   |
+| `upc-e`      | UPC-E                    | n/a                   |
+| `codabar`    | Codabar                  | `humanReadable`       |
+| `itf`        | ITF (Interleaved 2 of 5) | `humanReadable`       |
+| `pdf417`     | PDF417 (2D barcode)      | n/a                   |
+| `datamatrix` | Data Matrix (2D barcode) | n/a                   |
 
 ### 4.5 Group Objects
 
@@ -213,15 +368,14 @@ Group objects contain other objects and establish a flexible layout system for t
   id: header
   x: 10
   y: 5
-  layout:
-    direction: row # row, column, row-reverse, column-reverse
-    justify: between # start, end, center, between, around, evenly
-    align: center # start, end, center, stretch
-    gap: 10 # spacing between items
-    padding: 5 # internal padding within the group
-    wrap: false # whether items wrap to next line/column
-    width: auto # auto or fixed width in points
-    height: auto # auto or fixed height in points
+  direction: row # row, column, row-reverse, column-reverse
+  justify: between # start, end, center, between, around, evenly
+  align: center # start, end, center, stretch
+  gap: 10 # spacing between items
+  padding: 5 # internal padding within the group
+  wrap: false # whether items wrap to next line/column
+  width: auto # auto or fixed width in points
+  height: auto # auto or fixed height in points
   objects: # Children of this group
     - type: text
       content: "Title"
@@ -295,11 +449,10 @@ Groups can use a flexbox-inspired layout system to automatically position and al
 - type: group
   x: 10
   y: 5
-  layout:
-    direction: row
-    justify: between # Spaces items evenly with space between them
-    align: center # Centers items vertically
-    gap: 5 # 5pt gap between items
+  direction: row
+  justify: between # Spaces items evenly with space between them
+  align: center # Centers items vertically
+  gap: 5 # 5pt gap between items
   objects:
     - type: text
       content: "Left"
@@ -317,19 +470,17 @@ This creates a row with three evenly spaced text elements, centered vertically.
 - type: group
   x: 10
   y: 5
-  layout:
-    direction: column
-    justify: start # Items start at the top
-    align: center # Centers items horizontally
-    gap: 8 # 8pt gap between items
+  direction: column
+  justify: start # Items start at the top
+  align: center # Centers items horizontally
+  gap: 8 # 8pt gap between items
   objects:
     - type: text
       content: "Top"
     - type: image
       source: "middle.png"
-      style:
-        width: 20
-        height: 20
+      width: 20
+      height: 20
     - type: text
       content: "Bottom"
 ```
@@ -340,10 +491,9 @@ This creates a column with items centered horizontally, with 8pt spacing between
 
 ```yaml
 - type: group
-  layout:
-    direction: row
-    align: center
-    justify: start
+  direction: row
+  align: center
+  justify: start
   objects:
     - type: text
       content: "Regular"
@@ -396,10 +546,9 @@ Groups can dynamically adjust their dimensions based on their content:
 - type: group
   x: 10
   y: 5
-  layout:
-    direction: column
-    height: auto # Automatically size height to content
-    width: 120 # Keep fixed width
+  direction: column
+  height: auto # Automatically size height to content
+  width: 120 # Keep fixed width
   objects:
     - type: text
       content: "First line"
@@ -444,10 +593,9 @@ objects:
     id: header
     x: 10
     y: 5
-    layout:
-      direction: column
-      align: center
-      gap: 5
+    direction: column
+    align: center
+    gap: 5
     objects:
       - type: text
         content: "PRODUCT LABEL"
@@ -464,10 +612,9 @@ objects:
     id: product_info
     x: 10
     y: 40
-    layout:
-      direction: column
-      align: center
-      gap: 5
+    direction: column
+    align: center
+    gap: 5
     objects:
       - type: barcode
         barcodeType: qr
@@ -492,18 +639,16 @@ orientation: landscape
 - type: group
   x: 5
   y: 5
-  layout:
-    direction: column
-    justify: between
-    gap: 10
-    padding: 5
+  direction: column
+  justify: between
+  gap: 10
+  padding: 5
   objects:
     # Header section
     - type: group
-      layout:
-        direction: column
-        align: center
-        gap: 5
+      direction: column
+      align: center
+      gap: 5
       objects:
         - type: text
           content: "PRODUCT LABEL"
@@ -518,11 +663,10 @@ orientation: landscape
 
     # Middle section with logo and barcode side by side
     - type: group
-      layout:
-        direction: row
-        justify: center
-        gap: 15
-        align: center
+      direction: row
+      justify: center
+      gap: 15
+      align: center
       objects:
         - type: image
           source: "logo.png"
@@ -561,10 +705,9 @@ objects:
   - type: group
     x: 10
     y: 20
-    layout:
-      direction: row
-      justify: between
-      align: center
+    direction: row
+    justify: between
+    align: center
     objects:
       - type: text
         content: "Left"
@@ -590,12 +733,11 @@ objects:
   - type: group
     x: 5
     y: 5
-    layout:
-      direction: column
-      align: center
-      gap: 5
-      height: auto
-      width: auto
+    direction: column
+    align: center
+    gap: 5
+    height: auto
+    width: auto
     objects:
       - type: text
         content: "This is a long title that will automatically wrap"
@@ -613,6 +755,274 @@ objects:
         data: "https://example.com/auto-sizing-demo"
         size: 25
 ```
+
+### 7.6 QR Code Examples
+
+```yaml
+# Basic QR code with default settings
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com"
+  x: 10
+  y: 10
+  size: 40
+
+# QR code with high error correction
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com"
+  x: 60
+  y: 10
+  size: 50
+  errorCorrection: H
+
+# QR code with specific cell size
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com"
+  x: 120
+  y: 10
+  size: 60
+  errorCorrection: M
+  cellSize: 2
+
+# QR code with fixed version
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com"
+  x: 190
+  y: 10
+  size: 80
+  errorCorrection: Q
+  version: 5
+```
+
+### 7.7 Label with Root-Level Layout Properties
+
+```yaml
+# Label properties
+size: 12mm
+width: 90mm
+orientation: landscape
+
+# Layout properties at root level (acts as an implicit group)
+direction: column
+align: center
+justify: center
+gap: 10
+
+# Objects directly at root level, arranged by the layout
+- type: text
+  content: "Centered Title"
+  size: 16
+  bold: true
+
+- type: text
+  content: "Subtitle"
+  size: 12
+  italic: true
+
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com"
+  size: 40
+
+- type: text
+  content: "Scan for more info"
+  size: 10
+```
+
+### 7.8 Complex Example with All Features/Properties
+
+```yaml
+# Label properties
+size: 24mm
+width: auto
+length: auto
+orientation: landscape
+margin: 8
+background: "#F8F8F8"
+color: "#000000"
+
+# Root level layout properties
+direction: column
+align: center
+gap: 12
+padding: 10
+
+# Header section
+- type: group
+  id: header_section
+  direction: row
+  justify: between
+  align: center
+  gap: 5
+  width: auto
+  height: 40
+  objects:
+    # Logo image with transparency
+    - type: image
+      source: "company_logo.png"
+      width: 35
+      height: 35
+      monochrome: true
+      transparency: true
+      transparency_color: "#FFFFFF"
+
+    # Title with multiple formatting options
+    - type: text
+      content: "PRODUCT SPECIFICATION"
+      font: Helsinki
+      size: 18
+      bold: true
+      align: center
+      color: "#1A5276"
+
+# Basic text with no optional properties
+- type: text
+  content: "Reference ID: 12345"
+
+# Middle content section (nested groups)
+- type: group
+  id: content_section
+  direction: row
+  justify: start
+  align: start
+  gap: 15
+  wrap: true
+  objects:
+    # Left column - Product image and details
+    - type: group
+      id: product_visual
+      direction: column
+      align: center
+      gap: 8
+      width: 150
+      objects:
+        # Product image
+        - type: image
+          source: "product.png"
+          width: 120
+          height: 100
+          monochrome: false
+
+        # Nested group with two text elements
+        - type: group
+          id: product_details
+          direction: column
+          align: center
+          gap: 3
+          padding: 5
+          objects:
+            - type: text
+              content: "Model XYZ-42"
+              size: 12
+              bold: true
+
+            - type: text
+              content: "Manufacturing Date: 2023-04-15"
+              size: 8
+              italic: true
+
+        # QR code with specific settings
+        - type: barcode
+          barcodeType: qr
+          data: "https://example.com/products/xyz-42"
+          size: 60
+          errorCorrection: H
+          model: 2
+          cellSize: 2
+          margin: true
+          version: 5
+
+    # Right column - Specifications
+    - type: group
+      id: specifications
+      direction: column
+      align: start
+      gap: 5
+      width: 200
+      objects:
+        - type: text
+          content: "Technical Specifications"
+          size: 14
+          bold: true
+          underline: true
+
+        # Long wrapped text
+        - type: text
+          content: |
+            This product meets all regulatory requirements and has been tested for durability under extreme conditions. Please refer to the manual for detailed instructions on operation and maintenance.
+          size: 10
+          wrap: 190
+
+        # Specifications as a nested list
+        - type: group
+          direction: column
+          gap: 2
+          objects:
+            - type: text
+              content: "• Dimensions: 10cm × 15cm × 5cm"
+              size: 9
+
+            - type: text
+              content: "• Weight: 250g"
+              size: 9
+
+            - type: text
+              content: "• Power: 5V DC"
+              size: 9
+
+            - type: text
+              content: "• Battery Life: 24 hours"
+              size: 9
+
+# Footer with flexible layout
+- type: group
+  id: footer
+  direction: row
+  justify: between
+  align: center
+  gap: 10
+  padding: 5
+  objects:
+    - type: text
+      content: "P/N: 123-456-789"
+      size: 10
+
+    - type: text
+      content: "Rev. A"
+      size: 10
+      align: center
+      flex:
+        grow: 1
+
+    - type: barcode
+      barcodeType: code128
+      data: "123456789"
+      size: 40
+      humanReadable: true
+
+    - type: text
+      content: "Page 1/1"
+      size: 10
+      align: right
+      vertical: false
+```
+
+This comprehensive example showcases:
+
+1. **Label Properties**: Custom size, auto-sizing, margins, and colors
+2. **Root-Level Layout**: Using column direction with centered alignment
+3. **Multiple Groups**: With different layout directions (row, column)
+4. **Nested Groups**: Including a product details group within a product visual group
+5. **Text Formatting**: Various font sizes, styles (bold, italic, underline), and alignments
+6. **Multiline Text**: Using the block scalar format with wrapping
+7. **Images**: Two different images with different monochrome and transparency settings
+8. **Barcodes**: Both QR code with detailed settings and Code 128 with human-readable text
+9. **Flex Layouts**: Using justify, align, gap, and wrap properties
+10. **Minimal Text**: A basic text element with only required properties
+11. **Complex Structure**: Multiple levels of nesting with different layout strategies
 
 ## 8. File Handling
 

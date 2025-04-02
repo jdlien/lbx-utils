@@ -1,0 +1,138 @@
+# 11_nested_layout.lbx.yml
+# Label with complex nested layout structure
+
+size: 24mm
+width: auto
+length: auto
+orientation: landscape
+
+# Root level layout
+direction: column
+align: center
+gap: 10
+padding: 8
+
+# Header section
+- type: group
+  direction: row
+  justify: between
+  align: center
+  width: auto
+  objects:
+    - type: text
+      content: "PRODUCT DATASHEET"
+      size: 14
+      bold: true
+
+    - type: text
+      content: "REV 2.1"
+      size: 10
+      align: right
+
+# Content with nested structure
+- type: group
+  direction: row
+  justify: start
+  align: start
+  gap: 15
+  objects:
+    # Left column - Product info
+    - type: group
+      direction: column
+      align: center
+      gap: 5
+      width: 120
+      objects:
+        # Product image
+        - type: image
+          source: "product.png"
+          width: 100
+          height: 80
+          monochrome: false
+
+        # Product ID with QR code
+        - type: group
+          direction: row
+          align: center
+          justify: center
+          gap: 5
+          objects:
+            - type: barcode
+              barcodeType: qr
+              data: "PROD-12345"
+              size: 40
+
+            - type: text
+              content: "PROD-12345"
+              size: 10
+              bold: true
+
+    # Right column - Specifications
+    - type: group
+      direction: column
+      align: start
+      gap: 8
+      width: 180
+      objects:
+        # Section title
+        - type: text
+          content: "Specifications"
+          size: 12
+          bold: true
+          underline: true
+
+        # Nested specs sections
+        - type: group
+          direction: column
+          gap: 2
+          objects:
+            # Physical specs
+            - type: group
+              direction: column
+              gap: 1
+              objects:
+                - type: text
+                  content: "Physical:"
+                  size: 10
+                  bold: true
+
+                - type: text
+                  content: "• Dimensions: 10cm × 15cm × 5cm"
+                  size: 8
+
+                - type: text
+                  content: "• Weight: 250g"
+                  size: 8
+
+            # Electrical specs
+            - type: group
+              direction: column
+              gap: 1
+              objects:
+                - type: text
+                  content: "Electrical:"
+                  size: 10
+                  bold: true
+
+                - type: text
+                  content: "• Input: 5V DC, 2A max"
+                  size: 8
+
+                - type: text
+                  content: "• Battery: 3.7V, 2000mAh Li-ion"
+                  size: 8
+
+# Footer
+- type: group
+  direction: row
+  justify: between
+  align: center
+  width: auto
+  objects:
+    - type: text
+      content: "© 2023 ACME Corp."
+      size: 8
+
+    - type: text
+      content: "www.example.com"
+      size: 8

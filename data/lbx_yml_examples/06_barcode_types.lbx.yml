@@ -1,0 +1,71 @@
+# 06_barcode_types.lbx.yml
+# Label with various barcode types
+
+size: 24mm
+width: 100mm
+orientation: landscape
+
+# Code 39 barcode
+- type: barcode
+  barcodeType: code39
+  data: "ABC-123456"
+  x: 10
+  y: 10
+  size: 30
+  humanReadable: true
+
+# Code 128 barcode
+- type: barcode
+  barcodeType: code128
+  data: "PRODUCT123456"
+  x: 60
+  y: 10
+  size: 30
+  humanReadable: true
+
+# Labels for barcodes
+- type: text
+  content: "Code 39"
+  x: 25
+  y: 30
+  size: 10
+  align: center
+
+- type: text
+  content: "Code 128"
+  x: 75
+  y: 30
+  size: 10
+  align: center
+
+# EAN-13 barcode
+- type: barcode
+  barcodeType: ean13
+  data: "5901234123457"
+  x: 10
+  y: 45
+  size: 30
+
+# QR code
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com/product/123456"
+  x: 60
+  y: 45
+  size: 30
+  errorCorrection: M
+
+# More labels
+- type: text
+  content: "EAN-13"
+  x: 25
+  y: 65
+  size: 10
+  align: center
+
+- type: text
+  content: "QR Code"
+  x: 75
+  y: 65
+  size: 10
+  align: center

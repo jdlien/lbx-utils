@@ -1,0 +1,51 @@
+# 05_qr_code.lbx.yml
+# Label with QR codes using different settings
+
+size: 24mm
+width: 90mm
+orientation: landscape
+
+# Standard QR code
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com"
+  x: 10
+  y: 10
+  size: 40
+  errorCorrection: M
+
+# QR code with high error correction
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com/product"
+  x: 60
+  y: 10
+  size: 40
+  errorCorrection: H
+  cellSize: 2
+
+# Text labels
+- type: text
+  content: "Standard"
+  x: 25
+  y: 55
+  size: 10
+  align: center
+
+- type: text
+  content: "High Error Correction"
+  x: 80
+  y: 55
+  size: 10
+  align: center
+
+# Contact info QR code
+- type: barcode
+  barcodeType: qr
+  data: "MECARD:N:John Doe;TEL:123-456-7890;EMAIL:john@example.com;;"
+  x: 35
+  y: 70
+  size: 50
+  errorCorrection: Q
+  model: 2
+  margin: true

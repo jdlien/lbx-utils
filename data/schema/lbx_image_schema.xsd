@@ -107,14 +107,178 @@
     <xs:annotation>
       <xs:documentation>
         Defines a barcode element.
-        While not observed in the sample files, this element is part of the image namespace.
+        Used for various barcode types including QR codes.
       </xs:documentation>
     </xs:annotation>
     <xs:complexType>
       <xs:sequence>
         <xs:element ref="pt:objectStyle"/>
-        <!-- Placeholder for barcode-specific properties -->
+        <xs:element ref="image:barcodeStyle"/>
+        <xs:element ref="image:qrcodeStyle" minOccurs="0"/>
+        <xs:element ref="pt:data"/>
       </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Barcode style -->
+  <xs:element name="barcodeStyle">
+    <xs:annotation>
+      <xs:documentation>
+        Defines common style properties for all barcode types.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="protocol" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Type of barcode. Examples: "QRCODE", "CODE39", "CODE128", etc.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="lengths" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Length of barcode data. Usually "0" for QR codes.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="zeroFill" type="xs:boolean" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to pad with zeros. Usually "false" for QR codes.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="barWidth" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Width of the barcode bars in points.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="barRatio" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Ratio of thin to thick bars. Example: "1:3".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="humanReadable" type="xs:boolean" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to display human-readable text with the barcode.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="humanReadableAlignment" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Alignment of human-readable text. Example: "LEFT".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="checkDigit" type="xs:boolean" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to include a check digit. Usually "false" for QR codes.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="autoLengths" type="xs:boolean" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to automatically determine the length. Usually "true" for QR codes.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="margin" type="xs:boolean" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to include a margin around the barcode. Usually "true".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="sameLengthBar" type="xs:boolean" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether all bars have the same length. Usually "false" for QR codes.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="bearerBar" type="xs:boolean" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to include bearer bars. Usually "false" for QR codes.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- QR code specific style -->
+  <xs:element name="qrcodeStyle">
+    <xs:annotation>
+      <xs:documentation>
+        Defines style properties specific to QR codes.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attribute name="model" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            QR code model. Usually "2" for standard QR codes.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="eccLevel" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Error correction level. Examples: "7%", "15%", "30%", corresponding to L, M, Q, H levels.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="cellSize" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Size of each QR code cell in points. Examples: "1.6pt", "2pt", "2.4pt".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="mbcs" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Character encoding. Usually "auto".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="joint" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            Joint style. Usually "1".
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="version" type="xs:string" use="required">
+        <xs:annotation>
+          <xs:documentation>
+            QR code version. Examples: "auto", "5". Controls the size/complexity of the QR code.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="removeCharKind" type="xs:string" use="optional">
+        <xs:annotation>
+          <xs:documentation>
+            Character removal type. Example: "1". Optional parameter.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+      <xs:attribute name="changeVersionDrag" type="xs:boolean" use="optional">
+        <xs:annotation>
+          <xs:documentation>
+            Whether to change version when dragging. Optional parameter.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 </xs:schema>

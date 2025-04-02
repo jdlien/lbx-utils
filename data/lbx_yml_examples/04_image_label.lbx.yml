@@ -1,0 +1,42 @@
+# 04_image_label.lbx.yml
+# Label with images and text
+
+size: 24mm
+width: 90mm
+orientation: landscape
+
+# Company logo
+- type: image
+  source: "logo.png"
+  x: 10
+  y: 10
+  width: 30
+  height: 30
+  monochrome: true
+  transparency: true
+  transparency_color: "#FFFFFF"
+
+# Product image
+- type: image
+  source: "product.png"
+  x: 50
+  y: 10
+  width: 30
+  height: 30
+  monochrome: false
+
+# Company name
+- type: text
+  content: "ACME Corporation"
+  x: 10
+  y: 45
+  size: 14
+  bold: true
+
+# Product name
+- type: text
+  content: "Premium Widget"
+  x: 50
+  y: 45
+  size: 12
+  italic: true
