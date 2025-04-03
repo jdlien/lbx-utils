@@ -1,0 +1,14 @@
+# Test with adjusted x and y accounting for text_object_y
+size: 24mm
+width: auto
+orientation: landscape
+
+objects:
+  - type: text
+    content: "Test with adjusted x,y"
+    x: 10
+    y: 0 # This should account for the text_object_y offset
+    font: Helsinki
+    size: 14
+    bold: true
+    align: center

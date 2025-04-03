@@ -1,0 +1,37 @@
+# Test with exact (0,0) coordinates
+size: 24mm
+width: auto
+orientation: landscape
+
+objects:
+  - type: text
+    content: "A quick brown fox jumps over the lazy dog"
+    x: 2mm
+    y: 0mm
+    font: Helsinki
+    size: 14
+    bold: false
+
+  - type: text
+    content: "A quick brown fox jumps over the lazy dog"
+    x: 2mm
+    y: 4mm
+    font: Helsinki
+    size: 12
+    bold: true
+
+  - type: text
+    content: "A quick brown fox jumps over the lazy dog"
+    x: 2mm
+    y: 8mm
+    font: Helsinki Narrow
+    size: 8
+    bold: false
+
+  - type: text
+    content: "A quick brown fox jumps over the lazy dog"
+    x: 2mm
+    y: 12mm
+    font: Arial
+    size: 10
+    bold: false

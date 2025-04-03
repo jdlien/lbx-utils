@@ -40,12 +40,65 @@ In this structure, label properties are at the root level, and all objects are w
 
 ### 2.3 Units
 
-All measurements are in points (pt) unless otherwise specified. The unit suffix is optional in the YAML file and will be automatically added during conversion.
+All measurements can be specified in either points (pt) or millimeters (mm). If no unit is specified, points (pt) are used by default. The unit suffix should be included in the YAML file (e.g., `10pt` or `5mm`).
 
-Common units that can be explicitly specified:
+- **Points (pt)** - The default unit if not specified. Used internally by the LBX format.
+- **Millimeters (mm)** - More intuitive for users. Will be automatically converted to points during processing.
 
-- `mm` - Millimeters for tape size (e.g., `12mm`)
-- `pt` - Points (default unit if not specified)
+For positioning objects, both coordinates and dimensions can use either unit:
+
+```yaml
+# Using points (default unit)
+- type: text
+  content: "Points"
+  x: 10pt
+  y: 15pt
+  width: 120pt
+  height: 20pt
+
+# Using millimeters
+- type: text
+  content: "Millimeters"
+  x: 3.5mm
+  y: 5.3mm
+  width: 42.3mm
+  height: 7.1mm
+
+# Using numeric values (interpreted as points)
+- type: text
+  content: "No units (defaults to points)"
+  x: 10
+  y: 15
+  width: 120
+  height: 20
+```
+
+For tape size, millimeters are always used (`size: 24mm`).
+
+The conversion between millimeters and points uses the formula: 1mm ≈ 2.83pt
+
+#### 2.3.1 Positioning Notes
+
+When specifying coordinates in your YAML file, use the same coordinate system that you would use in P-Touch Editor. The coordinates (0,0) represent the top-left corner of the printable area on the label.
+
+The coordinate system works as follows:
+
+- The point (0,0) represents the top-left corner of the printable area
+- Positive X values move right from this corner
+- Positive Y values move down from this corner
+
+```
+    (0,0)
+      +-------------------+
+      |                   |
+      |  Printable Area   |
+      |                   |
+      +-------------------+
+```
+
+You do not need to add any offsets to account for margins - the system automatically handles the relationship between the coordinates in the YAML file and the physical position on the label.
+
+For best results, specify units explicitly (`pt` or `mm`).
 
 ### 2.4 Alternative Flat Structure
 
@@ -91,10 +144,10 @@ color: "#000000" # Color of the label ink. Only affects preview.
 
 ### 3.1 Required Properties
 
-| Property      | Description       | Values                        |
-| ------------- | ----------------- | ----------------------------- |
-| `size`        | Tape width        | `9mm`, `12mm`, `18mm`, `24mm` |
-| `orientation` | Label orientation | `landscape`, `portrait`       |
+| Property      | Description       | Values                                        |
+| ------------- | ----------------- | --------------------------------------------- |
+| `size`        | Tape width        | `3.5mm`, `6mm`, `9mm`, `12mm`, `18mm`, `24mm` |
+| `orientation` | Label orientation | `landscape`, `portrait`                       |
 
 ### 3.2 Optional Properties
 
@@ -225,6 +278,12 @@ content: >+
 | `color`     | Text color                | Hex color (e.g., `#000000`) | `#000000`  |
 | `wrap`      | Text wrapping behavior    | `true`, `false`, Number     | `true`     |
 | `shrink`    | Reduce font size to fit   | `true`, `false`             | `false`    |
+
+**Note on Centered/Right Alignment:** When using `align: center` or `align: right`, you might observe a small horizontal positioning offset (typically around 1mm or 2.8pt) if you do not specify an explicit `width` for the text object in your YAML. This occurs because the default width used by the generator might differ slightly from the text's actual rendered width calculated by P-Touch Editor, affecting the centering calculation. For precise positioning with these alignments:
+
+- Use `align: left` if exact left-edge positioning is critical.
+- Provide an accurate `width` attribute for the text object in your YAML.
+- Apply a small manual compensation to the `x` coordinate (e.g., `x: -2.8pt` might correct centering at the origin).
 
 #### 4.2.3 Rich Text Formatting
 

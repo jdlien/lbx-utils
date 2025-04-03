@@ -5,12 +5,13 @@ size: 12mm
 width: 90mm
 orientation: landscape
 
-# Single text object
-- type: text
-  content: "Hello World"
-  x: 10
-  y: 12
-  font: Helsinki
-  size: 14
-  bold: true
-  align: center
+# Objects section
+objects:
+  - type: text
+    content: "Hello World"
+    x: 10
+    y: 12
+    font: Helsinki
+    size: 14
+    bold: true
+    align: center

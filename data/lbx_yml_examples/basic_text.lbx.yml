@@ -1,0 +1,14 @@
+# Basic label with one text object
+size: 24mm
+width: auto
+orientation: landscape
+
+objects:
+  - type: text
+    content: "Hello World"
+    x: 10
+    y: 12
+    font: Helsinki
+    size: 14
+    bold: true
+    align: center

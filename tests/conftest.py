@@ -120,3 +120,13 @@ def create_test_lbx_file():
         return create_test_lbx(output_path)
 
     return _create
+
+def pytest_addoption(parser):
+    """Add command-line options to pytest."""
+    parser.addoption("--font-dir", action="store", default=None,
+                     help="Directory containing font files for testing")
+
+@pytest.fixture
+def font_dir(request):
+    """Get the font directory from command-line options."""
+    return request.config.getoption("--font-dir")

@@ -70,7 +70,9 @@ The prop.xml file uses three main namespaces:
 
 Brother P-touch labels come in several standard widths of TZe tape:
 
-- 9mm / 0.35in (M size)
+- 3.5mm / 0.14in
+- 6mm / 0.24in
+- 9mm / 0.35in
 - 12mm / 0.47in (Standard)
 - 18mm / 0.71in (Wide)
 - 24mm / 0.94in (Extra Wide)
@@ -107,11 +109,11 @@ These attributes change between different label sizes:
 <style:paper media="0" width="XXpt" height="YYpt" marginLeft="Xpt" marginRight="Xpt" marginTop="5.6pt" marginBottom="5.6pt" orientation="landscape" autoLength="true" monochromeDisplay="true" printColorDisplay="false" printColorsID="0" paperColor="#FFFFFF" paperInk="#000000" split="1" format="FFF" backgroundTheme="0" printerID="XXXXX" printerName="Brother PT-XXXX"/>
 ```
 
-| Attribute              | 9mm    | 12mm   | 18mm   | 24mm  |
-| ---------------------- | ------ | ------ | ------ | ----- |
-| width                  | 25.6pt | 33.6pt | 51.2pt | 68pt  |
-| marginLeft/marginRight | 2.8pt  | 2.8pt  | 3.2pt  | 8.4pt |
-| format                 | 258    | 259    | 260    | 261   |
+| Attribute              | 3.5mm | 6mm    | 9mm    | 12mm   | 18mm   | 24mm  |
+| ---------------------- | ----- | ------ | ------ | ------ | ------ | ----- |
+| width                  | 9.6pt | 16.8pt | 25.6pt | 33.6pt | 51.2pt | 68pt  |
+| marginLeft/marginRight | 0pt   | 2pt    | 2.8pt  | 2.8pt  | 3.2pt  | 8.4pt |
+| format                 | 263   | 257    | 258    | 259    | 260    | 261   |
 
 ### style:backGround Element Attributes
 
@@ -119,10 +121,10 @@ These attributes change between different label sizes:
 <style:backGround x="5.6pt" y="Y.Ypt" width="Wpt" height="Hpt" brushStyle="NULL" brushId="0" userPattern="NONE" userPatternId="0" color="#000000" printColorNumber="1" backColor="#FFFFFF" backPrintColorNumber="0"/>
 ```
 
-| Attribute | 9mm   | 12mm  | 18mm   | 24mm   |
-| --------- | ----- | ----- | ------ | ------ |
-| y         | 2.8pt | 2.8pt | 3.2pt  | 8.4pt  |
-| height    | 20pt  | 28pt  | 44.8pt | 51.2pt |
+| Attribute | 3.5mm | 6mm    | 9mm   | 12mm  | 18mm   | 24mm   |
+| --------- | ----- | ------ | ----- | ----- | ------ | ------ |
+| y         | 0pt   | 2pt    | 2.8pt | 2.8pt | 3.2pt  | 8.4pt  |
+| height    | 9.6pt | 12.8pt | 20pt  | 28pt  | 44.8pt | 51.2pt |
 
 ## 5. Object Positioning
 
@@ -132,6 +134,8 @@ Object positioning is critical for proper label recognition and rendering. When 
 
 | Label Size | Background Y | Text Object Y | Image Object Y |
 | ---------- | ------------ | ------------- | -------------- |
+| 3.5mm      | 0pt          | 3.0pt         | 0pt            |
+| 6mm        | 2pt          | 5.0pt         | 2pt            |
 | 9mm        | 2.8pt        | 7.1pt         | 2.8pt          |
 | 12mm       | 2.8pt        | 7.1pt         | 2.8pt          |
 | 18mm       | 3.2pt        | 7.5pt         | 3.2pt          |

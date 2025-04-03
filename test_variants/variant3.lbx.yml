@@ -1,0 +1,14 @@
+# Test with numeric x and y (no units)
+size: 24mm
+width: auto
+orientation: landscape
+
+objects:
+  - type: text
+    content: "Test with x:10, y:10"
+    x: 10
+    y: 10
+    font: Helsinki
+    size: 14
+    bold: true
+    align: center

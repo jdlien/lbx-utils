@@ -1,0 +1,14 @@
+# Basic label with one text object
+size: 24mm
+width: auto
+orientation: landscape
+
+objects:
+  - type: text
+    content: "Hello World"
+    x: 10pt
+    y: 0pt # Setting to 0 will use just the text_object_y offset
+    font: Helsinki
+    size: 14pt
+    bold: true
+    align: center

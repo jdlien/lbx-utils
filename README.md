@@ -189,3 +189,55 @@ For detailed specifications, see the [LBX Specification](data/schema/lbx-specifi
 MIT
 
 Contributions, bug reports, and feature requests are welcome!
+
+## TextDimensionCalculator
+
+The `TextDimensionCalculator` class provides accurate text dimension calculations that match Brother P-touch Editor's dimensions.
+
+### Features
+
+- Calculate text dimensions for various fonts, sizes, and styles
+- Support for fallback fonts when exact fonts are not available
+- P-touch Editor specific adjustments for compatible dimensions
+
+### Example Usage
+
+```python
+from lbx_utils.text_dimensions import TextDimensionCalculator
+
+# Basic usage
+calculator = TextDimensionCalculator(debug=True)
+width, height = calculator.calculate_text_dimensions(
+    text="Hello World",
+    font_name="Arial",
+    size=12.0
+)
+print(f"Dimensions: {width:.2f}pt × {height:.2f}pt")
+
+# With P-touch Editor adjustments enabled
+adjusted_calculator = TextDimensionCalculator(
+    debug=True,
+    apply_ptouch_adjustments=True
+)
+adj_width, adj_height = adjusted_calculator.calculate_text_dimensions(
+    text="Hello World",
+    font_name="Arial",
+    size=12.0
+)
+print(f"P-touch adjusted dimensions: {adj_width:.2f}pt × {adj_height:.2f}pt")
+```
+
+### Command-line Usage
+
+The module can also be used directly from the command line:
+
+```
+python -m lbx_utils.text_dimensions --text "Hello World" --font "Arial" --size 12 --ptouch-adjustments
+```
+
+## Requirements
+
+- Python 3.7+
+- freetype-py
+- fontTools
+- Pillow (optional for fallback calculations)

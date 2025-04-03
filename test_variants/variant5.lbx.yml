@@ -1,0 +1,14 @@
+# Test with negative y value
+size: 24mm
+width: auto
+orientation: landscape
+
+objects:
+  - type: text
+    content: "Test with negative y"
+    x: 10
+    y: -12 # Attempt to compensate for internal offset
+    font: Helsinki
+    size: 14
+    bold: true
+    align: center

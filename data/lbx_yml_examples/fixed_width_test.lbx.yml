@@ -1,0 +1,16 @@
+
+    # Fixed width label
+    size: 12mm
+    width: 90mm
+    orientation: landscape
+
+    objects:
+      - type: text
+        content: "Fixed Width Text"
+        x: 10
+        y: 12
+        font: Helsinki
+        size: 14
+        bold: true
+        align: center
+    
