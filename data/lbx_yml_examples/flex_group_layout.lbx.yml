@@ -1,0 +1,67 @@
+# Example demonstrating group objects with flexbox-inspired layout
+size: 24mm
+width: 100mm
+orientation: landscape
+
+objects:
+  # Main container - using column layout
+  - type: group
+    id: main_container
+    x: 10
+    y: 10
+    width: 80mm
+    height: auto
+    direction: column
+    align: center
+    gap: 5
+    objects:
+      # Header section
+      - type: text
+        content: "Group Example"
+        font: Helsinki
+        size: 14
+        bold: true
+
+      # Middle section - Row layout with items side by side
+      - type: group
+        id: row_container
+        direction: row
+        justify: between
+        align: center
+        gap: 10
+        objects:
+          - type: text
+            content: "Left"
+            font: Helsinki
+            size: 10
+            bold: true
+
+          - type: text
+            content: "Center"
+            font: Helsinki
+            size: 10
+
+          - type: text
+            content: "Right"
+            font: Helsinki
+            size: 10
+            bold: true
+
+      # Bottom section - Another row with different layout
+      - type: group
+        id: bottom_container
+        direction: row
+        justify: center
+        gap: 15
+        objects:
+          - type: text
+            content: "Item 1"
+            size: 8
+
+          - type: text
+            content: "Item 2"
+            size: 8
+
+          - type: text
+            content: "Item 3"
+            size: 8

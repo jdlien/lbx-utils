@@ -1,0 +1,4 @@
+# Additional requirements for macOS Core Text integration
+pyobjc-core>=9.0
+pyobjc-framework-Cocoa>=9.0
+pyobjc-framework-CoreText>=9.0

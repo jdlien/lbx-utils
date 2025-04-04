@@ -10,10 +10,11 @@ import sys
 import pytest
 import xml.etree.ElementTree as ET
 import re
-from src.lbx_utils.text_dimensions import TextDimensionCalculator, FontMetrics
+from src.lbx_utils.text_dimensions import TextDimensionCalculator, FontMetrics, CalculationMethod
 from pytest_dependency import depends
 from typing import List, Dict, Any
 import logging
+import platform
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -958,24 +959,29 @@ def adjusted_calculator():
 
 def test_system_font_paths(calculator):
     """Test that system font paths are detected correctly."""
-    assert calculator._system_font_paths
+    # Get the FreeType technique directly
+    freetype_technique = calculator._techniques["freetype"]
+
+    assert hasattr(freetype_technique, '_system_font_paths')
+    assert freetype_technique._system_font_paths
     # At least one system font path should exist
-    assert len(calculator._system_font_paths) > 0
+    assert len(freetype_technique._system_font_paths) > 0
 
     # Print detected system font paths for debugging
     print("\nDetected system font paths:")
-    for path in calculator._system_font_paths:
+    for path in freetype_technique._system_font_paths:
         print(f"  - {path}")
         assert os.path.exists(path)
 
 def test_available_fonts(calculator):
     """Test which fonts from our test list are available."""
+    freetype_technique = calculator._techniques["freetype"]
     available_fonts = []
     unavailable_fonts = []
 
     for font_name in TEST_FONTS:
         try:
-            path = calculator._get_font_path(font_name)
+            path = freetype_technique._get_font_path(font_name)
             available_fonts.append((font_name, path))
         except FileNotFoundError:
             unavailable_fonts.append(font_name)
@@ -994,10 +1000,11 @@ def test_available_fonts(calculator):
 
 def test_font_metrics(calculator):
     """Test that font metrics are calculated correctly."""
+    freetype_technique = calculator._techniques["freetype"]
     for font_name in TEST_FONTS:
         for size in TEST_SIZES:
             try:
-                metrics = calculator._get_font_metrics(font_name, size)
+                metrics = freetype_technique._get_font_metrics(font_name, size)
                 assert isinstance(metrics, FontMetrics)
                 assert metrics.ascent > 0
                 assert metrics.descent > 0
@@ -1107,9 +1114,15 @@ def test_text_dimensions_cache(calculator):
     assert width1 == width2
     assert height1 == height2
 
-    # Verify cache is being used
-    assert len(calculator._font_cache) > 0
-    assert len(calculator._metrics_cache) > 0
+    # Verify cache is being used in the underlying technique
+    best_technique = calculator._get_best_available_technique()
+    assert hasattr(best_technique, '_font_cache')
+    assert len(best_technique._font_cache) > 0
+
+    # If using freetype, also check metrics cache
+    if best_technique.get_name() == "freetype":
+        assert hasattr(best_technique, '_metrics_cache')
+        assert len(best_technique._metrics_cache) > 0
 
 def test_text_dimensions_empty(calculator):
     """Test text dimension calculations with empty strings."""
@@ -1327,6 +1340,9 @@ def test_required_fonts_availability():
         allow_approximation=True
     )
 
+    # Get freetype technique to use its font path methods
+    freetype_technique = calculator._techniques["freetype"]
+
     # Get the set of required fonts from the reference data
     required_fonts = {item["font_name"] for item in PTOUCH_REFERENCE_DATA}
 
@@ -1337,7 +1353,7 @@ def test_required_fonts_availability():
     for font_name in required_fonts:
         print(f"Checking font: {font_name}...")
         try:
-            font_path = calculator._get_font_path(font_name)
+            font_path = freetype_technique._get_font_path(font_name)
             if font_name.lower() not in font_path.lower():
                 substituted_fonts[font_name] = font_path
                 print(f"  Found substitute at: {font_path}")
@@ -1368,6 +1384,8 @@ def test_required_fonts_wrapper():
 @pytest.mark.dependency(depends=["test_required_fonts"])
 def test_ptouch_editor_reference_dimensions_debug(calculator):
     """Debug test to understand how text dimensions are being calculated for missing fonts."""
+    freetype_technique = calculator._techniques["freetype"]
+
     for expected in PTOUCH_REFERENCE_DATA:
         # Special focus on Helsinki Narrow
         if expected["font_name"] == "Helsinki Narrow":
@@ -1375,7 +1393,7 @@ def test_ptouch_editor_reference_dimensions_debug(calculator):
             try:
                 print("  1. Checking if font can be found directly:")
                 try:
-                    font_path = calculator._get_font_path(expected["font_name"])
+                    font_path = freetype_technique._get_font_path(expected["font_name"])
                     print(f"     Found at: {font_path}")
                 except FileNotFoundError as e:
                     print(f"     Not found! Error: {str(e)[:100]}...")
@@ -1390,21 +1408,19 @@ def test_ptouch_editor_reference_dimensions_debug(calculator):
                 )
                 print(f"     Success! Got dimensions: {width:.2f}pt × {height:.2f}pt")
 
-                # Try to understand how the calculation succeeded
-                print("  3. Checking active font cache:")
-                if expected["font_name"] in calculator._font_cache:
-                    print(f"     Found in font cache: {calculator._font_cache[expected['font_name']]}")
-                else:
-                    print(f"     Not in font cache!")
+                # Get the technique that was used
+                technique = calculator._get_best_available_technique()
+                print(f"  3. Technique used: {technique.get_name()}")
 
                 print("  4. Checking if PIL fallback is being used:")
                 try:
-                    pil_width, pil_height = calculator.calculate_text_dimensions_pil(
+                    pil_width, pil_height = calculator.calculate_text_dimensions(
                         text=expected["text"],
                         font_name=expected["font_name"],
                         size=expected["size"],
                         weight=expected["weight"],
-                        italic=expected["italic"]
+                        italic=expected["italic"],
+                        method="pil"
                     )
                     print(f"     PIL calculation succeeded: {pil_width:.2f}pt × {pil_height:.2f}pt")
                 except Exception as e:
@@ -1498,13 +1514,14 @@ def test_ptouch_editor_reference_dimensions(calculator, adjusted_calculator):
 
     # Rest of the function
     # Check for required fonts
+    freetype_technique = calculator._techniques["freetype"]
     required_fonts = {item["font_name"] for item in PTOUCH_REFERENCE_DATA}
     missing_fonts = []
 
     # Only do a quick check for each font
     for font_name in required_fonts:
         try:
-            calculator._get_font_path(font_name)
+            freetype_technique._get_font_path(font_name)
         except FileNotFoundError:
             missing_fonts.append(font_name)
 
@@ -1548,3 +1565,160 @@ def test_ptouch_editor_reference_dimensions(calculator, adjusted_calculator):
         print(f"Residual width adjustment needed:     {1/avg_adj_width_ratio:.4f}")
         print(f"Residual height adjustment needed:    {1/avg_adj_height_ratio:.4f}")
         print(f"{'-'*80}")
+
+@pytest.mark.skipif(
+    platform.system() != "Darwin" or not hasattr(CalculationMethod, "CORE_TEXT"),
+    reason="Core Text is only available on macOS with PyObjC installed"
+)
+def test_core_text_availability():
+    """Test if Core Text technique is available on this system."""
+    calculator = TextDimensionCalculator(debug=True)
+
+    # Check if Core Text is in available methods
+    available_methods = [
+        name for name, technique in calculator._techniques.items()
+        if technique.is_available()
+    ]
+
+    print("\nChecking Core Text availability:")
+    if hasattr(CalculationMethod, "CORE_TEXT") and CalculationMethod.CORE_TEXT in available_methods:
+        print(f"✓ Core Text is available")
+        # Get the technique directly
+        core_text_technique = calculator._techniques[CalculationMethod.CORE_TEXT]
+        assert core_text_technique.is_available() is True
+        assert core_text_technique.get_name() == "core_text"
+    else:
+        print(f"✗ Core Text is not available")
+        pytest.skip("Core Text technique is not available on this system")
+
+@pytest.mark.skipif(
+    platform.system() != "Darwin" or not hasattr(CalculationMethod, "CORE_TEXT"),
+    reason="Core Text is only available on macOS with PyObjC installed"
+)
+def test_core_text_dimensions_basic():
+    """Test basic text dimension calculations using Core Text."""
+    calculator = TextDimensionCalculator(debug=True)
+
+    # Skip if Core Text is not available
+    if not hasattr(CalculationMethod, "CORE_TEXT") or not calculator._techniques[CalculationMethod.CORE_TEXT].is_available():
+        pytest.skip("Core Text technique is not available")
+
+    sample_text = "Hello World"
+    sample_size = 12
+
+    # Calculate dimensions using Core Text
+    width, height = calculator.calculate_text_dimensions(
+        text=sample_text,
+        size=sample_size,
+        method=CalculationMethod.CORE_TEXT
+    )
+
+    assert width > 0
+    assert height > 0
+
+    print(f"\nCore Text dimensions for '{sample_text}' at {sample_size}pt:")
+    print(f"  - {width:.2f}pt × {height:.2f}pt")
+
+    # Compare with other methods if available
+    other_methods = []
+    for method in ["freetype", "pil", "harfbuzz", "pango"]:
+        if method in calculator._techniques and calculator._techniques[method].is_available():
+            other_methods.append(method)
+
+    for method in other_methods:
+        try:
+            other_width, other_height = calculator.calculate_text_dimensions(
+                text=sample_text,
+                size=sample_size,
+                method=method
+            )
+            print(f"  - {method.capitalize()}: {other_width:.2f}pt × {other_height:.2f}pt")
+            print(f"    Difference: {(width - other_width):.2f}pt ({((width - other_width) / other_width * 100):.1f}%) × "
+                  f"{(height - other_height):.2f}pt ({((height - other_height) / other_height * 100):.1f}%)")
+        except Exception as e:
+            print(f"  - {method.capitalize()}: Error - {str(e)}")
+
+@pytest.mark.skipif(
+    platform.system() != "Darwin" or not hasattr(CalculationMethod, "CORE_TEXT"),
+    reason="Core Text is only available on macOS with PyObjC installed"
+)
+def test_core_text_ptouch_comparison():
+    """Compare Core Text measurements against P-touch Editor reference data."""
+    calculator = TextDimensionCalculator(
+        debug=True,
+        apply_ptouch_adjustments=False  # Test raw calculations
+    )
+
+    # Skip if Core Text is not available
+    if not hasattr(CalculationMethod, "CORE_TEXT") or not calculator._techniques[CalculationMethod.CORE_TEXT].is_available():
+        pytest.skip("Core Text technique is not available")
+
+    # Track differences for analysis
+    width_diffs = []
+    height_diffs = []
+    width_diffs_pct = []
+    height_diffs_pct = []
+
+    # Process a subset of reference data for brevity
+    subset = PTOUCH_REFERENCE_DATA[:10]  # First 10 items
+
+    print("\nComparing Core Text with P-touch Editor reference data:")
+    for expected in subset:
+        text = expected["text"]
+        font_name = expected["font_name"]
+        size = expected["size"]
+        weight = expected["weight"]
+        italic = expected["italic"]
+        expected_width = expected["width"]
+        expected_height = expected["height"]
+
+        try:
+            # Calculate dimensions using Core Text
+            width, height = calculator.calculate_text_dimensions(
+                text=text,
+                font_name=font_name,
+                size=size,
+                weight=weight,
+                italic=italic,
+                method=CalculationMethod.CORE_TEXT
+            )
+
+            # Calculate differences
+            width_diff = width - expected_width
+            height_diff = height - expected_height
+            width_diff_pct = (width_diff / expected_width) * 100
+            height_diff_pct = (height_diff / expected_height) * 100
+
+            # Track differences
+            width_diffs.append(width_diff)
+            height_diffs.append(height_diff)
+            width_diffs_pct.append(width_diff_pct)
+            height_diffs_pct.append(height_diff_pct)
+
+            print(f"\nText: '{text}'")
+            print(f"Font: {font_name} {size}pt {weight} {'italic' if italic else ''}")
+            print(f"P-touch: {expected_width:.2f}pt × {expected_height:.2f}pt")
+            print(f"Core Text: {width:.2f}pt × {height:.2f}pt")
+            print(f"Difference: {width_diff:.2f}pt ({width_diff_pct:.1f}%) × "
+                  f"{height_diff:.2f}pt ({height_diff_pct:.1f}%)")
+        except Exception as e:
+            print(f"\nError calculating '{text}' with {font_name}: {str(e)}")
+
+    # Calculate and print average differences
+    if width_diffs:
+        avg_width_diff = sum(width_diffs) / len(width_diffs)
+        avg_height_diff = sum(height_diffs) / len(height_diffs)
+        avg_width_diff_pct = sum(width_diffs_pct) / len(width_diffs_pct)
+        avg_height_diff_pct = sum(height_diffs_pct) / len(height_diffs_pct)
+
+        print("\nAverage differences:")
+        print(f"Width: {avg_width_diff:.2f}pt ({avg_width_diff_pct:.1f}%)")
+        print(f"Height: {avg_height_diff:.2f}pt ({avg_height_diff_pct:.1f}%)")
+        print(f"Suggested adjustment factors:")
+        print(f"Width factor: {1/(1 + avg_width_diff_pct/100):.4f}")
+        print(f"Height factor: {1/(1 + avg_height_diff_pct/100):.4f}")
+
+    # Basic assertion - average difference should be reasonable
+    if width_diffs_pct and height_diffs_pct:
+        assert abs(avg_width_diff_pct) < 30, "Width difference too large"
+        assert abs(avg_height_diff_pct) < 30, "Height difference too large"

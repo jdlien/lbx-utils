@@ -5,82 +5,83 @@ size: 24mm
 width: 100mm
 orientation: landscape
 
-# Absolutely positioned header
-- type: text
-  content: "SHIPPING LABEL"
-  x: 50
-  y: 8
-  size: 16
-  bold: true
-  align: center
+objects:
+  # Absolutely positioned header
+  - type: text
+    content: "SHIPPING LABEL"
+    x: 50
+    y: 8
+    size: 16
+    bold: true
+    align: center
 
-# Absolutely positioned logo
-- type: image
-  source: "logo.png"
-  x: 5
-  y: 5
-  width: 20
-  height: 20
-  monochrome: true
+  # Absolutely positioned logo
+  - type: image
+    source: "logo.png"
+    x: 5
+    y: 5
+    width: 20
+    height: 20
+    monochrome: true
 
-# Flexbox layout for address information
-- type: group
-  x: 10
-  y: 30
-  direction: row
-  justify: start
-  align: start
-  gap: 20
-  objects:
-    # From address column
-    - type: group
-      direction: column
-      gap: 3
-      objects:
-        - type: text
-          content: "FROM:"
-          size: 8
-          bold: true
+  # Flexbox layout for address information
+  - type: group
+    x: 10
+    y: 30
+    direction: row
+    justify: start
+    align: start
+    gap: 20
+    objects:
+      # From address column
+      - type: group
+        direction: column
+        gap: 3
+        objects:
+          - type: text
+            content: "FROM:"
+            size: 8
+            bold: true
 
-        - type: text
-          content: "ACME Corporation"
-          size: 10
+          - type: text
+            content: "ACME Corporation"
+            size: 10
 
-        - type: text
-          content: "123 Main Street"
-          size: 8
+          - type: text
+            content: "123 Main Street"
+            size: 8
 
-        - type: text
-          content: "Anytown, CA 12345"
-          size: 8
+          - type: text
+            content: "Anytown, CA 12345"
+            size: 8
 
-    # To address column
-    - type: group
-      direction: column
-      gap: 3
-      objects:
-        - type: text
-          content: "TO:"
-          size: 8
-          bold: true
+      # To address column
+      - type: group
+        direction: column
+        gap: 3
+        objects:
+          - type: text
+            content: "TO:"
+            size: 8
+            bold: true
 
-        - type: text
-          content: "John Smith"
-          size: 10
+          - type: text
+            content: "John Smith"
+            size: 10
 
-        - type: text
-          content: "456 Oak Avenue"
-          size: 8
+          - type: text
+            content: "456 Oak Avenue"
+            size: 8
 
-        - type: text
-          content: "Somewhere, NY 67890"
-          size: 8
+          - type: text
+            content: "Somewhere, NY 67890"
+            size: 8
 
-# Absolutely positioned barcode at bottom
-- type: barcode
-  barcodeType: code128
-  data: "SHIP123456789"
-  x: 25
-  y: 65
-  size: 40
-  humanReadable: true
+  # Absolutely positioned barcode at bottom
+  - type: barcode
+    barcodeType: code128
+    data: "SHIP123456789"
+    x: 25
+    y: 65
+    size: 40
+    humanReadable: true

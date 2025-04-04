@@ -1,0 +1,30 @@
+size: 24mm
+width: auto
+orientation: landscape
+background: "#FFFFFF"
+color: "#000000"
+
+objects:
+  - type: text
+    content: "Test Label"
+    x: 10
+    y: 10
+    font: Helsinki
+    size: 14
+    bold: true
+    align: center
+
+  - type: text
+    content: "Small text example with dimensions"
+    x: 10
+    y: 30
+    font: Helsinki
+    size: 10
+
+  - type: text
+    content: "This is italic text"
+    x: 10
+    y: 50
+    font: Arial
+    size: 12
+    italic: true

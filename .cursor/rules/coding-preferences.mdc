@@ -13,3 +13,8 @@ alwaysApply: true
 - Keep the codebase very clean and organized
 - Avoid having files over 200-300 lines of code. Refactor at that point.
 - Never overwrite my env file without first asking and confirming
+
+# Testing
+- When making non-trivial changes to a file, automatically run tests to ensure the changes didn't cause any regressions.
+
+- When adding significant new features, add required tests to provide good code coverage. If a test suite for the program being worked on doesn't exist, implore the user (me) to create such a test and concisely suggest a good name and approach for doing so.

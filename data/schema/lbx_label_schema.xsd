@@ -117,8 +117,26 @@
       <xs:choice maxOccurs="unbounded">
         <xs:element ref="text:text"/>
         <xs:element ref="image:image"/>
+        <xs:element ref="pt:group"/>
         <!-- Other object types can be added here -->
       </xs:choice>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Group container for organizing objects -->
+  <xs:element name="group">
+    <xs:annotation>
+      <xs:documentation>
+        Container for grouping multiple objects together.
+        Groups can be used to organize and layout objects in a hierarchical structure.
+        Supports layout properties like direction, justify, align, and gap spacing as defined in the YAML spec.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="pt:objectStyle"/>
+        <xs:element ref="pt:objects"/>
+      </xs:sequence>
     </xs:complexType>
   </xs:element>
 

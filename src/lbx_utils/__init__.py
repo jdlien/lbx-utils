@@ -1,4 +1,6 @@
-"""LBX Utils - Utilities for working with Brother LBX label files."""
+"""
+lbx_utils - Utilities for working with Brother P-Touch LBX files
+"""
 
 __version__ = "0.1.0"
 

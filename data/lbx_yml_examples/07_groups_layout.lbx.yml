@@ -5,80 +5,81 @@ size: 24mm
 width: 100mm
 orientation: landscape
 
-# Header group - row layout
-- type: group
-  id: header
-  x: 10
-  y: 5
-  direction: row
-  justify: between
-  align: center
-  gap: 5
-  objects:
-    # Logo
-    - type: text
-      content: "ACME"
-      font: Helsinki
-      size: 16
-      bold: true
+objects:
+  # Header group - row layout
+  - type: group
+    id: header
+    x: 10
+    y: 5
+    direction: row
+    justify: between
+    align: center
+    gap: 5
+    objects:
+      # Logo
+      - type: text
+        content: "ACME"
+        font: Helsinki
+        size: 16
+        bold: true
 
-    # Date
-    - type: text
-      content: "2023-04-15"
-      size: 10
-      align: right
+      # Date
+      - type: text
+        content: "2023-04-15"
+        size: 10
+        align: right
 
-# Content group - column layout
-- type: group
-  id: content
-  x: 10
-  y: 25
-  direction: column
-  align: start
-  gap: 8
-  objects:
-    - type: text
-      content: "Product: Widget XL"
-      size: 12
+  # Content group - column layout
+  - type: group
+    id: content
+    x: 10
+    y: 25
+    direction: column
+    align: start
+    gap: 8
+    objects:
+      - type: text
+        content: "Product: Widget XL"
+        size: 12
 
-    - type: text
-      content: "SKU: 123-456-789"
-      size: 10
+      - type: text
+        content: "SKU: 123-456-789"
+        size: 10
 
-    - type: text
-      content: "Quantity: 5 units"
-      size: 10
+      - type: text
+        content: "Quantity: 5 units"
+        size: 10
 
-# Footer group - row layout with multiple items
-- type: group
-  id: footer
-  x: 10
-  y: 60
-  direction: row
-  justify: start
-  align: center
-  gap: 15
-  objects:
-    # QR code
-    - type: barcode
-      barcodeType: qr
-      data: "https://example.com/track"
-      size: 25
+  # Footer group - row layout with multiple items
+  - type: group
+    id: footer
+    x: 10
+    y: 60
+    direction: row
+    justify: start
+    align: center
+    gap: 15
+    objects:
+      # QR code
+      - type: barcode
+        barcodeType: qr
+        data: "https://example.com/track"
+        size: 25
 
-    # Info column
-    - type: group
-      direction: column
-      gap: 3
-      objects:
-        - type: text
-          content: "Scan to track"
-          size: 8
-          bold: true
+      # Info column
+      - type: group
+        direction: column
+        gap: 3
+        objects:
+          - type: text
+            content: "Scan to track"
+            size: 8
+            bold: true
 
-        - type: text
-          content: "Order #: ABC123"
-          size: 7
+          - type: text
+            content: "Order #: ABC123"
+            size: 7
 
-        - type: text
-          content: "Pack date: 2023-04-15"
-          size: 7
+          - type: text
+            content: "Pack date: 2023-04-15"
+            size: 7

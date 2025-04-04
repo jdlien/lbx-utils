@@ -1,0 +1,26 @@
+# Group test example
+size: 24mm
+width: 100mm
+orientation: landscape
+
+objects:
+  - type: group
+    id: main_container
+    x: 10
+    y: 10
+    width: 80mm
+    height: 40mm
+    direction: column
+    align: center
+    gap: 5
+    objects:
+      - type: text
+        content: "Group Example"
+        font: Helsinki
+        size: 14
+        bold: true
+
+      - type: text
+        content: "This is a simple test of group layout"
+        font: Helsinki
+        size: 10

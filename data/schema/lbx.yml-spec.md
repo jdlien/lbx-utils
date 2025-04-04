@@ -13,11 +13,7 @@ The LBX YAML format (`.lbx.yml`) is a simplified representation for Brother P-to
 
 ### 2.2 Basic Structure
 
-The format consists of a YAML document with two approaches to structure: canonical (using sections) or flat (direct objects).
-
-#### Canonical Structure
-
-The canonical structure uses distinct sections for label properties and objects:
+The format consists of a YAML document with a required canonical structure:
 
 ```yaml
 # Label properties section
@@ -25,7 +21,7 @@ size: 24mm
 width: 100mm
 orientation: landscape
 
-# Objects section
+# Objects section (required)
 objects:
   - type: text
     content: "Hello World"
@@ -36,7 +32,7 @@ objects:
     # ...
 ```
 
-In this structure, label properties are at the root level, and all objects are within the `objects` array.
+In this structure, label properties are at the root level, and all objects are within the `objects` array. The `objects` key is required, and all visual elements must be defined within this array.
 
 ### 2.3 Units
 
@@ -49,12 +45,13 @@ For positioning objects, both coordinates and dimensions can use either unit:
 
 ```yaml
 # Using points (default unit)
-- type: text
-  content: "Points"
-  x: 10pt
-  y: 15pt
-  width: 120pt
-  height: 20pt
+objects:
+  - type: text
+    content: "Points"
+    x: 10pt
+    y: 15pt
+    width: 120pt
+    height: 20pt
 
 # Using millimeters
 - type: text
@@ -100,34 +97,6 @@ You do not need to add any offsets to account for margins - the system automatic
 
 For best results, specify units explicitly (`pt` or `mm`).
 
-### 2.4 Alternative Flat Structure
-
-For simplicity and to reduce indentation levels, objects can also be defined directly at the root level alongside label properties:
-
-```yaml
-# Label properties
-size: 24mm
-width: 100mm
-orientation: landscape
-
-# Objects directly at root level
-- type: text
-  content: 'Hello World'
-  position:
-    x: 10
-    y: 12
-  # ...
-
-- type: image
-  source: 'logo.png'
-  position:
-    x: 10
-    y: 30
-  # ...
-```
-
-The parser will identify array elements at the root level as objects, while other properties at the root level are treated as label properties. This flat structure is functionally identical to the canonical structure but requires less indentation.
-
 ## 3. Label Properties
 
 The label properties define the global characteristics of the label.
@@ -162,7 +131,26 @@ Note: `width` is technically the length when `orientation` is `landscape`. When 
 
 ### 3.3 Layout Properties at Root Level
 
-The root level can also include layout properties that apply to all objects on the label, effectively making the label itself act as an implicit group container. This eliminates the need for a wrapper group when aligning all objects.
+The root level can include layout properties that apply to all objects within the `objects` array, effectively making the label itself act as an implicit group container. This eliminates the need for a wrapper group when aligning all objects.
+
+```yaml
+# Label with root layout properties
+size: 24mm
+width: 100mm
+orientation: landscape
+direction: column # Applied to all objects in the objects array
+align: center # Center align all objects
+gap: 10 # 10pt spacing between objects
+
+objects:
+  - type: text
+    content: "Title"
+    # No need to specify x position - handled by layout
+
+  - type: text
+    content: "Subtitle"
+    # Automatically positioned below the title with 10pt gap
+```
 
 | Property    | Description                     | Values                                                  | Default |
 | ----------- | ------------------------------- | ------------------------------------------------------- | ------- |
@@ -173,7 +161,7 @@ The root level can also include layout properties that apply to all objects on t
 | `padding`   | Internal padding within label   | Number or object with top/right/bottom/left             | 0       |
 | `wrap`      | Whether items wrap to next line | `true`, `false`                                         | `false` |
 
-These properties function identically to those available for group objects, except they apply to all objects at the root level.
+These properties function identically to those available for group objects, except they apply to all objects within the `objects` array.
 
 ## 4. Objects
 

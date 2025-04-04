@@ -1,6 +1,12 @@
-typer>=0.9.0
-rich>=13.7.0
-pyyaml>=6.0
-lxml>=5.0.0
-pillow>=10.0.0
-colorama>=0.4.6
+# Core libraries
+pillow>=9.0.0
+freetype-py>=2.3.0
+fonttools>=4.33.0
+uharfbuzz>=0.30.0
+
+# For Pango technique
+PyGObject>=3.42.0
+
+# For testing
+pytest>=7.0.0
+pytest-dependency>=0.5.1

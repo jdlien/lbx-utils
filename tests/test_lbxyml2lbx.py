@@ -18,17 +18,28 @@ import pytest
 # Add the src directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from src.lbx_utils.lbxyml2lbx import YamlParser, LbxGenerator
+from src.lbx_utils.parser import YamlParser
+from src.lbx_utils.generator import LbxGenerator
 
 # Test output directory
-TEST_OUTPUT_DIR = 'test_output/lbxyml2lbx'
+if os.path.exists('test_output'):
+    TEST_OUTPUT_DIR = 'test_output/lbxyml2lbx'
+else:
+    TEST_OUTPUT_DIR = '../test_output/lbxyml2lbx'
 os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
 
-# Sample files directory
-SAMPLE_FILES_DIR = 'data/lbx_yml_examples'
+# Sample files directory - handle both running from tests dir or project root
+if os.path.exists('data/lbx_yml_examples'):
+    SAMPLE_FILES_DIR = 'data/lbx_yml_examples'
+elif os.path.exists('../data/lbx_yml_examples'):
+    SAMPLE_FILES_DIR = '../data/lbx_yml_examples'
+else:
+    raise FileNotFoundError("Could not find the data/lbx_yml_examples directory")
 
 # Create a test image
 TEST_IMAGE_DIR = 'tests'
+if not os.path.exists(TEST_IMAGE_DIR):
+    TEST_IMAGE_DIR = '.'  # If running from tests directory
 TEST_IMAGE_PATH = os.path.join(TEST_IMAGE_DIR, 'test_image.png')
 
 def create_test_image():
@@ -311,3 +322,57 @@ def test_configured_size_and_width(setup_test_environment):
 
         # Also check that the background width is set to the same value
         assert 'width="254.7' in label_xml, "Background width not set correctly"
+
+@pytest.mark.unit
+def test_flex_group_layout(setup_test_environment):
+    """Test the conversion of a label using flex layout with groups."""
+    input_file = os.path.join(SAMPLE_FILES_DIR, 'group_test.lbx.yml')
+    output_file = os.path.join(TEST_OUTPUT_DIR, 'group_test.lbx')
+    unzip_dir = os.path.join(TEST_OUTPUT_DIR, 'group_test')
+
+    # Parse the YAML file
+    parser = YamlParser(input_file)
+    config = parser.parse()
+
+    # Verify size and width are correctly parsed from YAML
+    assert config.size == "24mm", "Size should be 24mm"
+    assert config.width == "100mm", "Width should be '100mm'"
+
+    # Check that we have at least one group object
+    group_count = sum(1 for obj in config.objects if hasattr(obj, 'objects'))
+    assert group_count > 0, "No group objects found in parsed config"
+
+    # Generate the LBX file
+    generator = LbxGenerator(config)
+    generator.generate_lbx(output_file)
+
+    # Verify the output file exists
+    assert os.path.exists(output_file), f"Output file {output_file} not created"
+
+    # Unzip the output file for inspection
+    os.makedirs(unzip_dir, exist_ok=True)
+    with zipfile.ZipFile(output_file, 'r') as zip_ref:
+        zip_ref.extractall(unzip_dir)
+
+    # Verify the unzipped contents
+    assert os.path.exists(os.path.join(unzip_dir, 'label.xml')), "label.xml not found in output"
+    assert os.path.exists(os.path.join(unzip_dir, 'prop.xml')), "prop.xml not found in output"
+
+    # Check that the label.xml contains a group element
+    with open(os.path.join(unzip_dir, 'label.xml'), 'r', encoding='utf-8') as f:
+        label_xml = f.read()
+        assert "<pt:group>" in label_xml, "Group element not found in label.xml"
+
+        # Verify that the text content is present
+        assert "Group Example" in label_xml, "Header text not found in label.xml"
+        assert "This is a simple test of group layout" in label_xml, "Description text not found in label.xml"
+
+        # Verify group properties
+        assert 'objectName="Group_main_container"' in label_xml, "Group ID not found in label.xml"
+
+        # Verify nested objects within the group
+        assert "<pt:objects><text:text>" in label_xml, "Nested objects not found in group"
+
+if __name__ == "__main__":
+    # Run the tests when executed directly
+    pytest.main(['-xvs', __file__])

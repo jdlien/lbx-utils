@@ -6,38 +6,39 @@ width: auto
 length: auto
 orientation: landscape
 
-# A container group that will adapt to its content
-- type: group
-  x: 5
-  y: 5
-  direction: column
-  align: center
-  gap: 5
-  width: auto  # Auto width
-  height: auto # Auto height
-  objects:
-    # Title with wrapping
-    - type: text
-      content: "This is a title that will automatically wrap to fit the available space"
-      size: 12
-      bold: true
-      wrap: 80  # Wrap at 80 points
+objects:
+  # A container group that will adapt to its content
+  - type: group
+    x: 5
+    y: 5
+    direction: column
+    align: center
+    gap: 5
+    width: auto # Auto width
+    height: auto # Auto height
+    objects:
+      # Title with wrapping
+      - type: text
+        content: "This is a title that will automatically wrap to fit the available space"
+        size: 12
+        bold: true
+        wrap: 80 # Wrap at 80 points
 
-    # Details with wrapping
-    - type: text
-      content: "This is a longer description with details that will wrap to fit within the constraints of the label. The label length will automatically adjust to accommodate all this content."
-      size: 10
-      wrap: 80
+      # Details with wrapping
+      - type: text
+        content: "This is a longer description with details that will wrap to fit within the constraints of the label. The label length will automatically adjust to accommodate all this content."
+        size: 10
+        wrap: 80
 
-    # QR code
-    - type: barcode
-      barcodeType: qr
-      data: "https://example.com/auto-sizing-demo"
-      size: 30
+      # QR code
+      - type: barcode
+        barcodeType: qr
+        data: "https://example.com/auto-sizing-demo"
+        size: 30
 
-    # Footer with auto-shrinking if needed
-    - type: text
-      content: "Scan for more information about auto-sizing features"
-      size: 8
-      shrink: true
-      wrap: true
+      # Footer with auto-shrinking if needed
+      - type: text
+        content: "Scan for more information about auto-sizing features"
+        size: 8
+        shrink: true
+        wrap: true
