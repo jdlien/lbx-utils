@@ -26,7 +26,8 @@ from .text_calculation_techniques import (
     ApproximationTechnique,
     HarfbuzzTechnique,
     PangoTechnique,
-    FontMetrics
+    FontMetrics,
+    SkiaTechnique
 )
 
 # Import CoreTextTechnique conditionally if on macOS
@@ -48,6 +49,7 @@ class CalculationMethod(str, Enum):
     PIL = "pil"
     HARFBUZZ = "harfbuzz"
     PANGO = "pango"
+    SKIA = "skia"
     APPROXIMATION = "approximation"
     AUTO = "auto"  # Automatically choose the best available method
 
@@ -65,6 +67,7 @@ TECHNIQUE_ADJUSTMENT_FACTORS = {
     "pil": (1.0514, 1.4295),
     "harfbuzz": (0.9519, 1.1503),
     "pango": (0.6325, 0.8037),
+    "skia": (1.1407, 1.1299),  # Based on comparing with reference data from P-Touch Editor
     "approximation": (1.0798, 0.9977)
 }
 
@@ -98,6 +101,17 @@ class TextDimensionCalculator:
             apply_technique_adjustments: Whether to apply technique-specific adjustment factors
             default_method: Default calculation method to use (None for auto-selection)
         """
+        # Look for a fonts/ directory in the repository root if font_dir is not specified
+        if font_dir is None:
+            # Try to find the repository root by looking for common directories/files
+            repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            potential_font_dir = os.path.join(repo_root, "fonts")
+
+            if os.path.isdir(potential_font_dir):
+                font_dir = potential_font_dir
+                if debug:
+                    logger.debug(f"Using repository fonts directory: {font_dir}")
+
         self.font_dir = font_dir
         self.debug = debug
         self.allow_fallbacks = allow_fallbacks
@@ -106,12 +120,9 @@ class TextDimensionCalculator:
         self.apply_ptouch_adjustments = apply_ptouch_adjustments
         self.apply_technique_adjustments = apply_technique_adjustments
 
-        # Set default method - prefer Core Text on macOS, FreeType on other platforms
+        # Set default method - use Skia on all platforms as it's the most accurate
         if default_method is None:
-            if platform.system() == "Darwin" and hasattr(CalculationMethod, "CORE_TEXT"):
-                self.default_method = CalculationMethod.CORE_TEXT
-            else:
-                self.default_method = CalculationMethod.FREETYPE
+            self.default_method = CalculationMethod.SKIA
         else:
             self.default_method = default_method
 
@@ -166,6 +177,12 @@ class TextDimensionCalculator:
             font_dir=self.font_dir
         )
 
+        # Initialize Skia technique
+        techniques[CalculationMethod.SKIA] = SkiaTechnique(
+            debug=self.debug,
+            font_dir=self.font_dir
+        )
+
         # Initialize approximation technique
         techniques[CalculationMethod.APPROXIMATION] = ApproximationTechnique(
             debug=self.debug,
@@ -187,27 +204,25 @@ class TextDimensionCalculator:
 
     def _get_best_available_technique(self) -> BaseCalculationTechnique:
         """Get the best available calculation technique based on priority."""
-        # Priority order: core_text (if on macOS), pango, harfbuzz, freetype, PIL, approximation
-        priorities = []
+        # Priority order: skia, core_text (if on macOS), harfbuzz, freetype, pango, PIL, approximation
+        priorities = [
+            CalculationMethod.SKIA,      # Skia is most accurate with P-Touch Editor
+        ]
 
-        # Add Core Text to the start of priorities if on macOS
+        # Add Core Text as second priority if on macOS
         if platform.system() == "Darwin" and hasattr(CalculationMethod, "CORE_TEXT"):
             priorities.append(CalculationMethod.CORE_TEXT)
 
         # Add other techniques
         priorities.extend([
-            CalculationMethod.FREETYPE,  # Moved FreeType up in priority
-            CalculationMethod.HARFBUZZ,
-            CalculationMethod.PANGO,
-            CalculationMethod.PIL,
+            CalculationMethod.HARFBUZZ,  # HarfBuzz for complex text shaping
+            CalculationMethod.FREETYPE,  # FreeType for basic font metrics
+            CalculationMethod.PANGO,     # Pango for good text layout
+            CalculationMethod.PIL,       # PIL as a widely available option
             CalculationMethod.APPROXIMATION
         ])
 
         for method in priorities:
-            # Skip methods that might not be defined on non-macOS platforms
-            if not hasattr(self._techniques, method):
-                continue
-
             technique = self._techniques[method]
             if technique.is_available():
                 if self.debug:
@@ -443,7 +458,7 @@ def main():
     parser.add_argument("--no-approximation", action="store_true", help="Disable approximation fallbacks")
     parser.add_argument("--ptouch-adjustments", action="store_true", help="Apply P-touch Editor specific adjustments")
     parser.add_argument("--technique-adjustments", action="store_true", help="Apply technique-specific adjustment factors")
-    parser.add_argument("--method", type=str, choices=["auto", "freetype", "pil", "harfbuzz", "pango", "approximation"] +
+    parser.add_argument("--method", type=str, choices=["auto", "freetype", "pil", "harfbuzz", "pango", "skia", "approximation"] +
                         (["core_text"] if platform.system() == "Darwin" else []),
                         default=None, help="Calculation method to use")
     args = parser.parse_args()

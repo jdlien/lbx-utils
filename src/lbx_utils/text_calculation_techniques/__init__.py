@@ -2,30 +2,29 @@
 # -*- coding: utf-8 -*-
 
 """
-Package containing text dimension calculation techniques.
+Various techniques for calculating text dimensions.
 
-This package provides various techniques for calculating text dimensions
-using different libraries and approaches, with varying levels of accuracy.
-
-The techniques included are:
-- FreeType: High-quality using the FreeType library
-- PIL: Using Pillow's ImageFont
-- HarfBuzz: Advanced layout using fontTools with HarfBuzz
-- Approximation: Fallback option when other methods are not available
+Available techniques:
+- FreeType: Basic text measurement using FreeType library
+- PIL: Using PIL.ImageFont for estimation
+- HarfBuzz: Text shaping with HarfBuzz for accuracy
+- Approximation: Simple approximation based on character counts
 - Pango: Advanced layout using Pango
 - Core Text: High-quality using macOS Core Text (macOS only)
+- Skia: High-quality using Skia
 
 Each technique follows the same interface defined by BaseCalculationTechnique.
 """
 
 # Import the base class
 from .base import BaseCalculationTechnique
-# Import FontMetrics from the freetype technique
+# Import techniques
 from .freetype_technique import FreetypeTechnique, FontMetrics
 from .pil_technique import PILTechnique
 from .harfbuzz_technique import HarfbuzzTechnique
 from .approximation_technique import ApproximationTechnique
 from .pango_technique import PangoTechnique
+from .skia_technique import SkiaTechnique
 
 # Import CoreTextTechnique conditionally based on platform
 import platform
@@ -36,7 +35,6 @@ if platform.system() == "Darwin":
         # PyObjC not available, so don't expose the Core Text technique
         pass
 
-# For convenience, also export at the package level
 __all__ = [
     'BaseCalculationTechnique',
     'FontMetrics',
@@ -44,13 +42,13 @@ __all__ = [
     'PILTechnique',
     'HarfbuzzTechnique',
     'ApproximationTechnique',
-    'PangoTechnique'
+    'PangoTechnique',
+    'SkiaTechnique'
 ]
 
-# Add CoreTextTechnique to __all__ if on macOS
+# Add CoreTextTechnique conditionally
 if platform.system() == "Darwin":
     try:
-        import Cocoa
         __all__.append('CoreTextTechnique')
-    except ImportError:
+    except NameError:
         pass

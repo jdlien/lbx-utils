@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from src.lbx_utils.text_dimensions import TextDimensionCalculator
+from src.lbx_utils.text_dimensions import CalculationMethod
 
 # Path to the sample P-touch Editor label.xml file
 PTOUCH_LABEL_XML = os.path.abspath(
@@ -291,6 +292,96 @@ class CharacterSpacingMethod(DimensionCalculationMethod):
 
         return width * self.base_width_factor, height * self.base_height_factor
 
+class SkiaMethod(DimensionCalculationMethod):
+    """Skia-based calculation with adjustment factors."""
+
+    def __init__(self, width_factor=0.8, height_factor=0.95):
+        super().__init__(
+            f"Skia(w={width_factor:.2f},h={height_factor:.2f})",
+            f"Skia with width factor {width_factor} and height factor {height_factor}"
+        )
+        self.calculator = TextDimensionCalculator(debug=False, allow_fallbacks=True, apply_technique_adjustments=True)
+        self.width_factor = width_factor
+        self.height_factor = height_factor
+        self.skia_method = CalculationMethod.SKIA
+
+    def calculate(self, text, font_name, size, weight, italic, **kwargs):
+        """Calculate text dimensions using Skia with adjustment factors."""
+        width, height = self.calculator.calculate_text_dimensions(
+            text=text,
+            font_name=font_name,
+            size=size,
+            weight=weight,
+            italic=italic,
+            method=self.skia_method
+        )
+        return width * self.width_factor, height * self.height_factor
+
+class SkiaAdjustedMethod(DimensionCalculationMethod):
+    """Skia-based calculation with built-in technique-specific adjustments."""
+
+    def __init__(self):
+        super().__init__(
+            "Skia(adjusted)",
+            "Skia with built-in technique-specific adjustment factors"
+        )
+        self.calculator = TextDimensionCalculator(
+            debug=False,
+            allow_fallbacks=True,
+            apply_technique_adjustments=True
+        )
+        self.skia_method = CalculationMethod.SKIA
+
+    def calculate(self, text, font_name, size, weight, italic, **kwargs):
+        """Calculate text dimensions using Skia with built-in adjustments."""
+        return self.calculator.calculate_text_dimensions(
+            text=text,
+            font_name=font_name,
+            size=size,
+            weight=weight,
+            italic=italic,
+            method=self.skia_method
+        )
+
+class SkiaFontSpecificMethod(DimensionCalculationMethod):
+    """Skia-based calculation with font-specific adjustment factors."""
+
+    def __init__(self, font_factors=None):
+        if font_factors is None:
+            # Default Skia-specific factors for common fonts
+            font_factors = {
+                "Helsinki": (0.8, 0.95),
+                "Helsinki Narrow": (0.85, 0.95),
+                "Arial": (0.78, 0.93),
+                "default": (0.8, 0.95)  # Default for other fonts
+            }
+
+        super().__init__(
+            "Skia(FontSpecific)",
+            "Skia with font-specific adjustment factors"
+        )
+        self.calculator = TextDimensionCalculator(debug=False, allow_fallbacks=True)
+        self.font_factors = font_factors
+        self.skia_method = CalculationMethod.SKIA
+
+    def calculate(self, text, font_name, size, weight, italic, **kwargs):
+        """Calculate text dimensions using Skia with font-specific adjustments."""
+        width, height = self.calculator.calculate_text_dimensions(
+            text=text,
+            font_name=font_name,
+            size=size,
+            weight=weight,
+            italic=italic,
+            method=self.skia_method
+        )
+
+        # Get font-specific factors or use default
+        width_factor, height_factor = self.font_factors.get(
+            font_name, self.font_factors["default"]
+        )
+
+        return width * width_factor, height * height_factor
+
 def compare_methods(reference_data):
     """Compare different calculation methods against reference data."""
     methods = [
@@ -302,6 +393,12 @@ def compare_methods(reference_data):
 
         # PIL method with adjustments
         PILMethod(width_factor=1.2, height_factor=1.4),
+
+        # Skia methods
+        SkiaMethod(width_factor=0.8, height_factor=0.95),
+        SkiaMethod(width_factor=1.0, height_factor=0.38),
+        SkiaAdjustedMethod(),
+        SkiaFontSpecificMethod(),
 
         # orgSize method
         OrgSizeMethod(org_size_ratio=3.6, fixed_height_factor=0.38),

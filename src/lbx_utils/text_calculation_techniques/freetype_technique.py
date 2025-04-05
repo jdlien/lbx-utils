@@ -54,6 +54,15 @@ class FreetypeTechnique(BaseCalculationTechnique):
         self._metrics_cache: Dict[str, FontMetrics] = {}
         self._system_font_paths = self._get_system_font_paths()
 
+        # Initialize font_dir mapping if font_dir is provided
+        self._font_dir_mapping: Dict[str, str] = {}
+        if self.font_dir and os.path.exists(self.font_dir):
+            if self.debug:
+                logger.debug(f"Scanning custom font directory: {self.font_dir}")
+            self._font_dir_mapping = self._scan_font_directory(self.font_dir)
+            if self.debug:
+                logger.debug(f"Found {len(self._font_dir_mapping)} fonts in {self.font_dir}")
+
         if self.debug:
             logger.debug(f"System font paths: {self._system_font_paths}")
             if self.font_dir:
@@ -142,6 +151,68 @@ class FreetypeTechnique(BaseCalculationTechnique):
 
         return normalized
 
+    def _get_real_font_name_from_file(self, font_path: str) -> Optional[str]:
+        """
+        Extract the real font name from a font file using FreeType.
+
+        Args:
+            font_path: Path to the font file
+
+        Returns:
+            The font family name or None if it can't be extracted
+        """
+        if freetype is None:
+            return None
+
+        try:
+            face = freetype.Face(font_path)
+            family_name = face.family_name
+
+            # Convert from bytes to string if necessary
+            if isinstance(family_name, bytes):
+                family_name = family_name.decode('utf-8', errors='replace')
+
+            return family_name
+        except Exception as e:
+            if self.debug:
+                logger.debug(f"Error extracting font name from {font_path}: {str(e)}")
+            return None
+
+    def _scan_font_directory(self, directory: str) -> Dict[str, str]:
+        """
+        Scan a font directory and build a mapping of font names to file paths.
+
+        Args:
+            directory: Directory to scan for font files
+
+        Returns:
+            Dictionary mapping font names to file paths
+        """
+        result = {}
+
+        if not os.path.exists(directory):
+            return result
+
+        for filename in os.listdir(directory):
+            _, ext = os.path.splitext(filename)
+            if ext.lower() in ['.ttf', '.ttc', '.otf']:
+                font_path = os.path.join(directory, filename)
+
+                # Try to get the real font name
+                font_name = self._get_real_font_name_from_file(font_path)
+
+                if font_name:
+                    # Store with both the actual font name and the normalized version
+                    result[font_name] = font_path
+                    normalized_name = self._normalize_font_name(font_name)
+                    if normalized_name != font_name:
+                        result[normalized_name] = font_path
+
+                    if self.debug:
+                        logger.debug(f"Found font: {font_name} at {font_path}")
+
+        return result
+
     def _get_font_path(self, font_name: str, tried_fonts: Optional[set] = None) -> str:
         """
         Get the path to a font file from its name.
@@ -189,8 +260,38 @@ class FreetypeTechnique(BaseCalculationTechnique):
         # Standard font extensions
         extensions = ['.ttf', '.ttc', '.otf']
 
-        # First check custom font dir if provided
-        if self.font_dir:
+        # Normalize the requested font name
+        normalized_font_name = self._normalize_font_name(font_name)
+
+        # First check custom font dir if provided - build a comprehensive font name mapping
+        if self.font_dir and os.path.exists(self.font_dir):
+            # Try direct match with font name
+            if font_name in self._font_dir_mapping:
+                font_path = self._font_dir_mapping[font_name]
+                self._font_cache[font_name] = font_path
+                if self.debug:
+                    logger.debug(f"Found font '{font_name}' in custom directory at {font_path}")
+                return font_path
+
+            # Try with normalized name
+            if normalized_font_name in self._font_dir_mapping:
+                font_path = self._font_dir_mapping[normalized_font_name]
+                self._font_cache[font_name] = font_path
+                if self.debug:
+                    logger.debug(f"Found font '{font_name}' (as '{normalized_font_name}') in custom directory at {font_path}")
+                return font_path
+
+            # Try partial match with any font in the mapping
+            for mapped_name, font_path in self._font_dir_mapping.items():
+                normalized_mapped = self._normalize_font_name(mapped_name)
+                if (normalized_font_name in normalized_mapped or
+                    normalized_mapped in normalized_font_name):
+                    self._font_cache[font_name] = font_path
+                    if self.debug:
+                        logger.debug(f"Found similar font for '{font_name}' as '{mapped_name}' in custom directory at {font_path}")
+                    return font_path
+
+            # Try standard filename-based approach as fallback for custom directory
             for ext in extensions:
                 font_path = os.path.join(self.font_dir, f"{font_name}{ext}")
                 if os.path.exists(font_path):
@@ -230,10 +331,7 @@ class FreetypeTechnique(BaseCalculationTechnique):
                     # Continue to the next alias if this one wasn't found
                     continue
 
-        # Try case-insensitive or partial match
-        # Normalize the requested font name
-        normalized_font_name = self._normalize_font_name(font_name)
-
+        # Try case-insensitive or partial match through system font paths
         for font_dir in self._system_font_paths:
             if not os.path.exists(font_dir):
                 continue
@@ -268,9 +366,10 @@ class FreetypeTechnique(BaseCalculationTechnique):
 
         # If we get here, we didn't find the font
         error_msg = f"Font '{font_name}' not found. Searched in:"
+        if self.font_dir:
+            error_msg += f"\n  - Custom font directory: {self.font_dir}"
         for font_dir in self._system_font_paths:
-            for ext in extensions:
-                error_msg += f"\n  - {os.path.join(font_dir, f'{font_name}{ext}')}"
+            error_msg += f"\n  - System font directory: {font_dir}"
 
         if self.debug:
             logger.error(error_msg)
