@@ -16,7 +16,8 @@ from lxml import etree
 from rich.console import Console
 
 from ..models import LabelConfig, TextObject, ImageObject, GroupObject
-from ..utils import LABEL_SIZES, DEFAULT_PRINTER_ID, DEFAULT_PRINTER_NAME
+from ..utils import LABEL_SIZES, DEFAULT_PRINTER_ID, DEFAULT_PRINTER_NAME, convert_to_pt
+from ..utils.conversion import MM_TO_PT
 
 # Create console for rich output
 console = Console()
@@ -75,14 +76,8 @@ class LbxGenerator:
         is_auto_length = self.config.width == "auto"
 
         if not is_auto_length:
-            # Convert width to points if it's in mm
-            width_value = self.config.width
-            if isinstance(width_value, str) and width_value.endswith('mm'):
-                width_pt = float(width_value.replace('mm', '')) * 2.83
-                paper_height = f"{width_pt}pt"
-            elif isinstance(width_value, (int, float)) or (isinstance(width_value, str) and width_value.isdigit()):
-                # If numeric, assume it's already in points
-                paper_height = f"{width_value}pt"
+            # Convert width to points using the convert_to_pt function
+            paper_height = convert_to_pt(self.config.width)
 
         paper.set("height", paper_height)
 
@@ -92,7 +87,7 @@ class LbxGenerator:
 
         # Use user margin directly if specified, otherwise use minimum
         if hasattr(self.config, 'margin'):
-            user_margin_pt = self.config.margin * 2.83
+            user_margin_pt = self.config.margin * MM_TO_PT
             # Ensure margin isn't less than minimum
             margin_pt = max(user_margin_pt, min_margin_pt)
         else:
@@ -213,31 +208,9 @@ class LbxGenerator:
         # Add object style
         obj_style = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
 
-        # Get the x and y values, converting to pts if needed
-        x_value = text_obj.x
-        if isinstance(x_value, str) and 'mm' in x_value:
-            # Convert mm to pt (1mm ≈ 2.83pt)
-            x_value = float(x_value.replace('mm', '')) * 2.83
-            x_value_str = f"{x_value}pt"
-        elif isinstance(x_value, str):
-            # Already in pt format
-            x_value_str = x_value
-        else:
-            # Numeric value, assume it's already in points
-            x_value_str = f"{x_value}pt"
-
-        # Do the same for y value if needed
-        y_value = text_obj.y
-        if isinstance(y_value, str) and 'mm' in y_value:
-            # Convert mm to pt (1mm ≈ 2.83pt)
-            y_value = float(y_value.replace('mm', '')) * 2.83
-            y_value_str = f"{y_value}pt"
-        elif isinstance(y_value, str):
-            # Already in pt format
-            y_value_str = y_value
-        else:
-            # Numeric value, assume it's already in points
-            y_value_str = f"{y_value}pt"
+        # Use convert_to_pt to ensure all values are in points
+        x_value_str = convert_to_pt(text_obj.x)
+        y_value_str = convert_to_pt(text_obj.y)
 
         obj_style.set("x", x_value_str)
         obj_style.set("y", y_value_str)
@@ -372,31 +345,9 @@ class LbxGenerator:
         # Add object style
         obj_style = etree.SubElement(image_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
 
-        # Get the x and y values, converting to pts if needed
-        x_value = image_obj.x
-        if isinstance(x_value, str) and 'mm' in x_value:
-            # Convert mm to pt (1mm ≈ 2.83pt)
-            x_value = float(x_value.replace('mm', '')) * 2.83
-            x_value_str = f"{x_value}pt"
-        elif isinstance(x_value, str):
-            # Already in pt format
-            x_value_str = x_value
-        else:
-            # Numeric value, assume it's already in points
-            x_value_str = f"{x_value}pt"
-
-        # Do the same for y value if needed
-        y_value = image_obj.y
-        if isinstance(y_value, str) and 'mm' in y_value:
-            # Convert mm to pt (1mm ≈ 2.83pt)
-            y_value = float(y_value.replace('mm', '')) * 2.83
-            y_value_str = f"{y_value}pt"
-        elif isinstance(y_value, str):
-            # Already in pt format
-            y_value_str = y_value
-        else:
-            # Numeric value, assume it's already in points
-            y_value_str = f"{y_value}pt"
+        # Use convert_to_pt to ensure all values are in points
+        x_value_str = convert_to_pt(image_obj.x)
+        y_value_str = convert_to_pt(image_obj.y)
 
         obj_style.set("x", x_value_str)
         obj_style.set("y", y_value_str)
@@ -516,31 +467,9 @@ class LbxGenerator:
         # Add object style
         obj_style = etree.SubElement(group_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
 
-        # Get the x and y values, converting to pts if needed
-        x_value = group_obj.x
-        if isinstance(x_value, str) and 'mm' in x_value:
-            # Convert mm to pt (1mm ≈ 2.83pt)
-            x_value = float(x_value.replace('mm', '')) * 2.83
-            x_value_str = f"{x_value}pt"
-        elif isinstance(x_value, str):
-            # Already in pt format
-            x_value_str = x_value
-        else:
-            # Numeric value, assume it's already in points
-            x_value_str = f"{x_value}pt"
-
-        # Do the same for y value if needed
-        y_value = group_obj.y
-        if isinstance(y_value, str) and 'mm' in y_value:
-            # Convert mm to pt (1mm ≈ 2.83pt)
-            y_value = float(y_value.replace('mm', '')) * 2.83
-            y_value_str = f"{y_value}pt"
-        elif isinstance(y_value, str):
-            # Already in pt format
-            y_value_str = y_value
-        else:
-            # Numeric value, assume it's already in points
-            y_value_str = f"{y_value}pt"
+        # Use convert_to_pt to ensure all values are in points
+        x_value_str = convert_to_pt(group_obj.x)
+        y_value_str = convert_to_pt(group_obj.y)
 
         obj_style.set("x", x_value_str)
         obj_style.set("y", y_value_str)

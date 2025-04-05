@@ -79,3 +79,7 @@ test-images/
 # Generated test files
 *progress.yaml
 report.html
+
+# Font files
+fonts/*.ttf
+fonts/*.otf

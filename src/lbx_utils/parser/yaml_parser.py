@@ -14,6 +14,7 @@ from rich.console import Console
 from ..text_dimensions import TextDimensionCalculator, CalculationMethod
 from ..models import LabelConfig, TextObject, ImageObject, FontInfo, StringItem, GroupObject
 from ..utils import convert_to_pt
+from ..utils.conversion import MM_TO_PT, PT_TO_MM
 
 # Create console for rich output
 console = Console()
@@ -92,7 +93,7 @@ class YamlParser:
                             try:
                                 pt_value = float(value.replace('pt', ''))
                                 # Convert to mm (1pt ≈ 0.35mm)
-                                config.margin = pt_value / 2.83
+                                config.margin = pt_value * PT_TO_MM
                             except ValueError:
                                 console.print(f"[yellow]Warning: Invalid margin value '{value}', using default[/yellow]")
                                 config.margin = 5.0  # Default margin value
@@ -174,7 +175,7 @@ class YamlParser:
         if isinstance(font_size, str) and font_size.endswith(('pt', 'mm')):
             if font_size.endswith('mm'):
                 # Convert mm to pt (1mm ≈ 2.83pt)
-                font_size = float(font_size.replace('mm', '')) * 2.834645669
+                font_size = float(font_size.replace('mm', '')) * MM_TO_PT
             else:
                 font_size = float(font_size.replace('pt', ''))
 

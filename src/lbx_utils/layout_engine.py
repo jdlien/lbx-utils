@@ -222,9 +222,17 @@ class FlexLayoutEngine:
         items = []
 
         for obj in objects:
-            # Convert dimensions to float, removing 'pt' suffix if present
-            width = float(obj.width.replace('pt', '')) if isinstance(obj.width, str) else float(obj.width)
-            height = float(obj.height.replace('pt', '')) if isinstance(obj.height, str) else float(obj.height)
+            # Handle special case of 'auto' dimensions
+            if obj.width == 'auto':
+                width = 100.0  # Default size for 'auto' width
+            else:
+                # Convert dimensions to float, removing 'pt' suffix if present
+                width = float(obj.width.replace('pt', '')) if isinstance(obj.width, str) else float(obj.width)
+
+            if obj.height == 'auto':
+                height = 20.0  # Default size for 'auto' height
+            else:
+                height = float(obj.height.replace('pt', '')) if isinstance(obj.height, str) else float(obj.height)
 
             items.append({
                 'width': width,
