@@ -6,6 +6,7 @@ Image models for lbxyml2lbx
 """
 
 from dataclasses import dataclass
+from typing import Optional
 
 @dataclass
 class ImageObject:
@@ -21,6 +22,8 @@ class ImageObject:
     transparency_color: str = "#FFFFFF"  # Color to treat as transparent
     dest_filename: str = ""
     needs_conversion: bool = False
+    transparent_color: Optional[str] = None  # Transparent color (hex format)
+    name: Optional[str] = None  # Optional name for the object, maps to objectName in XML
 
     @property
     def effect_type(self) -> str:

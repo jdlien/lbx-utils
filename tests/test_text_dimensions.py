@@ -1117,7 +1117,11 @@ def test_text_dimensions_cache(calculator):
     # Verify cache is being used in the underlying technique
     best_technique = calculator._get_best_available_technique()
     assert hasattr(best_technique, '_font_cache')
-    assert len(best_technique._font_cache) > 0
+
+    # Only check cache length for techniques that actually use font caching
+    # (approximation technique initializes the cache but doesn't use it)
+    if best_technique.get_name() != "approximation":
+        assert len(best_technique._font_cache) > 0
 
     # If using freetype, also check metrics cache
     if best_technique.get_name() == "freetype":

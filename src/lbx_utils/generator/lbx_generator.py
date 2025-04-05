@@ -85,11 +85,44 @@ class LbxGenerator:
                 paper_height = f"{width_value}pt"
 
         paper.set("height", paper_height)
-        paper.set("marginLeft", size_config["marginLeft"])
-        paper.set("marginTop", "5.6pt")
-        paper.set("marginRight", size_config["marginRight"])
-        paper.set("marginBottom", "5.6pt")
-        paper.set("orientation", self.config.orientation)
+
+        # Calculate margins based on user settings (1mm ≈ 2.83pt)
+        # Minimum margin is 2mm (5.6pt), treat it as a default/minimum
+        min_margin_pt = 5.6
+
+        # Use user margin directly if specified, otherwise use minimum
+        if hasattr(self.config, 'margin'):
+            user_margin_pt = self.config.margin * 2.83
+            # Ensure margin isn't less than minimum
+            margin_pt = max(user_margin_pt, min_margin_pt)
+        else:
+            margin_pt = min_margin_pt
+
+        console.print(f"[blue]Using margin: {margin_pt}pt[/blue]")
+
+        # Get orientation to determine margin placement
+        orientation = self.config.orientation.lower()
+
+        # For portrait orientation, we swap the margin application
+        if orientation == "portrait":
+            # In portrait, the tape feeds top-to-bottom, so margins are on left/right
+            paper.set("marginLeft", size_config["marginLeft"])
+            paper.set("marginRight", size_config["marginRight"])
+            paper.set("marginTop", f"{margin_pt}pt")
+            paper.set("marginBottom", f"{margin_pt}pt")
+            console.print(f"[blue]Portrait margins: vertical margins={margin_pt}pt[/blue]")
+        else:
+            # In landscape, the tape feeds left-to-right, so margins are on top/bottom
+            paper.set("marginLeft", size_config["marginLeft"])
+            paper.set("marginRight", size_config["marginRight"])
+            paper.set("marginTop", f"{margin_pt}pt")
+            paper.set("marginBottom", f"{margin_pt}pt")
+            console.print(f"[blue]Landscape margins: horizontal margins={margin_pt}pt[/blue]")
+
+        # Ensure orientation is correctly set
+        console.print(f"[blue]Setting orientation to: {orientation}[/blue]")
+        paper.set("orientation", orientation)
+
         paper.set("autoLength", "true" if is_auto_length else "false")
         paper.set("monochromeDisplay", "true")
         paper.set("printColorDisplay", "false")
@@ -114,14 +147,32 @@ class LbxGenerator:
         if not is_auto_length:
             # Use the same width we calculated for paper height
             background_width = paper_height
-        # console.print(f"[blue]Calculated background width: {background_width}[/blue]")
 
-        # Add background element
+        # Set up the background element based on orientation
         background = etree.SubElement(sheet, "{http://schemas.brother.info/ptouch/2007/lbx/style}backGround")
-        background.set("x", "5.6pt") # Reverting x to hardcoded value based on reference
-        background.set("y", size_config["background_y"])
-        background.set("width", background_width)
-        background.set("height", size_config["background_height"])
+
+        # Default values (for landscape)
+        bg_x = "5.6pt"
+        bg_y = size_config["background_y"]
+        bg_width = background_width
+        bg_height = size_config["background_height"]
+
+        # In portrait mode, swap x/y and width/height
+        if orientation == "portrait":
+            # In portrait mode, x should be left margin and y should be 5.6pt (from top)
+            bg_x = size_config["marginLeft"]
+            bg_y = "5.6pt"
+
+            # Swap width and height for portrait
+            bg_width = size_config["background_height"]  # Height becomes width
+            bg_height = background_width  # Width becomes height
+
+            console.print(f"[blue]Using portrait background: x={bg_x}, y={bg_y}, width={bg_width}, height={bg_height}[/blue]")
+
+        background.set("x", bg_x)
+        background.set("y", bg_y)
+        background.set("width", bg_width)
+        background.set("height", bg_height)
         background.set("brushStyle", "NULL")
         background.set("brushId", "0")
         background.set("userPattern", "NONE")
@@ -155,29 +206,51 @@ class LbxGenerator:
         # Get label size configuration
         size_config = LABEL_SIZES[self.config.size_mm]
 
-        # Debug info - print original coordinates without any adjustment
+        # Debug info - print original coordinates
         console.print(f"[blue]Text object positioning: x={text_obj.x}, y={text_obj.y}[/blue]")
         console.print(f"[blue]Text object dimensions: width={text_obj.width}, height={text_obj.height}[/blue]")
 
-        # Add object style with exact coordinates as specified by the user
-        # P-Touch Editor handles margin offsets internally
+        # Add object style
         obj_style = etree.SubElement(text_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
-        obj_style.set("x", text_obj.x)
-        obj_style.set("y", text_obj.y)
 
-        # Always set width and height attributes. Use defaults if not specified.
-        # Omitting them caused unpredictable positioning shifts.
+        # Get the x and y values, converting to pts if needed
+        x_value = text_obj.x
+        if isinstance(x_value, str) and 'mm' in x_value:
+            # Convert mm to pt (1mm ≈ 2.83pt)
+            x_value = float(x_value.replace('mm', '')) * 2.83
+            x_value_str = f"{x_value}pt"
+        elif isinstance(x_value, str):
+            # Already in pt format
+            x_value_str = x_value
+        else:
+            # Numeric value, assume it's already in points
+            x_value_str = f"{x_value}pt"
+
+        # Do the same for y value if needed
+        y_value = text_obj.y
+        if isinstance(y_value, str) and 'mm' in y_value:
+            # Convert mm to pt (1mm ≈ 2.83pt)
+            y_value = float(y_value.replace('mm', '')) * 2.83
+            y_value_str = f"{y_value}pt"
+        elif isinstance(y_value, str):
+            # Already in pt format
+            y_value_str = y_value
+        else:
+            # Numeric value, assume it's already in points
+            y_value_str = f"{y_value}pt"
+
+        obj_style.set("x", x_value_str)
+        obj_style.set("y", y_value_str)
         obj_style.set("width", text_obj.width)
         obj_style.set("height", text_obj.height)
-
         obj_style.set("backColor", "#FFFFFF")
         obj_style.set("backPrintColorNumber", "0")
         obj_style.set("ropMode", "COPYPEN")
-        obj_style.set("angle", "0")
+        obj_style.set("angle", "0" if not text_obj.vertical else "90")
         obj_style.set("anchor", "TOPLEFT")
         obj_style.set("flip", "NONE")
 
-        # Add pen
+        # Add pen (border)
         pen = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}pen")
         pen.set("style", "NULL")
         pen.set("widthX", "0.5pt")
@@ -194,7 +267,10 @@ class LbxGenerator:
 
         # Add expanded properties
         expanded = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}expanded")
-        expanded.set("objectName", f"Text{uuid.uuid4().hex[:4]}")
+        obj_name = f"Text{uuid.uuid4().hex[:4]}"
+        if text_obj.name:
+            obj_name = text_obj.name
+        expanded.set("objectName", obj_name)
         expanded.set("ID", "0")
         expanded.set("lock", "0")
         expanded.set("templateMergeTarget", "LABELLIST")
@@ -286,19 +362,44 @@ class LbxGenerator:
 
     def _add_image_object(self, parent, image_obj: ImageObject):
         """Add an image object to the parent element."""
+        # Create image element
         image_elem = etree.SubElement(parent, "{http://schemas.brother.info/ptouch/2007/lbx/image}image")
 
-        # Get label size configuration
-        size_config = LABEL_SIZES[self.config.size_mm]
-
-        # Debug info - print original coordinates without any adjustment
+        # Debug info - print original coordinates
         console.print(f"[blue]Image object positioning: x={image_obj.x}, y={image_obj.y}[/blue]")
+        console.print(f"[blue]Image object dimensions: width={image_obj.width}, height={image_obj.height}[/blue]")
 
-        # Create object style with exact coordinates as specified by the user
-        # P-Touch Editor handles margin offsets internally
+        # Add object style
         obj_style = etree.SubElement(image_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
-        obj_style.set("x", image_obj.x)
-        obj_style.set("y", image_obj.y)
+
+        # Get the x and y values, converting to pts if needed
+        x_value = image_obj.x
+        if isinstance(x_value, str) and 'mm' in x_value:
+            # Convert mm to pt (1mm ≈ 2.83pt)
+            x_value = float(x_value.replace('mm', '')) * 2.83
+            x_value_str = f"{x_value}pt"
+        elif isinstance(x_value, str):
+            # Already in pt format
+            x_value_str = x_value
+        else:
+            # Numeric value, assume it's already in points
+            x_value_str = f"{x_value}pt"
+
+        # Do the same for y value if needed
+        y_value = image_obj.y
+        if isinstance(y_value, str) and 'mm' in y_value:
+            # Convert mm to pt (1mm ≈ 2.83pt)
+            y_value = float(y_value.replace('mm', '')) * 2.83
+            y_value_str = f"{y_value}pt"
+        elif isinstance(y_value, str):
+            # Already in pt format
+            y_value_str = y_value
+        else:
+            # Numeric value, assume it's already in points
+            y_value_str = f"{y_value}pt"
+
+        obj_style.set("x", x_value_str)
+        obj_style.set("y", y_value_str)
         obj_style.set("width", image_obj.width)
         obj_style.set("height", image_obj.height)
         obj_style.set("backColor", "#FFFFFF")
@@ -308,7 +409,7 @@ class LbxGenerator:
         obj_style.set("anchor", "TOPLEFT")
         obj_style.set("flip", "NONE")
 
-        # Create pen
+        # Add pen
         pen = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}pen")
         pen.set("style", "NULL")
         pen.set("widthX", "0.5pt")
@@ -316,18 +417,21 @@ class LbxGenerator:
         pen.set("color", "#000000")
         pen.set("printColorNumber", "1")
 
-        # Create brush
+        # Add brush
         brush = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}brush")
         brush.set("style", "NULL")
         brush.set("color", "#000000")
         brush.set("printColorNumber", "1")
         brush.set("id", "0")
 
-        # Create expanded info
+        # Add expanded properties
         expanded = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}expanded")
-        expanded.set("objectName", f"Bitmap{uuid.uuid4().hex[:4]}")
+        obj_name = f"Image{uuid.uuid4().hex[:4]}"
+        if image_obj.name:
+            obj_name = image_obj.name
+        expanded.set("objectName", obj_name)
         expanded.set("ID", "0")
-        expanded.set("lock", "2")
+        expanded.set("lock", "0")
         expanded.set("templateMergeTarget", "LABELLIST")
         expanded.set("templateMergeType", "NONE")
         expanded.set("templateMergeID", "0")
@@ -351,32 +455,30 @@ class LbxGenerator:
         # Store the destination filename
         image_obj.dest_filename = dest_filename
 
-        # Create image style
-        image_style = etree.SubElement(image_elem, "{http://schemas.brother.info/ptouch/2007/lbx/image}imageStyle")
-        image_style.set("originalName", original_image_path)
-        image_style.set("alignInText", "NONE")
-        image_style.set("firstMerge", "true")
-        image_style.set("IpName", "")
-        image_style.set("fileName", dest_filename)
+        # Add image elements based on the image type (binary or path)
+        image_format = etree.SubElement(image_elem, "{http://schemas.brother.info/ptouch/2007/lbx/image}format")
+        image_format.set("type", "1")
+        image_format.set("bpp", "24")
+        image_format.set("orgSize", "74340")
 
-        # Add transparent element
-        transparent = etree.SubElement(image_style, "{http://schemas.brother.info/ptouch/2007/lbx/image}transparent")
-        transparent.set("flag", "true" if image_obj.transparency else "false")
-        transparent.set("color", image_obj.transparency_color)
+        # Add image style
+        image_style = etree.SubElement(image_elem, "{http://schemas.brother.info/ptouch/2007/lbx/image}style")
 
         # Add trimming element
         trimming = etree.SubElement(image_style, "{http://schemas.brother.info/ptouch/2007/lbx/image}trimming")
-        trimming.set("flag", "false")
-        trimming.set("shape", "RECTANGLE")
-        trimming.set("trimOrgX", "0pt")
-        trimming.set("trimOrgY", "0pt")
+        trimming.set("left", "0pt")
+        trimming.set("top", "0pt")
+        trimming.set("right", "0pt")
+        trimming.set("bottom", "0pt")
+        trimming.set("trimWidth", "0pt")
+        trimming.set("trimHeight", "0pt")
         trimming.set("trimOrgWidth", "0pt")
         trimming.set("trimOrgHeight", "0pt")
 
-        # Add original position element
+        # Add original position element (use the same x value without adjustment)
         org_pos = etree.SubElement(image_style, "{http://schemas.brother.info/ptouch/2007/lbx/image}orgPos")
-        org_pos.set("x", image_obj.x)
-        org_pos.set("y", image_obj.y)
+        org_pos.set("x", x_value_str)
+        org_pos.set("y", y_value_str)
         org_pos.set("width", image_obj.width)
         org_pos.set("height", image_obj.height)
 
@@ -407,10 +509,41 @@ class LbxGenerator:
         # Create group element
         group_elem = etree.SubElement(parent, "{http://schemas.brother.info/ptouch/2007/lbx/main}group")
 
+        # Debug info - print original coordinates
+        console.print(f"[blue]Group object positioning: x={group_obj.x}, y={group_obj.y}[/blue]")
+        console.print(f"[blue]Group object dimensions: width={group_obj.width}, height={group_obj.height}[/blue]")
+
         # Add object style
         obj_style = etree.SubElement(group_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
-        obj_style.set("x", group_obj.x)
-        obj_style.set("y", group_obj.y)
+
+        # Get the x and y values, converting to pts if needed
+        x_value = group_obj.x
+        if isinstance(x_value, str) and 'mm' in x_value:
+            # Convert mm to pt (1mm ≈ 2.83pt)
+            x_value = float(x_value.replace('mm', '')) * 2.83
+            x_value_str = f"{x_value}pt"
+        elif isinstance(x_value, str):
+            # Already in pt format
+            x_value_str = x_value
+        else:
+            # Numeric value, assume it's already in points
+            x_value_str = f"{x_value}pt"
+
+        # Do the same for y value if needed
+        y_value = group_obj.y
+        if isinstance(y_value, str) and 'mm' in y_value:
+            # Convert mm to pt (1mm ≈ 2.83pt)
+            y_value = float(y_value.replace('mm', '')) * 2.83
+            y_value_str = f"{y_value}pt"
+        elif isinstance(y_value, str):
+            # Already in pt format
+            y_value_str = y_value
+        else:
+            # Numeric value, assume it's already in points
+            y_value_str = f"{y_value}pt"
+
+        obj_style.set("x", x_value_str)
+        obj_style.set("y", y_value_str)
         obj_style.set("width", group_obj.width)
         obj_style.set("height", group_obj.height)
         obj_style.set("backColor", group_obj.background_color)
@@ -440,7 +573,9 @@ class LbxGenerator:
         # Add expanded properties
         expanded = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}expanded")
         obj_name = f"Group{uuid.uuid4().hex[:4]}"
-        if group_obj.id:
+        if group_obj.name:
+            obj_name = group_obj.name
+        elif group_obj.id:
             obj_name = f"Group_{group_obj.id}"
         expanded.set("objectName", obj_name)
         expanded.set("ID", "0")

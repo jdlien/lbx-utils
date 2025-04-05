@@ -1,0 +1,17 @@
+# 01_basic_text.lbx.yml
+# A simple label with basic text
+
+size: 12mm
+width: 90mm
+orientation: landscape
+
+# Objects section
+objects:
+  - type: text
+    content: "Hello World"
+    x: 1mm
+    y: 1mm
+    font: Helsinki
+    size: 14
+    bold: true
+    align: center

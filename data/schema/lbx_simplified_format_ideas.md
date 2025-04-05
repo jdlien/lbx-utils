@@ -1,5 +1,3 @@
-<!-- @format -->
-
 # LBX Simplified Format Ideas
 
 This document outlines four conceptual approaches for a simplified format that can be converted into the complex Brother P-touch LBX format. Each approach aims to make label creation more accessible while still providing the necessary flexibility for functional labels.
@@ -12,9 +10,31 @@ This approach leverages familiar HTML syntax with utility classes similar to Tai
 
 ```html
 <lbx-label size="12mm" width="90mm" orientation="landscape">
-  <text-object x="10pt" y="12pt" font="Helsinki" size="14pt" align="center" class="bold"> Hello World </text-object>
-  <image-object src="logo.png" x="10pt" y="30pt" width="20pt" height="20pt" class="mono" />
-  <barcode-object x="50pt" y="12pt" type="qr" data="https://example.com" size="30pt" />
+  <text-object
+    x="10pt"
+    y="12pt"
+    font="Helsinki"
+    size="14pt"
+    align="center"
+    class="bold"
+  >
+    Hello World
+  </text-object>
+  <image-object
+    src="logo.png"
+    x="10pt"
+    y="30pt"
+    width="20pt"
+    height="20pt"
+    class="mono"
+  />
+  <barcode-object
+    x="50pt"
+    y="12pt"
+    type="qr"
+    data="https://example.com"
+    size="30pt"
+  />
 </lbx-label>
 ```
 

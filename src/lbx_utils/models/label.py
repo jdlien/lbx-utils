@@ -14,6 +14,7 @@ console = Console()
 
 # Default orientation
 DEFAULT_ORIENTATION = "landscape"
+DEFAULT_MARGIN = 0.0
 
 @dataclass
 class LabelConfig:
@@ -21,7 +22,7 @@ class LabelConfig:
     size: str = "12mm"  # Tape size (9mm, 12mm, 18mm, 24mm)
     width: str = "auto"  # Fixed width (or "auto" for automatic sizing)
     orientation: str = DEFAULT_ORIENTATION
-    margin: int = 5  # Additional margin beyond the minimum
+    margin: float = DEFAULT_MARGIN
     background: str = "#FFFFFF"  # Background color
     color: str = "#000000"  # Label text color
     objects: List[Any] = field(default_factory=list)  # All visual elements (text, image, etc.)

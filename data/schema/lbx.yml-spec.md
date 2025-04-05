@@ -174,10 +174,19 @@ All objects support these common properties:
 ```yaml
 - type: text # Required: Object type
   id: main_title # Optional: Unique identifier for reference, part of old idea for relative positioning
+  name: my_text_element # Optional: Name for the object, maps to objectName attribute in pt:expanded tag
   x: 10 # X-coordinate from left edge (defaults to 0 if omitted)
   y: 20 # Y-coordinate from top edge (defaults to 0 if omitted)
   # Style properties vary by object type and are direct members of the object
 ```
+
+| Property | Description                                                        | Default  |
+| -------- | ------------------------------------------------------------------ | -------- |
+| `type`   | Required: The type of object (text, image, barcode, group)         | Required |
+| `id`     | Optional: Unique identifier for reference                          | None     |
+| `name`   | Optional: Name for the object, maps to objectName attribute in XML | None     |
+| `x`      | X-coordinate from left edge                                        | 0        |
+| `y`      | Y-coordinate from top edge                                         | 0        |
 
 ### 4.2 Text Objects
 
@@ -186,6 +195,7 @@ Text objects display text content on the label.
 ```yaml
 - type: text
   content: "Hello World" # Required: Text content
+  name: header_text # Optional: Name for the object
   x: 10
   y: 20
   font: Helsinki # Font family
@@ -413,6 +423,7 @@ Group objects contain other objects and establish a flexible layout system for t
 ```yaml
 - type: group
   id: header
+  name: header_container # Optional: Name for the group, maps to objectName attribute
   x: 10
   y: 5
   direction: row # row, column, row-reverse, column-reverse
@@ -426,11 +437,13 @@ Group objects contain other objects and establish a flexible layout system for t
   objects: # Children of this group
     - type: text
       content: "Title"
+      name: title_text # Named text element within the group
       # No x/y needed - automatically placed by layout
       font: Helsinki
       size: 14
     - type: image
       source: "logo.png"
+      name: logo_image # Named image element within the group
       width: 20
       height: 20
 ```
@@ -494,6 +507,7 @@ Groups can use a flexbox-inspired layout system to automatically position and al
 
 ```yaml
 - type: group
+  name: row_container
   x: 10
   y: 5
   direction: row
@@ -502,10 +516,13 @@ Groups can use a flexbox-inspired layout system to automatically position and al
   gap: 5 # 5pt gap between items
   objects:
     - type: text
+      name: left_text
       content: "Left"
     - type: text
+      name: center_text
       content: "Center"
     - type: text
+      name: right_text
       content: "Right"
 ```
 
@@ -619,6 +636,7 @@ orientation: landscape
 
 objects:
   - type: text
+    name: title_text
     content: "Hello World"
     x: 10
     y: 12

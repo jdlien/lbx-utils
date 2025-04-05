@@ -6,6 +6,7 @@ orientation: landscape
 objects:
   - type: group
     id: main_container
+    name: Group_main_container
     x: 10
     y: 10
     width: 80mm
@@ -19,8 +20,10 @@ objects:
         font: Helsinki
         size: 14
         bold: true
+        name: Header_Text
 
       - type: text
         content: "This is a simple test of group layout"
         font: Helsinki
         size: 10
+        name: Description_Text

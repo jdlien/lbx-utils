@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import argparse
 from src.lbx_utils.text_dimensions import TextDimensionCalculator, CalculationMethod
 
-def test_text(text, font_name="Helsinki", size=12.0, weight="normal", italic=False, debug=True):
+def calculate_text_dimensions(text, font_name="Helsinki", size=12.0, weight="normal", italic=False, debug=True):
     """Test text dimensions with all available methods."""
     calculator = TextDimensionCalculator(debug=debug)
 
@@ -58,43 +58,43 @@ def main():
     """Test various text samples with different fonts and styles."""
     # Test regular text with default Helsinki font
     print("\nTesting: 'Hello, World!' with Helsinki 12.0pt normal")
-    test_text("Hello, World!")
+    calculate_text_dimensions("Hello, World!")
 
     # Test longer text
     print("\nTesting: 'This is a longer text with multiple words to test wrapping and sizing.' with Helsinki 12.0pt normal")
-    test_text("This is a longer text with multiple words to test wrapping and sizing.")
+    calculate_text_dimensions("This is a longer text with multiple words to test wrapping and sizing.")
 
     # Test uppercase text with larger font
     print("\nTesting: 'UPPERCASE TEXT' with Helsinki 16.0pt normal")
-    test_text("UPPERCASE TEXT", size=16.0)
+    calculate_text_dimensions("UPPERCASE TEXT", size=16.0)
 
     # Test different weights and styles
     print("\nTesting: 'Bold text' with Helsinki 12.0pt bold")
-    test_text("Bold text", weight="bold")
+    calculate_text_dimensions("Bold text", weight="bold")
 
     print("\nTesting: 'Italic text' with Helsinki 12.0pt normal italic")
-    test_text("Italic text", italic=True)
+    calculate_text_dimensions("Italic text", italic=True)
 
     print("\nTesting: 'Bold Italic' with Helsinki 12.0pt bold italic")
-    test_text("Bold Italic", weight="bold", italic=True)
+    calculate_text_dimensions("Bold Italic", weight="bold", italic=True)
 
     # Test multiline text
     print("\nTesting: 'Multiline\nText\nWith\nFour\nLines' with Helsinki 12.0pt normal")
-    test_text("Multiline\nText\nWith\nFour\nLines")
+    calculate_text_dimensions("Multiline\nText\nWith\nFour\nLines")
 
     # Test numeric text
     print("\nTesting: '1234567890' with Helsinki 12.0pt normal")
-    test_text("1234567890")
+    calculate_text_dimensions("1234567890")
 
     # Test special characters
     print("\nTesting: 'Special Chars: äöüßéèñ©®™' with Helsinki 12.0pt normal")
-    test_text("Special Chars: äöüßéèñ©®™")
+    calculate_text_dimensions("Special Chars: äöüßéèñ©®™")
 
     # Test different fonts
     if os.name == 'posix':  # macOS/Linux
         for font in ["Arial", "Times New Roman", "Helvetica", "Courier New"]:
             print(f"\nTesting: 'Test with {font}' with {font} 12.0pt normal")
-            test_text(f"Test with {font}", font_name=font)
+            calculate_text_dimensions(f"Test with {font}", font_name=font)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test text dimension calculator")
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     if args.text:
         # Test with provided text
         print(f"\nTesting: '{args.text}' with {args.font} {args.size}pt {args.weight}{' italic' if args.italic else ''}")
-        test_text(args.text, args.font, args.size, args.weight, args.italic)
+        calculate_text_dimensions(args.text, args.font, args.size, args.weight, args.italic)
     else:
         # Run all tests
         main()

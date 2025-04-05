@@ -36,6 +36,7 @@ class GroupObject:
 
     # Identifier
     id: Optional[str] = None
+    name: Optional[str] = None  # Optional name for the object, maps to objectName in XML
 
     def add_object(self, obj: Any) -> None:
         """Add an object to the group."""

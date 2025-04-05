@@ -12,6 +12,7 @@ import sys
 import zipfile
 import tempfile
 import shutil
+import glob
 from pathlib import Path
 import pytest
 
@@ -72,9 +73,90 @@ def setup_test_environment():
     # Clean up can be added here if needed
     # shutil.rmtree(TEST_OUTPUT_DIR, ignore_errors=True)
 
+
+@pytest.mark.unit
+def test_convert_all_examples(setup_test_environment):
+    """
+    Convert all YAML files in the data/lbx_yml_examples folder to LBX files.
+    This is a utility test to quickly convert all example files for inspection.
+    """
+    # Find all YAML files in the examples directory
+    yml_files = glob.glob(os.path.join(SAMPLE_FILES_DIR, '*.lbx.yml'))
+
+    # Check if we found any files
+    assert len(yml_files) > 0, f"No .lbx.yml files found in {SAMPLE_FILES_DIR}"
+
+    print(f"\nConverting {len(yml_files)} YAML files from {SAMPLE_FILES_DIR}:")
+
+    success_count = 0
+    error_count = 0
+
+    # Process each file
+    for yml_file in yml_files:
+        filename = os.path.basename(yml_file)
+        base_name = os.path.splitext(os.path.splitext(filename)[0])[0]  # Remove both .lbx.yml extensions
+        output_file = os.path.join(TEST_OUTPUT_DIR, f"{base_name}.lbx")
+        unzip_dir = os.path.join(TEST_OUTPUT_DIR, base_name)
+
+        print(f"  Converting {filename} to {os.path.basename(output_file)}")
+
+        try:
+            # Parse the YAML file
+            parser = YamlParser(yml_file)
+            config = parser.parse()
+
+            # Generate the LBX file
+            generator = LbxGenerator(config)
+            generator.generate_lbx(output_file)
+
+            # Verify the output file exists
+            assert os.path.exists(output_file), f"Output file {output_file} not created"
+
+            # Unzip the output file for inspection
+            os.makedirs(unzip_dir, exist_ok=True)
+            with zipfile.ZipFile(output_file, 'r') as zip_ref:
+                zip_ref.extractall(unzip_dir)
+
+            print(f"  Extracted {output_file} to {unzip_dir}")
+
+            success_count += 1
+
+        except Exception as e:
+            error_count += 1
+            print(f"  Error converting {filename}: {str(e)}")
+            # Don't fail the test on individual file errors
+            continue
+
+    print(f"\nConversion summary:")
+    print(f"  - Successfully converted: {success_count}")
+    print(f"  - Errors: {error_count}")
+    print(f"All LBX files saved to {TEST_OUTPUT_DIR}")
+    print(f"All LBX files extracted to subdirectories within {TEST_OUTPUT_DIR}")
+    print("Run this test to quickly convert all example YAML files to LBX format.")
+
+    # The test should pass even if some conversions fail - this is a utility test
+    assert success_count > 0, "No files were successfully converted"
+
+
 def _test_blank_label_size(size_str, size_num):
-    """Helper method to test blank labels of various sizes."""
-    input_file = os.path.join(SAMPLE_FILES_DIR, f'blank_{size_str}.lbx.yml')
+    """Test helper for blank labels of different sizes."""
+    # Get file prefix based on size
+    if size_str == "3.5mm":
+        file_prefix = "01_"
+    elif size_str == "6mm":
+        file_prefix = "02_"
+    elif size_str == "9mm":
+        file_prefix = "03_"
+    elif size_str == "12mm":
+        file_prefix = "04_"
+    elif size_str == "18mm":
+        file_prefix = "05_"
+    elif size_str == "24mm":
+        file_prefix = "06_"
+    else:
+        file_prefix = ""
+
+    input_file = os.path.join(SAMPLE_FILES_DIR, f'{file_prefix}blank_{size_str}.lbx.yml')
     output_file = os.path.join(TEST_OUTPUT_DIR, f'blank_{size_str}.lbx')
     unzip_dir = os.path.join(TEST_OUTPUT_DIR, f'blank_{size_str}')
 
@@ -145,7 +227,7 @@ def test_blank_label_24mm(setup_test_environment):
 @pytest.mark.unit
 def test_basic_text(setup_test_environment):
     """Test the conversion of a label with a single text object."""
-    input_file = os.path.join(SAMPLE_FILES_DIR, 'basic_text.lbx.yml')
+    input_file = os.path.join(SAMPLE_FILES_DIR, '10_basic_text.lbx.yml')
     output_file = os.path.join(TEST_OUTPUT_DIR, 'basic_text.lbx')
     unzip_dir = os.path.join(TEST_OUTPUT_DIR, 'basic_text')
 
@@ -190,7 +272,7 @@ def test_basic_text(setup_test_environment):
 @pytest.mark.unit
 def test_formatted_text(setup_test_environment):
     """Test the conversion of a label with formatted text objects."""
-    input_file = os.path.join(SAMPLE_FILES_DIR, 'formatted_text.lbx.yml')
+    input_file = os.path.join(SAMPLE_FILES_DIR, '22_formatted_text.lbx.yml')
     output_file = os.path.join(TEST_OUTPUT_DIR, 'formatted_text.lbx')
     unzip_dir = os.path.join(TEST_OUTPUT_DIR, 'formatted_text')
 
@@ -229,7 +311,7 @@ def test_formatted_text(setup_test_environment):
 @pytest.mark.unit
 def test_image_label(setup_test_environment):
     """Test the conversion of a label with an image."""
-    input_file = os.path.join(SAMPLE_FILES_DIR, 'image_label.lbx.yml')
+    input_file = os.path.join(SAMPLE_FILES_DIR, '31_simplified_image_label.lbx.yml')
     output_file = os.path.join(TEST_OUTPUT_DIR, 'image_label.lbx')
     unzip_dir = os.path.join(TEST_OUTPUT_DIR, 'image_label')
 
@@ -257,7 +339,9 @@ def test_image_label(setup_test_environment):
     with open(os.path.join(unzip_dir, 'label.xml'), 'r', encoding='utf-8') as f:
         label_xml = f.read()
         assert "image:image" in label_xml, "Image element not found in label.xml"
-        assert "test_image.png" in label_xml, "Image source not found in label.xml"
+        # The image is converted to BMP during processing, so we don't check for the original filename
+        assert "image:format" in label_xml, "Image format not found in label.xml"
+        assert "image:style" in label_xml, "Image style not found in label.xml"
 
 @pytest.mark.unit
 def test_configured_size_and_width(setup_test_environment):
@@ -279,7 +363,7 @@ def test_configured_size_and_width(setup_test_environment):
         bold: true
         align: center
     """
-    temp_yml_path = os.path.join(SAMPLE_FILES_DIR, 'fixed_width_test.lbx.yml')
+    temp_yml_path = os.path.join(SAMPLE_FILES_DIR, '51_fixed_width_test.lbx.yml')
     with open(temp_yml_path, 'w', encoding='utf-8') as f:
         f.write(test_content)
 
@@ -326,7 +410,7 @@ def test_configured_size_and_width(setup_test_environment):
 @pytest.mark.unit
 def test_flex_group_layout(setup_test_environment):
     """Test the conversion of a label using flex layout with groups."""
-    input_file = os.path.join(SAMPLE_FILES_DIR, 'group_test.lbx.yml')
+    input_file = os.path.join(SAMPLE_FILES_DIR, '41_group_test.lbx.yml')
     output_file = os.path.join(TEST_OUTPUT_DIR, 'group_test.lbx')
     unzip_dir = os.path.join(TEST_OUTPUT_DIR, 'group_test')
 
@@ -367,8 +451,10 @@ def test_flex_group_layout(setup_test_environment):
         assert "Group Example" in label_xml, "Header text not found in label.xml"
         assert "This is a simple test of group layout" in label_xml, "Description text not found in label.xml"
 
-        # Verify group properties
-        assert 'objectName="Group_main_container"' in label_xml, "Group ID not found in label.xml"
+        # Verify group and text object names are correctly set
+        assert 'objectName="Group_main_container"' in label_xml, "Group name not found in label.xml"
+        assert 'objectName="Header_Text"' in label_xml, "Header text name not found in label.xml"
+        assert 'objectName="Description_Text"' in label_xml, "Description text name not found in label.xml"
 
         # Verify nested objects within the group
         assert "<pt:objects><text:text>" in label_xml, "Nested objects not found in group"

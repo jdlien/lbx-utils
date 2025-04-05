@@ -6,7 +6,7 @@ Text models for lbxyml2lbx
 """
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 # Default values
 DEFAULT_FONT = "Helsinki"
@@ -50,6 +50,7 @@ class TextObject:
     string_items: List[StringItem] = field(default_factory=list)
     align: str = "left"  # Text alignment (left, center, right)
     vertical: bool = False  # Vertical text orientation
+    name: Optional[str] = None  # Optional name for the object, maps to objectName in XML
 
     def __post_init__(self):
         """Initialize string items if not provided."""

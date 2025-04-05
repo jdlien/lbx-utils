@@ -75,7 +75,37 @@ class YamlParser:
                 elif key == 'orientation':
                     config.orientation = value
                 elif key == 'margin':
-                    config.margin = int(value)
+                    # Handle margin values with units
+                    if isinstance(value, (int, float)):
+                        # If it's already a number, use it directly (assumed to be in mm)
+                        config.margin = float(value)
+                    elif isinstance(value, str):
+                        if value.endswith('mm'):
+                            # Value is already in mm, just extract the number
+                            try:
+                                config.margin = float(value.replace('mm', ''))
+                            except ValueError:
+                                console.print(f"[yellow]Warning: Invalid margin value '{value}', using default[/yellow]")
+                                config.margin = 5.0  # Default margin value
+                        elif value.endswith('pt'):
+                            # If it's in points, convert to mm (1pt ≈ 0.35mm)
+                            try:
+                                pt_value = float(value.replace('pt', ''))
+                                # Convert to mm (1pt ≈ 0.35mm)
+                                config.margin = pt_value / 2.83
+                            except ValueError:
+                                console.print(f"[yellow]Warning: Invalid margin value '{value}', using default[/yellow]")
+                                config.margin = 5.0  # Default margin value
+                        else:
+                            # Try to parse as a simple number (assumed to be in mm)
+                            try:
+                                config.margin = float(value)
+                            except ValueError:
+                                console.print(f"[yellow]Warning: Invalid margin value '{value}', using default[/yellow]")
+                                config.margin = 5.0  # Default margin value
+                    else:
+                        console.print(f"[yellow]Warning: Unexpected margin type '{type(value)}', using default[/yellow]")
+                        config.margin = 5.0  # Default margin value
                 elif key == 'background':
                     config.background = value
                 elif key == 'color':
@@ -125,6 +155,10 @@ class YamlParser:
         """Parse a text object from the YAML data."""
         # Extract text properties
         content = obj.get('content', '')
+
+        # Get x and y coordinates - note that a horizontal margin (5.6pt/~2mm) will be
+        # added to the x value during XML generation to account for the marginTop in
+        # landscape mode. The user-specified x is relative to the printable area start.
         x = convert_to_pt(obj.get('x', 0)) # Default x to 0
         y = convert_to_pt(obj.get('y', 0)) # Default y to 0
 
@@ -172,6 +206,7 @@ class YamlParser:
 
         align = obj.get('align', 'left')
         vertical = obj.get('vertical', False)
+        name = obj.get('name', None)  # Get the name property if provided
 
         # Create font info - ensure these values are correctly set
         font_info = FontInfo(
@@ -196,7 +231,8 @@ class YamlParser:
             height=height,
             font_info=font_info,
             align=align,
-            vertical=vertical
+            vertical=vertical,
+            name=name  # Include the name property
         )
 
         return text_obj
@@ -212,6 +248,7 @@ class YamlParser:
         monochrome = obj.get('monochrome', True)
         transparency = obj.get('transparency', False)
         transparency_color = obj.get('transparency_color', "#FFFFFF")
+        name = obj.get('name', None)  # Get the name property if provided
 
         # Create image object
         image_obj = ImageObject(
@@ -222,7 +259,8 @@ class YamlParser:
             height=height,
             monochrome=monochrome,
             transparency=transparency,
-            transparency_color=transparency_color
+            transparency_color=transparency_color,
+            name=name  # Include the name property
         )
 
         return image_obj
@@ -249,6 +287,7 @@ class YamlParser:
 
         # Identifier
         group_id = obj.get('id', None)
+        name = obj.get('name', None)  # Get the name property if provided
 
         # Create group object with extracted properties
         group_obj = GroupObject(
@@ -264,7 +303,8 @@ class YamlParser:
             wrap=wrap,
             background_color=background_color,
             border_style=border_style,
-            id=group_id
+            id=group_id,
+            name=name  # Include the name property
         )
 
         # Parse child objects if any
