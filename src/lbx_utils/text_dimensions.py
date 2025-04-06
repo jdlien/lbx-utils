@@ -7,6 +7,22 @@ text_dimensions.py - Calculate text dimensions for P-Touch Editor labels
 This module provides functionality to calculate the dimensions of text objects
 for Brother P-Touch Editor labels. It uses font metrics and rendering to estimate
 the width and height of text with various fonts, sizes, and styles.
+
+The module supports multiple calculation techniques including:
+- Skia (primary and most accurate)
+- CoreText (macOS only)
+- HarfBuzz
+- Pango
+- FreeType
+- PIL (Pillow)
+- Basic approximation (fallback)
+
+Key features:
+- Automatic selection of the best available technique
+- Fallback mechanisms if a technique fails
+- Adjustment factors to improve accuracy
+- Linear regression models (y = mx + b) for superior dimension adjustments
+- Font-specific considerations
 """
 
 import os
@@ -67,8 +83,23 @@ TECHNIQUE_ADJUSTMENT_FACTORS = {
     "pil": (1.0514, 1.4295),
     "harfbuzz": (0.9519, 1.1503),
     "pango": (0.6325, 0.8037),
-    "skia": (1.1407, 1.1299),  # Based on comparing with reference data from P-Touch Editor
+    "skia": (0.8387, 1.0524),  # Based on comparing with reference data from P-Touch Editor
     "approximation": (1.0798, 0.9977)
+}
+
+# Linear regression models derived from comparison with P-touch Editor
+# These models have the form: pte_dimension = slope * calculated_dimension + intercept
+# Format: (width_slope, width_intercept, height_slope, height_intercept)
+# These provide more accurate results than simple multiplicative factors
+# as they account for both proportional scaling and fixed offsets
+TECHNIQUE_LINEAR_MODELS = {
+    "core_text": (1.0399, -0.9584, 1.0757, 0.1283),
+    "freetype": (0.9283, 0.2314, 1.3215, -6.9473),
+    "pil": (0.9548, -0.1119, 0.7720, 8.2653),
+    "harfbuzz": (0.9923, -1.0583, 1.1366, 0.7479),
+    "pango": (0.7225, -1.0913, 0.8028, 0.4032),
+    "skia": (0.9909, -1.4195, 1.0596, -0.0070),
+    "approximation": (0.8956, 2.0682, 0.9939, 0.0729)
 }
 
 
@@ -86,7 +117,8 @@ class TextDimensionCalculator:
         allow_approximation: bool = True,
         apply_ptouch_adjustments: bool = False,
         apply_technique_adjustments: bool = False,
-        default_method: Optional[CalculationMethod] = None
+        default_method: Optional[CalculationMethod] = None,
+        use_linear_adjustments: bool = True
     ):
         """
         Initialize the calculator.
@@ -100,6 +132,8 @@ class TextDimensionCalculator:
             apply_ptouch_adjustments: Whether to apply P-touch Editor specific adjustments
             apply_technique_adjustments: Whether to apply technique-specific adjustment factors
             default_method: Default calculation method to use (None for auto-selection)
+            use_linear_adjustments: Whether to use linear regression models for adjustments
+                                   (more accurate than simple multiplicative factors)
         """
         # Look for a fonts/ directory in the repository root if font_dir is not specified
         if font_dir is None:
@@ -119,6 +153,7 @@ class TextDimensionCalculator:
         self.allow_approximation = allow_approximation
         self.apply_ptouch_adjustments = apply_ptouch_adjustments
         self.apply_technique_adjustments = apply_technique_adjustments
+        self.use_linear_adjustments = use_linear_adjustments
 
         # Set default method - use Skia on all platforms as it's the most accurate
         if default_method is None:
@@ -286,6 +321,13 @@ class TextDimensionCalculator:
         """
         Apply technique-specific adjustment factors to dimensions.
 
+        Two adjustment methods are available:
+        1. Simple multiplicative factors (width * factor, height * factor)
+        2. Linear regression models (slope * dimension + intercept)
+
+        The linear regression models typically provide more accurate results as they
+        account for both proportional scaling and fixed offsets.
+
         Args:
             width: The calculated width
             height: The calculated height
@@ -294,9 +336,20 @@ class TextDimensionCalculator:
         Returns:
             Adjusted width and height
         """
-        if technique_name in TECHNIQUE_ADJUSTMENT_FACTORS:
+        if technique_name in TECHNIQUE_ADJUSTMENT_FACTORS and not self.use_linear_adjustments:
+            # Use traditional multiplicative adjustment factors
             width_factor, height_factor = TECHNIQUE_ADJUSTMENT_FACTORS[technique_name]
             return width * width_factor, height * height_factor
+        elif technique_name in TECHNIQUE_LINEAR_MODELS and self.use_linear_adjustments:
+            # Use linear regression models: y = mx + b
+            # This typically provides more accurate results as it accounts for
+            # both proportional scaling and fixed offsets
+            width_slope, width_intercept, height_slope, height_intercept = TECHNIQUE_LINEAR_MODELS[technique_name]
+            adjusted_width = width_slope * width + width_intercept
+            adjusted_height = height_slope * height + height_intercept
+            if self.debug:
+                logger.debug(f"Applied linear model for {technique_name}: {width:.2f}pt → {adjusted_width:.2f}pt, {height:.2f}pt → {adjusted_height:.2f}pt")
+            return adjusted_width, adjusted_height
         return width, height
 
     def calculate_text_dimensions(
@@ -307,7 +360,8 @@ class TextDimensionCalculator:
         weight: str = "normal",
         italic: bool = False,
         method: Optional[CalculationMethod] = None,
-        apply_adjustments: Optional[bool] = None
+        apply_adjustments: Optional[bool] = None,
+        use_linear_adjustments: Optional[bool] = None
     ) -> Tuple[float, float]:
         """
         Calculate the dimensions of a text string.
@@ -320,6 +374,10 @@ class TextDimensionCalculator:
             italic: Whether the text is italic
             method: Specific calculation method to use (or None for default)
             apply_adjustments: Whether to apply technique adjustments (None to use instance default)
+            use_linear_adjustments: Whether to use linear adjustment models (None to use instance default)
+                                   When True, uses linear regression models (y = mx + b) which are
+                                   more accurate than simple multiplicative factors, especially for
+                                   matching P-Touch Editor dimensions
 
         Returns:
             Tuple of (width, height) in points
@@ -327,6 +385,10 @@ class TextDimensionCalculator:
         # Use instance default if apply_adjustments is not specified
         if apply_adjustments is None:
             apply_adjustments = self.apply_technique_adjustments
+
+        # Use instance default if use_linear_adjustments is not specified
+        if use_linear_adjustments is None:
+            use_linear_adjustments = self.use_linear_adjustments
 
         if not text:
             # Empty string has zero width but still has line height
@@ -358,7 +420,14 @@ class TextDimensionCalculator:
             # Apply technique-specific adjustments if requested
             if apply_adjustments:
                 original_width, original_height = width, height
+                # Store original linear adjustment setting
+                orig_linear = self.use_linear_adjustments
+                # Use the specified linear adjustment setting
+                self.use_linear_adjustments = use_linear_adjustments
                 width, height = self._apply_technique_adjustment(width, height, technique_name)
+                # Restore original setting
+                self.use_linear_adjustments = orig_linear
+
                 if self.debug:
                     logger.debug(f"Applied {technique_name} adjustments: {original_width:.2f}pt × {original_height:.2f}pt -> {width:.2f}pt × {height:.2f}pt")
 
@@ -386,7 +455,8 @@ class TextDimensionCalculator:
                     weight=weight,
                     italic=italic,
                     method=CalculationMethod.AUTO,
-                    apply_adjustments=apply_adjustments
+                    apply_adjustments=apply_adjustments,
+                    use_linear_adjustments=use_linear_adjustments
                 )
 
             # If we still can't calculate, use approximation if allowed
@@ -445,22 +515,47 @@ class TextDimensionCalculator:
 # Simple test function for direct use
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Calculate text dimensions")
+
+    # Create the parser with a more detailed description
+    parser = argparse.ArgumentParser(
+        description="Calculate text dimensions for P-Touch Editor labels using various techniques",
+        epilog="Example: python -m src.lbx_utils.text_dimensions --text 'Hello World' --font 'Helsinki' --size 14 --technique-adjustments --linear-adjustments"
+    )
+
+    # Basic text and font options
     parser.add_argument("--text", type=str, required=True, help="Text to measure")
     parser.add_argument("--font", type=str, default="Helsinki", help="Font name")
     parser.add_argument("--size", type=float, default=12.0, help="Font size in points")
     parser.add_argument("--weight", type=str, default="normal", help="Font weight (normal, bold)")
     parser.add_argument("--italic", action="store_true", help="Italic style")
+
+    # Debug and directory options
     parser.add_argument("--debug", action="store_true", help="Enable debug output")
     parser.add_argument("--font-dir", type=str, help="Custom font directory")
-    parser.add_argument("--no-fallbacks", action="store_true", help="Disable fallback methods")
-    parser.add_argument("--no-substitution", action="store_true", help="Disable font substitution")
-    parser.add_argument("--no-approximation", action="store_true", help="Disable approximation fallbacks")
-    parser.add_argument("--ptouch-adjustments", action="store_true", help="Apply P-touch Editor specific adjustments")
-    parser.add_argument("--technique-adjustments", action="store_true", help="Apply technique-specific adjustment factors")
-    parser.add_argument("--method", type=str, choices=["auto", "freetype", "pil", "harfbuzz", "pango", "skia", "approximation"] +
-                        (["core_text"] if platform.system() == "Darwin" else []),
-                        default=None, help="Calculation method to use")
+
+    # Fallback behavior
+    fallback_group = parser.add_argument_group('Fallback Behavior')
+    fallback_group.add_argument("--no-fallbacks", action="store_true", help="Disable fallback methods")
+    fallback_group.add_argument("--no-substitution", action="store_true", help="Disable font substitution")
+    fallback_group.add_argument("--no-approximation", action="store_true", help="Disable approximation fallbacks")
+
+    # Adjustment options
+    adjustment_group = parser.add_argument_group('Dimension Adjustments', 'Options for adjusting calculated dimensions')
+    adjustment_group.add_argument("--ptouch-adjustments", action="store_true", help="Apply P-touch Editor specific adjustments")
+    adjustment_group.add_argument("--technique-adjustments", action="store_true", help="Apply technique-specific adjustment factors")
+    adjustment_group.add_argument("--linear-adjustments", action="store_true",
+                               help="Use linear regression models (y = mx + b) for adjustments - more accurate")
+    adjustment_group.add_argument("--simple-adjustments", action="store_false", dest="linear_adjustments",
+                               help="Use simple multiplicative factors for adjustments instead of linear models")
+
+    # Method selection
+    method_choices = ["auto", "freetype", "pil", "harfbuzz", "pango", "skia", "approximation"]
+    if platform.system() == "Darwin":
+        method_choices.append("core_text")
+
+    parser.add_argument("--method", type=str, choices=method_choices,
+                        default=None, help="Calculation method to use (default: auto selects Skia if available)")
+
     args = parser.parse_args()
 
     # Convert string method to enum if specified
@@ -474,7 +569,8 @@ def main():
         allow_approximation=not args.no_approximation,
         apply_ptouch_adjustments=args.ptouch_adjustments,
         apply_technique_adjustments=args.technique_adjustments,
-        default_method=method_enum
+        default_method=method_enum,
+        use_linear_adjustments=args.linear_adjustments
     )
 
     try:
@@ -485,21 +581,26 @@ def main():
             size=args.size,
             weight=args.weight,
             italic=args.italic,
-            method=method_enum
+            method=method_enum,
+            use_linear_adjustments=args.linear_adjustments
         )
 
         used_method = args.method if args.method else (
+            "skia" if calculator.default_method == CalculationMethod.SKIA else
             "core_text" if calculator.default_method == CalculationMethod.CORE_TEXT else
-            "freetype" if calculator.default_method == CalculationMethod.FREETYPE else
             "auto"
         )
 
+        # Display results
         print(f"Method: {used_method}")
+        if args.technique_adjustments:
+            adjustment_type = "linear" if args.linear_adjustments else "simple multiplicative"
+            print(f"Adjustment: {adjustment_type}")
         print(f"Dimensions: {width:.2f}pt × {height:.2f}pt")
 
         # Try each available method for comparison if debug is enabled
         if args.debug:
-            available_methods = ["freetype", "pil", "harfbuzz", "pango", "approximation"]
+            available_methods = ["freetype", "pil", "harfbuzz", "pango", "skia", "approximation"]
             if platform.system() == "Darwin":
                 available_methods.insert(0, "core_text")
 
@@ -508,28 +609,33 @@ def main():
                     method = CalculationMethod(method_str)
                     technique = calculator._techniques[method]
                     if technique.is_available():
+                        # With adjustments
                         m_width, m_height = calculator.calculate_text_dimensions(
                             text=args.text,
                             font_name=args.font,
                             size=args.size,
                             weight=args.weight,
                             italic=args.italic,
-                            method=method
+                            method=method,
+                            apply_adjustments=True,
+                            use_linear_adjustments=args.linear_adjustments
                         )
-                        print(f"{method_str.capitalize()}: {m_width:.2f}pt × {m_height:.2f}pt")
 
-                        # Show with adjustments
-                        if not args.technique_adjustments:
-                            m_width_adj, m_height_adj = calculator.calculate_text_dimensions(
-                                text=args.text,
-                                font_name=args.font,
-                                size=args.size,
-                                weight=args.weight,
-                                italic=args.italic,
-                                method=method,
-                                apply_adjustments=True
-                            )
-                            print(f"{method_str.capitalize()} (adjusted): {m_width_adj:.2f}pt × {m_height_adj:.2f}pt")
+                        # Without adjustments
+                        raw_width, raw_height = calculator.calculate_text_dimensions(
+                            text=args.text,
+                            font_name=args.font,
+                            size=args.size,
+                            weight=args.weight,
+                            italic=args.italic,
+                            method=method,
+                            apply_adjustments=False
+                        )
+
+                        print(f"{method_str.capitalize()} (raw): {raw_width:.2f}pt × {raw_height:.2f}pt")
+
+                        adj_type = "linear" if args.linear_adjustments else "simple"
+                        print(f"{method_str.capitalize()} ({adj_type} adjusted): {m_width:.2f}pt × {m_height:.2f}pt")
                 except Exception as e:
                     print(f"{method_str.capitalize()}: Error - {str(e)}")
 
