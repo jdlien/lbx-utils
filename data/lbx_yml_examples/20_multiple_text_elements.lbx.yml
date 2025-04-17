@@ -7,8 +7,7 @@ orientation: landscape
 
 objects:
   # Title
-  - type: text
-    content: "INVOICE"
+  - text: "INVOICE"
     x: 45
     y: 10
     font: Helsinki
@@ -17,8 +16,7 @@ objects:
     align: center
 
   # Subtitle
-  - type: text
-    content: "Invoice #12345"
+  - text: "Invoice #12345"
     x: 45
     y: 25
     font: Helsinki
@@ -26,8 +24,7 @@ objects:
     align: center
 
   # Details
-  - type: text
-    content: "Date: 2023-04-15"
+  - text: "Date: 2023-04-15"
     x: 10
     y: 40
     font: Helsinki
@@ -35,8 +32,7 @@ objects:
     italic: true
 
   # Amount
-  - type: text
-    content: "Total: $120.00"
+  - text: "Total: $120.00"
     x: 10
     y: 55
     font: Helsinki

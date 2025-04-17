@@ -1,0 +1,45 @@
+# Group and container positioning test
+size: 24mm
+width: 100mm
+orientation: landscape
+
+objects:
+  # Group with explicit position
+  - group: "outer_group"
+    x: 10
+    y: 10
+    width: 80
+    background_color: "#F0F0F0"
+    border_style: INSIDEFRAME
+    objects:
+      # Text directly in group
+      - text: "Text in group"
+        font: Helsinki
+        size: 10
+        x: 5
+        y: 5
+
+      # Nested group
+      - group: "inner_group"
+        x: 5
+        y: 20
+        width: 50
+        background_color: "#E0E0E0"
+        border_style: INSIDEFRAME
+        objects:
+          - text: "Text in nested group"
+            font: Helsinki
+            size: 9
+            x: 5
+            y: 5
+
+  # Container with explicit position
+  - container: "test_container"
+    x: 10
+    y: 40
+    objects:
+      - text: "Text in container"
+        font: Helsinki
+        size: 10
+        x: 5
+        y: 5

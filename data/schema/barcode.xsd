@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:barcode="http://schemas.brother.info/ptouch/2007/lbx/barcode"
+           xmlns:pt="http://schemas.brother.info/ptouch/2007/lbx/main"
+           targetNamespace="http://schemas.brother.info/ptouch/2007/lbx/barcode"
+           elementFormDefault="qualified">
+
+  <!-- Import the main namespace for pt elements -->
+  <xs:import namespace="http://schemas.brother.info/ptouch/2007/lbx/main"/>
+
+  <!-- Barcode protocol types -->
+  <xs:simpleType name="ProtocolType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="CODE39"/>
+      <xs:enumeration value="CODE128"/>
+      <xs:enumeration value="EAN128"/>
+      <xs:enumeration value="ITF25"/>
+      <xs:enumeration value="CODABAR"/>
+      <xs:enumeration value="UPCA"/>
+      <xs:enumeration value="UPCE"/>
+      <xs:enumeration value="EAN13"/>
+      <xs:enumeration value="EAN8"/>
+      <xs:enumeration value="ISBN2"/>
+      <xs:enumeration value="ISBN5"/>
+      <xs:enumeration value="POSTNET"/>
+      <xs:enumeration value="IMB"/>
+      <xs:enumeration value="LASERBARCODE"/>
+      <xs:enumeration value="RSS"/>
+      <xs:enumeration value="PDF417"/>
+      <xs:enumeration value="DATAMATRIX"/>
+      <xs:enumeration value="MAXICODE"/>
+      <!-- Additional protocols can be added here -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Barcode bar ratio -->
+  <xs:simpleType name="BarRatioType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="1:2"/>
+      <xs:enumeration value="1:3"/>
+      <!-- 2:1, 2.5:1, 3:1 are also possible for some formats -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Human readable alignment -->
+  <xs:simpleType name="AlignmentType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="LEFT"/>
+      <!-- Other alignment options can be added -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- CODABAR start/stop code -->
+  <xs:simpleType name="StartStopCodeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="A"/>
+      <!-- Other start/stop codes can be added -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- RSS (GS1 DataBar) model type -->
+  <xs:simpleType name="RSSModelType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="RSS14Standard"/>
+      <!-- Other RSS models can be added -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- PDF417 model type -->
+  <xs:simpleType name="PDF417ModelType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="standard"/>
+      <!-- truncate, micro can be added -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- DataMatrix model type -->
+  <xs:simpleType name="DataMatrixModelType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="square"/>
+      <!-- Other DataMatrix models can be added -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- MaxiCode model type -->
+  <xs:simpleType name="MaxiCodeModelType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="4"/>
+      <!-- 2, 3, 5 can be added -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- PDF417 ECC level -->
+  <xs:simpleType name="ECCLevelType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="auto"/>
+      <!-- Other ECC levels can be added -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- DataMatrix macro type -->
+  <xs:simpleType name="MacroType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="none"/>
+      <!-- Other macro types can be added -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Base barcode style attributes common to most barcode types -->
+  <xs:attributeGroup name="BarcodeStyleAttributes">
+    <xs:attribute name="protocol" type="barcode:ProtocolType" use="required"/>
+    <xs:attribute name="lengths" type="xs:string" use="required"/>
+    <xs:attribute name="zeroFill" type="xs:boolean" use="required"/>
+    <xs:attribute name="barWidth" type="xs:string" use="required"/>
+    <xs:attribute name="barRatio" type="barcode:BarRatioType" use="required"/>
+    <xs:attribute name="humanReadable" type="xs:boolean" use="required"/>
+    <xs:attribute name="humanReadableAlignment" type="barcode:AlignmentType" use="required"/>
+    <xs:attribute name="checkDigit" type="xs:boolean" use="required"/>
+    <xs:attribute name="autoLengths" type="xs:boolean" use="required"/>
+    <xs:attribute name="margin" type="xs:boolean" use="required"/>
+    <xs:attribute name="sameLengthBar" type="xs:boolean" use="required"/>
+    <xs:attribute name="bearerBar" type="xs:boolean" use="required"/>
+    <xs:attribute name="removeParentheses" type="xs:boolean"/>
+    <xs:attribute name="startstopCode" type="barcode:StartStopCodeType"/>
+  </xs:attributeGroup>
+
+  <!-- RSS (GS1 DataBar) style attributes -->
+  <xs:attributeGroup name="RSSStyleAttributes">
+    <xs:attribute name="model" type="barcode:RSSModelType" use="required"/>
+    <xs:attribute name="margin" type="xs:boolean" use="required"/>
+    <xs:attribute name="autoLengths" type="xs:boolean" use="required"/>
+    <xs:attribute name="lengths" type="xs:string" use="required"/>
+    <xs:attribute name="barWidth" type="xs:string" use="required"/>
+    <xs:attribute name="column" type="xs:string" use="required"/>
+    <xs:attribute name="humanReadable" type="xs:boolean" use="required"/>
+    <xs:attribute name="humanReadableAlignment" type="barcode:AlignmentType" use="required"/>
+    <xs:attribute name="autoAdd01" type="xs:boolean" use="required"/>
+  </xs:attributeGroup>
+
+  <!-- PDF417 style attributes -->
+  <xs:attributeGroup name="PDF417StyleAttributes">
+    <xs:attribute name="model" type="barcode:PDF417ModelType" use="required"/>
+    <xs:attribute name="width" type="xs:string" use="required"/>
+    <xs:attribute name="aspect" type="xs:string" use="required"/>
+    <xs:attribute name="row" type="xs:string" use="required"/>
+    <xs:attribute name="column" type="xs:string" use="required"/>
+    <xs:attribute name="eccLevel" type="barcode:ECCLevelType" use="required"/>
+    <xs:attribute name="joint" type="xs:string" use="required"/>
+  </xs:attributeGroup>
+
+  <!-- DataMatrix style attributes -->
+  <xs:attributeGroup name="DataMatrixStyleAttributes">
+    <xs:attribute name="model" type="barcode:DataMatrixModelType" use="required"/>
+    <xs:attribute name="cellSize" type="xs:string" use="required"/>
+    <xs:attribute name="macro" type="barcode:MacroType" use="required"/>
+    <xs:attribute name="fnc01" type="xs:boolean" use="required"/>
+    <xs:attribute name="joint" type="xs:string" use="required"/>
+  </xs:attributeGroup>
+
+  <!-- MaxiCode style attributes -->
+  <xs:attributeGroup name="MaxiCodeStyleAttributes">
+    <xs:attribute name="model" type="barcode:MaxiCodeModelType" use="required"/>
+    <xs:attribute name="joint" type="xs:string" use="required"/>
+  </xs:attributeGroup>
+
+  <!-- Definition of barcodeStyle element -->
+  <xs:element name="barcodeStyle">
+    <xs:complexType>
+      <xs:attributeGroup ref="barcode:BarcodeStyleAttributes"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Definition of rssStyle element -->
+  <xs:element name="rssStyle">
+    <xs:complexType>
+      <xs:attributeGroup ref="barcode:RSSStyleAttributes"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Definition of pdf417Style element -->
+  <xs:element name="pdf417Style">
+    <xs:complexType>
+      <xs:attributeGroup ref="barcode:PDF417StyleAttributes"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Definition of datamatrixStyle element -->
+  <xs:element name="datamatrixStyle">
+    <xs:complexType>
+      <xs:attributeGroup ref="barcode:DataMatrixStyleAttributes"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Definition of maxicodeStyle element -->
+  <xs:element name="maxicodeStyle">
+    <xs:complexType>
+      <xs:attributeGroup ref="barcode:MaxiCodeStyleAttributes"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Main barcode element definition -->
+  <xs:element name="barcode">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="pt:objectStyle"/>
+        <xs:element ref="barcode:barcodeStyle"/>
+        <!-- Optional style elements based on barcode type -->
+        <xs:choice minOccurs="0" maxOccurs="1">
+          <xs:element ref="barcode:rssStyle"/>
+          <xs:element ref="barcode:pdf417Style"/>
+          <xs:element ref="barcode:datamatrixStyle"/>
+          <xs:element ref="barcode:maxicodeStyle"/>
+        </xs:choice>
+        <xs:element ref="pt:data"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

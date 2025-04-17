@@ -1,0 +1,16 @@
+# Container positioning test
+size: 24mm
+width: 100mm
+orientation: landscape
+
+objects:
+  # A container with explicit positioning
+  - container: "test_container"
+    x: 10
+    y: 10
+    objects:
+      - text: "Text in container"
+        font: Helsinki
+        size: 10
+        x: 5
+        y: 5

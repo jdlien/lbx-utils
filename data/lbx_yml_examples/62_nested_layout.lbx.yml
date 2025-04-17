@@ -1,140 +1,96 @@
-# 11_nested_layout.lbx.yml
-# Label with complex nested layout structure
-
 size: 24mm
 width: auto
 length: auto
 orientation: landscape
-
-# Root level layout
 direction: column
 align: center
 gap: 10
 padding: 8
-
-# Header section
-
 objects:
+- type: group
+  direction: row
+  justify: between
+  align: center
+  width: auto
+  objects:
+  - size: 14
+    bold: true
+    text: PRODUCT DATASHEET
+  - size: 10
+    align: right
+    text: REV 2.1
+- type: group
+  direction: row
+  justify: start
+  align: start
+  gap: 15
+  objects:
   - type: group
-    direction: row
-    justify: between
+    direction: column
     align: center
-    width: auto
+    gap: 5
+    width: 120
     objects:
-      - type: text
-        content: "PRODUCT DATASHEET"
-        size: 14
+    - width: 100
+      height: 80
+      monochrome: false
+      image: product.png
+    - type: group
+      direction: row
+      align: center
+      justify: center
+      gap: 5
+      objects:
+      - type: barcode
+        barcodeType: qr
+        data: PROD-12345
+        size: 40
+      - size: 10
         bold: true
-  
-      - type: text
-        content: "REV 2.1"
-        size: 10
-        align: right
-  
-  # Content with nested structure
+        text: PROD-12345
   - type: group
-    direction: row
-    justify: start
+    direction: column
     align: start
-    gap: 15
+    gap: 8
+    width: 180
     objects:
-      # Left column - Product info
+    - size: 12
+      bold: true
+      underline: true
+      text: Specifications
+    - type: group
+      direction: column
+      gap: 2
+      objects:
       - type: group
         direction: column
-        align: center
-        gap: 5
-        width: 120
+        gap: 1
         objects:
-          # Product image
-          - type: image
-            source: "product.png"
-            width: 100
-            height: 80
-            monochrome: false
-  
-          # Product ID with QR code
-          - type: group
-            direction: row
-            align: center
-            justify: center
-            gap: 5
-            objects:
-              - type: barcode
-                barcodeType: qr
-                data: "PROD-12345"
-                size: 40
-  
-              - type: text
-                content: "PROD-12345"
-                size: 10
-                bold: true
-  
-      # Right column - Specifications
+        - size: 10
+          bold: true
+          text: 'Physical:'
+        - size: 8
+          text: "\u2022 Dimensions: 10cm \xD7 15cm \xD7 5cm"
+        - size: 8
+          text: "\u2022 Weight: 250g"
       - type: group
         direction: column
-        align: start
-        gap: 8
-        width: 180
+        gap: 1
         objects:
-          # Section title
-          - type: text
-            content: "Specifications"
-            size: 12
-            bold: true
-            underline: true
-  
-          # Nested specs sections
-          - type: group
-            direction: column
-            gap: 2
-            objects:
-              # Physical specs
-              - type: group
-                direction: column
-                gap: 1
-                objects:
-                  - type: text
-                    content: "Physical:"
-                    size: 10
-                    bold: true
-  
-                  - type: text
-                    content: "• Dimensions: 10cm × 15cm × 5cm"
-                    size: 8
-  
-                  - type: text
-                    content: "• Weight: 250g"
-                    size: 8
-  
-              # Electrical specs
-              - type: group
-                direction: column
-                gap: 1
-                objects:
-                  - type: text
-                    content: "Electrical:"
-                    size: 10
-                    bold: true
-  
-                  - type: text
-                    content: "• Input: 5V DC, 2A max"
-                    size: 8
-  
-                  - type: text
-                    content: "• Battery: 3.7V, 2000mAh Li-ion"
-                    size: 8
-  
-  # Footer
-  - type: group
-    direction: row
-    justify: between
-    align: center
-    width: auto
-    objects:
-      - type: text
-        content: "© 2023 ACME Corp."
-        size: 8
-  
-      - type: text
-        content: "www.example.com"
-        size: 8
+        - size: 10
+          bold: true
+          text: 'Electrical:'
+        - size: 8
+          text: "\u2022 Input: 5V DC, 2A max"
+        - size: 8
+          text: "\u2022 Battery: 3.7V, 2000mAh Li-ion"
+- type: group
+  direction: row
+  justify: between
+  align: center
+  width: auto
+  objects:
+  - size: 8
+    text: "\xA9 2023 ACME Corp."
+  - size: 8
+    text: www.example.com

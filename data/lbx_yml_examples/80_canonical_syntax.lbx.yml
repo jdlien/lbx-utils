@@ -1,0 +1,62 @@
+size: 24mm
+width: 90mm
+orientation: landscape
+objects:
+- x: 45
+  y: 10
+  font: Helsinki
+  size: 14
+  bold: true
+  align: center
+  text: Canonical Syntax Example
+- x: 10
+  y: 30
+  width: 30
+  height: 30
+  monochrome: true
+  transparency: true
+  transparency_color: '#FFFFFF'
+  image: example.png
+- type: barcode
+  barcodeType: qr
+  data: https://example.com/product/1234
+  x: 50
+  y: 30
+  size: 30
+  errorCorrection: M
+- type: barcode
+  barcodeType: code128
+  data: '123456789012'
+  x: 10
+  y: 70
+  width: 70
+  height: 20
+  humanReadable: true
+- x: 10
+  y: 100
+  width: 80
+  height: auto
+  direction: row
+  justify: between
+  align: center
+  gap: 5
+  objects:
+  - font: Helsinki
+    size: 10
+    bold: true
+    text: Left
+  - font: Helsinki
+    size: 10
+    italic: true
+    text: Right
+  group: main_container
+- x: 10
+  y: 120
+  direction: row
+  justify: center
+  objects:
+  - font: Helsinki
+    size: 8
+    align: center
+    text: "\xA9 2024 Example Company"
+  container: footer_container

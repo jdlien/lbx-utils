@@ -6,7 +6,7 @@ Label model for lbxyml2lbx
 """
 
 from dataclasses import dataclass, field
-from typing import List, Any
+from typing import List, Any, Optional, Union, Dict
 from rich.console import Console
 
 # Create console for rich output
@@ -26,6 +26,18 @@ class LabelConfig:
     background: str = "#FFFFFF"  # Background color
     color: str = "#000000"  # Label text color
     objects: List[Any] = field(default_factory=list)  # All visual elements (text, image, etc.)
+
+    # Root-level layout properties
+    direction: Optional[str] = None  # row, column, row-reverse, column-reverse
+    align: Optional[str] = None  # start, end, center, stretch
+    justify: Optional[str] = None  # start, end, center, between, around, evenly
+    gap: Optional[int] = None  # spacing between items
+    padding: Optional[Union[int, Dict[str, int]]] = None  # internal padding
+    wrap: Optional[bool] = None  # whether items wrap to next line
+
+    # Flags for root layout handling
+    has_root_layout: bool = False  # Whether root-level layout properties are present
+    apply_root_layout: bool = False  # Whether to apply root-level layout calculations
 
     @property
     def size_mm(self) -> float:

@@ -1,0 +1,166 @@
+# 93_qr_variants.lbx.yml
+# Test of QR code variants with different size representations and attributes
+
+size: 24mm
+width: 150mm
+orientation: landscape
+margin: 2mm
+
+objects:
+  # QR Code with numeric size (1-5)
+  - type: barcode
+    barcodeType: qr
+    data: "Size 1 (Small)"
+    x: 5
+    y: 5
+    size: 1
+    correction: "L"
+
+  - text: "Size 1 (Numeric)"
+    x: 25
+    y: 40
+    size: 6
+    align: center
+
+  # QR Code with string size name
+  - type: barcode
+    barcodeType: qr
+    data: "Size Small"
+    x: 55
+    y: 5
+    size: "small"
+    correction: "L"
+
+  - text: "Size 'small' (String)"
+    x: 75
+    y: 40
+    size: 6
+    align: center
+
+  # QR Code with point size
+  - type: barcode
+    barcodeType: qr
+    data: "Size 0.8pt"
+    x: 105
+    y: 5
+    size: "0.8pt"
+    correction: "L"
+
+  - text: "Size '0.8pt' (Point Size)"
+    x: 125
+    y: 40
+    size: 6
+    align: center
+
+  # QR Code with different error correction levels
+  - type: barcode
+    barcodeType: qr
+    data: "L Correction"
+    x: 5
+    y: 50
+    size: 3
+    correction: "L"
+
+  - text: "L Correction (7%)"
+    x: 25
+    y: 80
+    size: 6
+    align: center
+
+  - type: barcode
+    barcodeType: qr
+    data: "M Correction"
+    x: 55
+    y: 50
+    size: 3
+    correction: "M"
+
+  - text: "M Correction (15%)"
+    x: 75
+    y: 80
+    size: 6
+    align: center
+
+  - type: barcode
+    barcodeType: qr
+    data: "Q Correction"
+    x: 105
+    y: 50
+    size: 3
+    correction: "Q"
+
+  - text: "Q Correction (25%)"
+    x: 125
+    y: 80
+    size: 6
+    align: center
+
+  - type: barcode
+    barcodeType: qr
+    data: "H Correction"
+    x: 5
+    y: 90
+    size: 3
+    correction: "H"
+
+  - text: "H Correction (30%)"
+    x: 25
+    y: 120
+    size: 6
+    align: center
+
+  # QR Code with specific model and version
+  - type: barcode
+    barcodeType: qr
+    data: "Model 1 QR"
+    x: 55
+    y: 90
+    size: 3
+    model: "1"
+    version: "3"
+
+  - text: "Model 1, Version 3"
+    x: 75
+    y: 120
+    size: 6
+    align: center
+
+  # QR with no margin (quiet zone)
+  - type: barcode
+    barcodeType: qr
+    data: "No Margin"
+    x: 105
+    y: 90
+    size: 3
+    margin: false
+
+  - text: "No Margin"
+    x: 125
+    y: 120
+    size: 6
+    align: center
+
+  # QR with alternative formatting
+  - qr: "Shortcut syntax"
+    x: 5
+    y: 130
+    size: "medium-large"
+    errorCorrection: "M"
+
+  - text: "Shortcut + String Size"
+    x: 25
+    y: 160
+    size: 6
+    align: center
+
+  - qr: "Shortcut with Cell Size"
+    x: 55
+    y: 130
+    cellSize: "2pt"
+    errorCorrection: "M"
+
+  - text: "With cellSize"
+    x: 75
+    y: 160
+    size: 6
+    align: center

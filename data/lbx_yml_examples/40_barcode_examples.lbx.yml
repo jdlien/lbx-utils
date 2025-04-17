@@ -1,0 +1,65 @@
+# 40_barcode_examples.lbx.yml
+# Example showing different barcode types using shortcut syntax
+
+size: 24mm
+width: 90mm
+orientation: landscape
+
+objects:
+  # Code 128 barcode
+  - barcode: "123456789012"
+    x: 10
+    y: 10
+    width: 70
+    height: 20
+    type: "code128"
+    humanReadable: true
+
+  - text: "Code 128"
+    x: 45
+    y: 35
+    size: 8
+    align: center
+
+  # EAN-13 barcode
+  - barcode: "5901234123457"
+    x: 10
+    y: 45
+    width: 70
+    height: 20
+    type: "ean13"
+    humanReadable: true
+
+  - text: "EAN-13"
+    x: 45
+    y: 70
+    size: 8
+    align: center
+
+  # QR code for comparison
+  - qr: "https://example.com/product/5901234123457"
+    x: 10
+    y: 80
+    size: 30
+    errorCorrection: M
+
+  - text: "QR Code"
+    x: 25
+    y: 115
+    size: 8
+    align: center
+
+  # UPC-A barcode
+  - barcode: "123456789012"
+    x: 50
+    y: 80
+    width: 60
+    height: 30
+    type: "upca"
+    humanReadable: true
+
+  - text: "UPC-A"
+    x: 80
+    y: 115
+    size: 8
+    align: center

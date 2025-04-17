@@ -1,0 +1,127 @@
+# 92_2d_barcodes.lbx.yml
+# Test of 2D barcode types (PDF417, DataMatrix, MaxiCode)
+
+size: 24mm
+width: 200mm
+orientation: landscape
+margin: 2mm
+
+objects:
+  # QR Code (for comparison)
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com/product/12345"
+    x: 5
+    y: 5
+    size: 4 # Medium-large size
+    correction: "H" # High error correction
+    model: "2"
+    margin: true
+    version: "auto"
+
+  - text: "QR Code (size 4, H correction)"
+    x: 40
+    y: 45
+    size: 8
+    align: center
+
+  # PDF417 barcode
+  - type: barcode
+    barcodeType: PDF417
+    data: "This is a PDF417 barcode example with longer content to demonstrate capability"
+    x: 90
+    y: 5
+    width: 90
+    height: 30
+    pdf417Model: "standard"
+    aspect: "3"
+    row: "auto"
+    column: "auto"
+    eccLevel: "auto"
+    joint: "1"
+
+  - text: "PDF417"
+    x: 135
+    y: 45
+    size: 8
+    align: center
+
+  # DataMatrix barcode
+  - type: barcode
+    barcodeType: DATAMATRIX
+    data: "DataMatrix example 12345678"
+    x: 5
+    y: 55
+    width: 40
+    height: 40
+    dataMatrixModel: "square"
+    cellSize: "1.6pt"
+    macro: "none"
+    fnc01: false
+    joint: "1"
+
+  - text: "DataMatrix"
+    x: 25
+    y: 100
+    size: 8
+    align: center
+
+  # MaxiCode barcode
+  - type: barcode
+    barcodeType: MAXICODE
+    data: "MaxiCode example 12345"
+    x: 55
+    y: 55
+    width: 45
+    height: 45
+    maxiCodeModel: "4"
+    joint: "1"
+
+  - text: "MaxiCode"
+    x: 75
+    y: 100
+    size: 8
+    align: center
+
+  # QR Code (different sizes)
+  - type: barcode
+    barcodeType: QR
+    data: "Small QR"
+    x: 110
+    y: 55
+    size: 1 # Small
+    correction: "L"
+
+  - text: "QR (Small)"
+    x: 125
+    y: 90
+    size: 6
+    align: center
+
+  - type: barcode
+    barcodeType: QR
+    data: "Medium QR"
+    x: 150
+    y: 55
+    size: 3 # Medium
+    correction: "M"
+
+  - text: "QR (Medium)"
+    x: 165
+    y: 90
+    size: 6
+    align: center
+
+  - type: barcode
+    barcodeType: QR
+    data: "Large QR"
+    x: 190
+    y: 55
+    size: 5 # Large
+    correction: "Q"
+
+  - text: "QR (Large)"
+    x: 205
+    y: 100
+    size: 6
+    align: center

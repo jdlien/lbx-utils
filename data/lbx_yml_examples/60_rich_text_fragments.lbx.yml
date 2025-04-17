@@ -5,17 +5,15 @@ size: 12mm
 width: 90mm
 orientation: landscape
 
-# Title
-
 objects:
-  - type: text
-    content: "Rich Text Demo"
+  # Title
+  - text: "Rich Text Demo"
     x: 45
     y: 10
     size: 14
     bold: true
     align: center
-  
+
   # Rich text using fragments approach
   - type: richtext
     x: 10
@@ -32,7 +30,7 @@ objects:
         italic: true
         font: "Helvetica Neue"
       - content: "."
-  
+
   # Another rich text example
   - type: richtext
     x: 10
@@ -50,7 +48,7 @@ objects:
       - content: " (On Sale!)"
         italic: true
         color: "#FF0000"
-  
+
   # Warning message with mixed formatting
   - type: richtext
     x: 10

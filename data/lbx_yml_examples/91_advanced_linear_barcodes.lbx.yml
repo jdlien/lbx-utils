@@ -1,0 +1,115 @@
+# 91_advanced_linear_barcodes.lbx.yml
+# Test of less common linear barcode types
+
+size: 24mm
+width: 200mm
+orientation: landscape
+margin: 2mm
+
+objects:
+  # ISBN2 barcode
+  - type: barcode
+    barcodeType: ISBN2
+    data: "978123456789"
+    x: 5
+    y: 5
+    width: 70
+    height: 25
+    humanReadable: true
+    lengths: "14"
+    zeroFill: true
+    checkDigit: true
+
+  - text: "ISBN2"
+    x: 40
+    y: 35
+    size: 8
+    align: center
+
+  # ISBN5 barcode
+  - type: barcode
+    barcodeType: ISBN5
+    data: "9781234567890"
+    x: 85
+    y: 5
+    width: 70
+    height: 25
+    humanReadable: true
+    lengths: "17"
+
+  - text: "ISBN5"
+    x: 120
+    y: 35
+    size: 8
+    align: center
+
+  # POSTNET barcode
+  - type: barcode
+    barcodeType: POSTNET
+    data: "12345123456"
+    x: 165
+    y: 5
+    width: 70
+    height: 10
+    humanReadable: false
+    lengths: "11"
+
+  - text: "POSTNET"
+    x: 200
+    y: 35
+    size: 8
+    align: center
+
+  # IMB (Intelligent Mail Barcode)
+  - type: barcode
+    barcodeType: IMB
+    data: "12345678901234567890"
+    x: 5
+    y: 45
+    width: 70
+    height: 15
+    humanReadable: false
+    lengths: "20"
+
+  - text: "IMB"
+    x: 40
+    y: 75
+    size: 8
+    align: center
+
+  # LASERBARCODE
+  - type: barcode
+    barcodeType: LASERBARCODE
+    data: "123456789012345"
+    x: 85
+    y: 45
+    width: 70
+    height: 25
+    humanReadable: true
+    barRatio: "1:2"
+    lengths: "15"
+
+  - text: "LASERBARCODE"
+    x: 120
+    y: 75
+    size: 8
+    align: center
+
+  # RSS (GS1 DataBar)
+  - type: barcode
+    barcodeType: RSS
+    data: "123456789012"
+    x: 165
+    y: 45
+    width: 70
+    height: 25
+    humanReadable: true
+    rssModel: "RSS14Standard"
+    column: "4"
+    autoAdd01: true
+
+  - text: "GS1 DataBar"
+    x: 200
+    y: 75
+    size: 8
+    align: center

@@ -1,0 +1,27 @@
+size: 24mm
+width: 100mm
+orientation: landscape
+objects:
+- x: 20
+  y: 20
+  width: 60
+  background_color: '#F0F0F0'
+  border_style: INSIDEFRAME
+  objects:
+  - align: center
+    font: Helsinki
+    size: 10
+    text: I'm in a positioned group
+  group: positioned_group
+- x: 20
+  y: 50
+  objects:
+  - font: Helsinki
+    size: 10
+    text: I'm in a positioned container
+  container: positioned_container
+- x: 10
+  y: 10
+  font: Helsinki
+  size: 10
+  text: Reference element at (10,10)

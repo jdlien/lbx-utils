@@ -1,0 +1,126 @@
+# 94_case_sensitivity_test.lbx.yml
+# Test case-insensitive handling for barcode types and attributes
+
+size: 24mm
+width: 150mm
+orientation: landscape
+margin: 2mm
+
+objects:
+  # Test case-insensitive barcodeType
+  - type: barcode
+    barcodeType: code39
+    data: "Lowercase"
+    x: 5
+    y: 5
+    width: 60
+    height: 20
+    humanReadable: true
+
+  - text: "code39 (lowercase)"
+    x: 35
+    y: 30
+    size: 8
+    align: center
+
+  - type: barcode
+    barcodeType: CODE39
+    data: "UPPERCASE"
+    x: 85
+    y: 5
+    width: 60
+    height: 20
+    humanReadable: true
+
+  - text: "CODE39 (uppercase)"
+    x: 115
+    y: 30
+    size: 8
+    align: center
+
+  # Test case-insensitive parameters
+  - type: barcode
+    barcodeType: qr
+    data: "Case test"
+    x: 5
+    y: 40
+    size: 3
+    errorCorrection: "h" # lowercase error correction
+
+  - text: "errorCorrection: 'h'"
+    x: 35
+    y: 65
+    size: 8
+    align: center
+
+  - type: barcode
+    barcodeType: qr
+    data: "Case test"
+    x: 85
+    y: 40
+    size: 3
+    ERRORCORRECTION: "H" # uppercase parameter name
+
+  - text: "ERRORCORRECTION: 'H'"
+    x: 115
+    y: 65
+    size: 8
+    align: center
+
+  # Test case-insensitive size specifications for QR codes
+  - type: barcode
+    barcodeType: qr
+    data: "Size test"
+    x: 5
+    y: 75
+    size: "SMALL" # uppercase size string
+
+  - text: "size: 'SMALL'"
+    x: 35
+    y: 100
+    size: 8
+    align: center
+
+  - type: barcode
+    barcodeType: qr
+    data: "Size test"
+    x: 85
+    y: 75
+    size: "Medium-Large" # mixed case size string
+
+  - text: "size: 'Medium-Large'"
+    x: 115
+    y: 100
+    size: 8
+    align: center
+
+  # Test different attribute name formats
+  - type: barcode
+    barcodeType: code128
+    data: "Attribute format"
+    x: 5
+    y: 110
+    width: 60
+    height: 20
+    human_readable: true # snake_case
+
+  - text: "human_readable"
+    x: 35
+    y: 135
+    size: 8
+    align: center
+
+  - type: barcode
+    barcodeType: code128
+    data: "Attribute format"
+    x: 85
+    y: 110
+    width: 60
+    height: 20
+    showText: true # alternative name
+
+  - text: "showText"
+    x: 115
+    y: 135
+    size: 8
+    align: center

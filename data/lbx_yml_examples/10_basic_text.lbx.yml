@@ -2,10 +2,10 @@
 size: 24mm
 width: auto
 orientation: landscape
+margin: 0
 
 objects:
-  - type: text
-    content: "Hello World"
+  - text: "Hello World"
     x: 10
     y: 12
     font: Helsinki

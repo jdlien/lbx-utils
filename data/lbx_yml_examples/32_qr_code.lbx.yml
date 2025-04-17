@@ -1,53 +1,79 @@
-# 05_qr_code.lbx.yml
+# 32_qr_code.lbx.yml
 # Label with QR codes using different settings
+# Note: For cell sizes, you can use:
+# 1. Explicit point values: "0.8pt", "1.2pt", "1.6pt", "2pt", "2.4pt" (recommended)
+# 2. Numeric indices (1-5):
+#    - 1 = Small (0.8pt)
+#    - 2 = Medium Small (1.2pt)
+#    - 3 = Medium (1.6pt)
+#    - 4 = Medium Large (2pt)
+#    - 5 = Large (2.4pt)
+# String aliases like "sm", "md", etc. are defined in the code but explicit point values
+# or numeric indices are recommended for clarity and reliability.
 
 size: 24mm
-width: 90mm
 orientation: landscape
 
-# Standard QR code
-
 objects:
+  # QR code with small cell size (explicit point value)
   - type: barcode
     barcodeType: qr
-    data: "https://example.com"
+    data: https://example.com
     x: 10
     y: 10
-    size: 40
-    errorCorrection: M
-  
-  # QR code with high error correction
+    size: "sm" # Small cell size (0.8pt)
+    width: 30 # Width and height are auto-scaled based on cell size
+    height: 30
+
+  # QR code with small cell size (explicit point value)
   - type: barcode
     barcodeType: qr
-    data: "https://example.com/product"
-    x: 60
+    data: https://example.com
+    x: 20
     y: 10
-    size: 40
-    errorCorrection: H
-    cellSize: 2
-  
+    size: "small-medium" # mdsm cell size (0.8pt)
+    width: 30 # Width and height are auto-scaled based on cell size
+    height: 30
+
+  # QR code with medium cell size as a numeric index
+  - qr: https://example.com
+    x: 40
+    y: 10
+    size: 3 # Medium cell size (1.6pt)
+    width: 30
+    height: 30
+
+  # QR code with medium cell size as a numeric index
+  - qr: https://example.com
+    x: 55
+    y: 10
+    size: "2pt" # Medium large cell size (1.6pt)
+    width: 30
+    height: 30
+
+  # QR code with large cell size as point value
+  - qr: https://example.com
+    x: 120
+    y: 10
+    size: 5 # Large cell size (2.4pt)
+    width: 30
+    height: 30
+
   # Text labels
   - type: text
-    content: "Standard"
-    x: 25
-    y: 55
-    size: 10
-    align: center
-  
+    x: 10
+    y: 40
+    content: "Small (0.8pt)"
+    size: 8
+
   - type: text
-    content: "High Error Correction"
-    x: 80
-    y: 55
-    size: 10
-    align: center
-  
-  # Contact info QR code
-  - type: barcode
-    barcodeType: qr
-    data: "MECARD:N:John Doe;TEL:123-456-7890;EMAIL:john@example.com;;"
-    x: 35
-    y: 70
-    size: 50
-    errorCorrection: Q
-    model: 2
-    margin: true
+    x: 40
+    y: 90
+    content: "Medium (3)"
+    size: 8
+
+  - type: text
+    x: 120
+    y: 75
+    content: "Large (2.4pt)"
+    size: 8

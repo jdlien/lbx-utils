@@ -15,7 +15,7 @@ import shutil
 from lxml import etree
 from rich.console import Console
 
-from ..models import LabelConfig, TextObject, ImageObject, GroupObject
+from ..models import LabelConfig, TextObject, ImageObject, GroupObject, ContainerObject, BarcodeObject
 from ..utils import LABEL_SIZES, DEFAULT_PRINTER_ID, DEFAULT_PRINTER_NAME, convert_to_pt
 from ..utils.conversion import MM_TO_PT
 
@@ -188,13 +188,24 @@ class LbxGenerator:
                 self._add_image_object(objects, obj)
             elif isinstance(obj, GroupObject):
                 self._add_group_object(objects, obj)
+            elif isinstance(obj, ContainerObject):
+                self._process_container_object(objects, obj)
+            elif isinstance(obj, BarcodeObject):
+                self._add_barcode_object(objects, obj)
 
         # Create ElementTree
         tree = etree.ElementTree(root)
         return tree
 
-    def _add_text_object(self, parent, text_obj: TextObject):
-        """Add a text object to the parent element."""
+    def _add_text_object(self, parent, text_obj: TextObject, parent_coords=None):
+        """
+        Add a text object to the parent element.
+
+        Args:
+            parent: The parent XML element
+            text_obj: The text object to add
+            parent_coords: Optional (x,y) tuple of parent coordinates for nested elements
+        """
         # Create text element
         text_elem = etree.SubElement(parent, "{http://schemas.brother.info/ptouch/2007/lbx/text}text")
 
@@ -333,8 +344,15 @@ class LbxGenerator:
 
         return text_elem
 
-    def _add_image_object(self, parent, image_obj: ImageObject):
-        """Add an image object to the parent element."""
+    def _add_image_object(self, parent, image_obj: ImageObject, parent_coords=None):
+        """
+        Add an image object to the parent element.
+
+        Args:
+            parent: The parent XML element
+            image_obj: The image object to add
+            parent_coords: Optional (x,y) tuple of parent coordinates for nested elements
+        """
         # Create image element
         image_elem = etree.SubElement(parent, "{http://schemas.brother.info/ptouch/2007/lbx/image}image")
 
@@ -455,26 +473,179 @@ class LbxGenerator:
 
         return image_elem
 
-    def _add_group_object(self, parent, group_obj: GroupObject):
-        """Add a group object to the parent element."""
+    def _add_group_object(self, parent, group_obj: GroupObject, parent_coords=None):
+        """
+        Add a group object to the parent element.
+
+        Args:
+            parent: The parent XML element
+            group_obj: The group object to add
+            parent_coords: Optional (x,y) tuple of parent coordinates for nested elements
+        """
         # Create group element
         group_elem = etree.SubElement(parent, "{http://schemas.brother.info/ptouch/2007/lbx/main}group")
 
         # Debug info - print original coordinates
-        console.print(f"[blue]Group object positioning: x={group_obj.x}, y={group_obj.y}[/blue]")
+        console.print(f"[green]Group object '{group_obj.name}' raw positioning: x={group_obj.x}, y={group_obj.y}[/green]")
         console.print(f"[blue]Group object dimensions: width={group_obj.width}, height={group_obj.height}[/blue]")
+
+        # Add debug info about positioning flag
+        is_positioned = getattr(group_obj, '_positioned', False)
+        console.print(f"[blue]Group has explicit positioning: {is_positioned}[/blue]")
 
         # Add object style
         obj_style = etree.SubElement(group_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
 
-        # Use convert_to_pt to ensure all values are in points
-        x_value_str = convert_to_pt(group_obj.x)
-        y_value_str = convert_to_pt(group_obj.y)
+        # For explicitly positioned groups, use the original coordinates
+        if is_positioned:
+            # Check if we have original coordinates stored (these were the values before conversion)
+            original_x = getattr(group_obj, '_original_x', None)
+            original_y = getattr(group_obj, '_original_y', None)
 
+            if original_x is not None and original_y is not None:
+                # Use the original values that were directly from YAML
+                console.print(f"[yellow]Using original YAML coordinates: x={original_x}, y={original_y}[/yellow]")
+                x_value_str = convert_to_pt(original_x)
+                y_value_str = convert_to_pt(original_y)
+            else:
+                # Fallback to the current x,y (which might have been modified by layout engine)
+                x_value_str = convert_to_pt(group_obj.x)
+                y_value_str = convert_to_pt(group_obj.y)
+
+            console.print(f"[yellow]Using explicitly positioned coordinates: x={x_value_str}, y={y_value_str}[/yellow]")
+        else:
+            # For non-positioned groups, use the coordinates as calculated by the layout engine
+            x_value_str = convert_to_pt(group_obj.x)
+            y_value_str = convert_to_pt(group_obj.y)
+
+        # If this group has a parent with coordinates, adjust this group's coordinates to be absolute
+        if parent_coords:
+            parent_x, parent_y = parent_coords
+            group_local_x = float(x_value_str.rstrip('pt'))
+            group_local_y = float(y_value_str.rstrip('pt'))
+
+            # Calculate absolute coordinates
+            group_abs_x = parent_x + group_local_x
+            group_abs_y = parent_y + group_local_y
+
+            # Update to absolute coordinates
+            x_value_str = f"{group_abs_x}pt"
+            y_value_str = f"{group_abs_y}pt"
+
+            console.print(f"[blue]Adjusted nested group coordinates: local ({group_local_x}pt, {group_local_y}pt) -> absolute ({group_abs_x}pt, {group_abs_y}pt)[/blue]")
+
+        # Debug the conversion
+        console.print(f"[blue]Final group coordinates: x={x_value_str}, y={y_value_str}[/blue]")
+
+        # Set coordinates in XML - ensure these are properly converted to points
         obj_style.set("x", x_value_str)
         obj_style.set("y", y_value_str)
+
+        # Store the group's absolute position for child element positioning
+        group_x = float(x_value_str.rstrip('pt'))
+        group_y = float(y_value_str.rstrip('pt'))
+
+        # Add objects container for child objects first (before calculating dimensions)
+        objects_elem = etree.SubElement(group_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objects")
+
+        # Process each child object and collect their data for auto-sizing calculation
+        child_dimensions = []
+        for child_obj in group_obj.objects:
+            child_data = {'obj': child_obj}
+
+            # Convert child x/y to points for consistent calculations
+            child_x = float(convert_to_pt(child_obj.x).rstrip('pt'))
+            child_y = float(convert_to_pt(child_obj.y).rstrip('pt'))
+
+            # Get width and height (both should be available)
+            if hasattr(child_obj, 'width') and child_obj.width and child_obj.width != 'auto':
+                child_width = float(convert_to_pt(child_obj.width).rstrip('pt'))
+            else:
+                # If no width, use a default minimum width
+                child_width = 20.0  # Default minimum width
+
+            if hasattr(child_obj, 'height') and child_obj.height and child_obj.height != 'auto':
+                child_height = float(convert_to_pt(child_obj.height).rstrip('pt'))
+            else:
+                # If no height, use a default minimum height
+                child_height = 20.0  # Default minimum height
+
+            # Store the bounding box of this child using its local coordinates (for auto-sizing)
+            child_data['x1'] = child_x
+            child_data['y1'] = child_y
+            child_data['x2'] = child_x + child_width
+            child_data['y2'] = child_y + child_height
+
+            child_dimensions.append(child_data)
+
+            # Store the original local position before we adjust it
+            child_original_x = child_obj.x
+            child_original_y = child_obj.y
+
+            # Calculate absolute position by adding the group's position
+            abs_x = child_x + group_x
+            abs_y = child_y + group_y
+
+            # Log the calculation
+            console.print(f"[blue]Adjusting child position in group: local ({child_x}pt, {child_y}pt) -> absolute ({abs_x}pt, {abs_y}pt)[/blue]")
+
+            # Temporarily adjust the child's position to be absolute
+            child_obj.x = f"{abs_x}pt"
+            child_obj.y = f"{abs_y}pt"
+
+            # Add the child to the group with the adjusted absolute position
+            if isinstance(child_obj, TextObject):
+                self._add_text_object(objects_elem, child_obj)
+            elif isinstance(child_obj, ImageObject):
+                self._add_image_object(objects_elem, child_obj)
+            elif isinstance(child_obj, GroupObject):
+                # Support nested groups - pass the parent coordinates for further adjustment
+                self._add_group_object(objects_elem, child_obj, (group_x, group_y))
+            elif isinstance(child_obj, BarcodeObject):
+                self._add_barcode_object(objects_elem, child_obj, (group_x, group_y))
+
+            # Restore original local position
+            child_obj.x = child_original_x
+            child_obj.y = child_original_y
+
+        # Calculate automatic dimensions if needed
+        should_auto_width = group_obj.width == "auto" or not group_obj.width
+        should_auto_height = group_obj.height == "auto" or not group_obj.height
+
+        if should_auto_width or should_auto_height:
+            # Find the bounding box of all children
+            if child_dimensions:
+                # Initialize with first child's dimensions
+                min_x = min(d['x1'] for d in child_dimensions)
+                max_x = max(d['x2'] for d in child_dimensions)
+                min_y = min(d['y1'] for d in child_dimensions)
+                max_y = max(d['y2'] for d in child_dimensions)
+
+                # Calculate dimensions with padding
+                padding = 5.0  # Add some padding in points
+                width = max_x - min_x + (2 * padding)
+                height = max_y - min_y + (2 * padding)
+
+                console.print(f"[blue]Auto-calculated group dimensions: width={width}pt, height={height}pt[/blue]")
+
+                # Set the auto-calculated dimensions only for those that should be auto
+                if should_auto_width:
+                    group_obj.width = f"{width}pt"
+                if should_auto_height:
+                    group_obj.height = f"{height}pt"
+            else:
+                # If no children, use minimal default dimensions
+                if should_auto_width:
+                    group_obj.width = "30pt"
+                if should_auto_height:
+                    group_obj.height = "30pt"
+
+                console.print(f"[yellow]Warning: Group has no children, using default dimensions[/yellow]")
+
+        # Set the final dimensions
         obj_style.set("width", group_obj.width)
         obj_style.set("height", group_obj.height)
+
         obj_style.set("backColor", group_obj.background_color)
         obj_style.set("backPrintColorNumber", "0")
         obj_style.set("ropMode", "COPYPEN")
@@ -515,18 +686,343 @@ class LbxGenerator:
         expanded.set("linkStatus", "NONE")
         expanded.set("linkID", "0")
 
-        # Add objects container for child objects
-        objects_elem = etree.SubElement(group_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objects")
+    def _process_container_object(self, parent, container_obj: ContainerObject, parent_coords=None):
+        """
+        Process a container object's children without creating a group element.
 
-        # Process each child object
-        for child_obj in group_obj.objects:
+        Unlike group objects, containers don't create their own XML element.
+        Their children are added directly to the parent.
+
+        Args:
+            parent: The parent XML element
+            container_obj: The container object to process
+            parent_coords: Optional (x,y) tuple of parent coordinates for nested containers
+        """
+        # Debug info
+        console.print(f"[green]Processing container '{container_obj.name}' at position: x={container_obj.x}, y={container_obj.y}[/green]")
+        console.print(f"[blue]Container has explicit positioning: {getattr(container_obj, '_positioned', False)}[/blue]")
+
+        # Get container position
+        is_positioned = getattr(container_obj, '_positioned', False)
+
+        # For explicitly positioned containers, use the original coordinates
+        if is_positioned:
+            # Check if we have original coordinates stored
+            original_x = getattr(container_obj, '_original_x', None)
+            original_y = getattr(container_obj, '_original_y', None)
+
+            if original_x is not None and original_y is not None:
+                # Use the original values that were directly from YAML
+                console.print(f"[yellow]Using original YAML coordinates: x={original_x}, y={original_y}[/yellow]")
+                x_value_str = convert_to_pt(original_x)
+                y_value_str = convert_to_pt(original_y)
+            else:
+                # Fallback to the current x,y
+                x_value_str = convert_to_pt(container_obj.x)
+                y_value_str = convert_to_pt(container_obj.y)
+        else:
+            # For non-positioned containers, use the coordinates as calculated by the layout engine
+            x_value_str = convert_to_pt(container_obj.x)
+            y_value_str = convert_to_pt(container_obj.y)
+
+        # Get container position as float values
+        container_x = float(x_value_str.rstrip('pt'))
+        container_y = float(y_value_str.rstrip('pt'))
+
+        # If this container has a parent with coordinates, adjust this container's coordinates
+        if parent_coords:
+            parent_x, parent_y = parent_coords
+
+            # Calculate absolute coordinates
+            container_abs_x = parent_x + container_x
+            container_abs_y = parent_y + container_y
+
+            # Update to absolute coordinates
+            container_x = container_abs_x
+            container_y = container_abs_y
+
+            console.print(f"[blue]Adjusted nested container coordinates: local ({container_x}pt, {container_y}pt) -> absolute ({container_abs_x}pt, {container_abs_y}pt)[/blue]")
+
+        console.print(f"[blue]Container position in points: x={container_x}pt, y={container_y}pt[/blue]")
+
+        # Calculate automatic dimensions if needed before processing children
+        # (Auto-dimension calculation code remains unchanged)
+
+        # Process each child object and add it directly to the parent
+        # Since containers don't create their own XML element, we need to adjust
+        # each child's position to be relative to the container's position
+        for child_obj in container_obj.objects:
+            # Store original position
+            child_original_x = child_obj.x
+            child_original_y = child_obj.y
+
+            # Convert child coordinates to points for consistent calculations
+            child_x = float(convert_to_pt(child_obj.x).rstrip('pt'))
+            child_y = float(convert_to_pt(child_obj.y).rstrip('pt'))
+
+            # Since containers don't create a parent group element in the XML,
+            # we need to adjust the position of children to be absolute
+            abs_x = child_x + container_x
+            abs_y = child_y + container_y
+            console.print(f"[blue]Adjusting child position: from ({child_x}pt, {child_y}pt) to ({abs_x}pt, {abs_y}pt)[/blue]")
+
+            # Temporarily adjust the child's position to be absolute
+            child_obj.x = f"{abs_x}pt"
+            child_obj.y = f"{abs_y}pt"
+
+            # Add the child to the parent with absolute coordinates
             if isinstance(child_obj, TextObject):
-                self._add_text_object(objects_elem, child_obj)
+                self._add_text_object(parent, child_obj)
             elif isinstance(child_obj, ImageObject):
-                self._add_image_object(objects_elem, child_obj)
+                self._add_image_object(parent, child_obj)
             elif isinstance(child_obj, GroupObject):
-                # Support nested groups
-                self._add_group_object(objects_elem, child_obj)
+                self._add_group_object(parent, child_obj)
+            elif isinstance(child_obj, ContainerObject):
+                # Support nested containers - pass the container's coordinates
+                self._process_container_object(parent, child_obj, (container_x, container_y))
+            elif isinstance(child_obj, BarcodeObject):
+                self._add_barcode_object(parent, child_obj, (container_x, container_y))
+
+            # Restore original position
+            child_obj.x = child_original_x
+            child_obj.y = child_original_y
+
+    def _add_barcode_object(self, parent, barcode_obj: BarcodeObject, parent_coords=None):
+        """
+        Add a barcode object to the parent element.
+
+        Args:
+            parent: The parent XML element
+            barcode_obj: The barcode object to add
+            parent_coords: Optional (x,y) tuple of parent coordinates for nested elements
+        """
+        # Create barcode element in the barcode namespace
+        barcode_elem = etree.SubElement(parent, "{http://schemas.brother.info/ptouch/2007/lbx/barcode}barcode")
+
+        # Debug info - print original coordinates
+        console.print(f"[blue]Barcode object positioning: x={barcode_obj.x}, y={barcode_obj.y}[/blue]")
+
+        # Get the base width and height values
+        width_value = convert_to_pt(barcode_obj.width)
+        height_value = convert_to_pt(barcode_obj.height)
+
+        # For QR codes, determine the size based on the standardized size value (1-5)
+        if barcode_obj.type.lower() == "qr":
+            # Get the size value (should be an integer 1-5)
+            qr_size = barcode_obj.size
+
+            # Check if size is a numeric value from 1-5
+            if isinstance(qr_size, (int, float)):
+                qr_size_int = int(qr_size)
+                if 1 <= qr_size_int <= 5:
+                    # Map the numeric size to a cell size in pt
+                    cell_size_mapping = {
+                        1: "0.8pt",  # Small
+                        2: "1.2pt",  # Medium Small
+                        3: "1.6pt",  # Medium
+                        4: "2pt",    # Medium Large
+                        5: "2.4pt"   # Large
+                    }
+                    cell_size = cell_size_mapping[qr_size_int]
+
+                    # Map to the corresponding width/height based on cell size
+                    # Using the observed factor of 29
+                    size_factor = 29
+                    cell_size_pt = float(cell_size.rstrip('pt'))
+                    calculated_size = f"{cell_size_pt * size_factor}pt"
+
+                    width_value = calculated_size
+                    height_value = calculated_size
+
+                    # Store the cell size for later use in the XML
+                    standardized_cell_size = cell_size
+
+                    console.print(f"[blue]Using standardized size {qr_size_int} => cell size: {cell_size}, dimensions: {calculated_size}[/blue]")
+                else:
+                    # Use default for invalid size
+                    console.print(f"[yellow]Invalid QR size {qr_size_int}, using default size 4[/yellow]")
+                    standardized_cell_size = "2pt"  # Default Medium Large
+                    size_factor = 29
+                    width_value = f"{2 * size_factor}pt"
+                    height_value = f"{2 * size_factor}pt"
+            else:
+                # Handle string values by using the cell_size property
+                cell_size = barcode_obj.cell_size
+
+                # Parse the point value from the cell size
+                if isinstance(cell_size, str) and cell_size.endswith('pt'):
+                    try:
+                        cell_size_pt = float(cell_size.rstrip('pt'))
+                        # Use the size factor of 29
+                        size_factor = 29
+                        calculated_size = f"{cell_size_pt * size_factor}pt"
+                        width_value = calculated_size
+                        height_value = calculated_size
+                        standardized_cell_size = cell_size
+                        console.print(f"[blue]Using cell size: {cell_size}, dimensions: {calculated_size}[/blue]")
+                    except ValueError:
+                        # Default to medium-large if parsing fails
+                        standardized_cell_size = "2pt"
+                        width_value = "58pt"  # 2pt * 29
+                        height_value = "58pt"
+                        console.print(f"[yellow]Invalid cell size format, using default: 2pt[/yellow]")
+                else:
+                    # Default values for invalid cell size
+                    standardized_cell_size = "2pt"
+                    width_value = "58pt"  # 2pt * 29
+                    height_value = "58pt"
+                    console.print(f"[yellow]Invalid or missing cell size, using default: 2pt[/yellow]")
+
+        console.print(f"[blue]Barcode dimensions: width={width_value}, height={height_value}[/blue]")
+
+        # Add object style
+        obj_style = etree.SubElement(barcode_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}objectStyle")
+
+        # Use convert_to_pt to ensure all values are in points
+        x_value_str = convert_to_pt(barcode_obj.x)
+        y_value_str = convert_to_pt(barcode_obj.y)
+
+        obj_style.set("x", x_value_str)
+        obj_style.set("y", y_value_str)
+        obj_style.set("width", width_value)
+        obj_style.set("height", height_value)
+        obj_style.set("backColor", "#FFFFFF")
+        obj_style.set("backPrintColorNumber", "0")
+        obj_style.set("ropMode", "COPYPEN")
+        obj_style.set("angle", "0")  # Barcodes don't support rotation currently
+        obj_style.set("anchor", "TOPLEFT")
+        obj_style.set("flip", "NONE")
+
+        # Add pen (border)
+        pen = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}pen")
+        pen.set("style", "INSIDEFRAME")
+        pen.set("widthX", "0.5pt")
+        pen.set("widthY", "0.5pt")
+        pen.set("color", "#000000")
+        pen.set("printColorNumber", "1")
+
+        # Add brush
+        brush = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}brush")
+        brush.set("style", "NULL")
+        brush.set("color", "#000000")
+        brush.set("printColorNumber", "1")
+        brush.set("id", "0")
+
+        # Add expanded properties
+        expanded = etree.SubElement(obj_style, "{http://schemas.brother.info/ptouch/2007/lbx/main}expanded")
+        obj_name = f"Barcode{uuid.uuid4().hex[:4]}"
+        expanded.set("objectName", obj_name)
+        expanded.set("ID", "0")
+        expanded.set("lock", "0")
+        expanded.set("templateMergeTarget", "LABELLIST")
+        expanded.set("templateMergeType", "NONE")
+        expanded.set("templateMergeID", "0")
+        expanded.set("linkStatus", "NONE")
+        expanded.set("linkID", "0")
+
+        # Add barcode style element (common to all barcode types)
+        barcode_style = etree.SubElement(barcode_elem, "{http://schemas.brother.info/ptouch/2007/lbx/barcode}barcodeStyle")
+
+        # Set protocol from barcode.protocol
+        barcode_style.set("protocol", barcode_obj.protocol)
+
+        # Set common barcode attributes
+        barcode_style.set("lengths", str(barcode_obj.lengths))
+        barcode_style.set("zeroFill", "true" if barcode_obj.zeroFill else "false")
+        barcode_style.set("barWidth", str(barcode_obj.barWidth))
+        barcode_style.set("barRatio", str(barcode_obj.barRatio))
+        barcode_style.set("humanReadable", "true" if barcode_obj.humanReadable else "false")
+        barcode_style.set("humanReadableAlignment", str(barcode_obj.humanReadableAlignment))
+        barcode_style.set("checkDigit", "true" if barcode_obj.checkDigit else "false")
+        barcode_style.set("autoLengths", "true" if barcode_obj.autoLengths else "false")
+        barcode_style.set("margin", "true" if barcode_obj.margin else "false")
+        barcode_style.set("sameLengthBar", "true" if barcode_obj.sameLengthBar else "false")
+        barcode_style.set("bearerBar", "true" if barcode_obj.bearerBar else "false")
+
+        # Add optional attributes if they have values
+        if hasattr(barcode_obj, 'removeParentheses') and barcode_obj.removeParentheses:
+            barcode_style.set("removeParentheses", "true")
+
+        if hasattr(barcode_obj, 'startstopCode') and barcode_obj.startstopCode:
+            barcode_style.set("startstopCode", str(barcode_obj.startstopCode))
+
+        barcode_type = barcode_obj.type.lower()
+
+        # For QR codes, add QR code-specific style
+        if barcode_type == "qr":
+            qrcode_style = etree.SubElement(barcode_elem, "{http://schemas.brother.info/ptouch/2007/lbx/barcode}qrcodeStyle")
+            qrcode_style.set("model", str(barcode_obj.model))
+
+            # Convert L, M, Q, H error correction to percentage values
+            ec_mapping = {
+                "L": "7%",
+                "M": "15%",
+                "Q": "25%",
+                "H": "30%"
+            }
+            ecc_level = ec_mapping.get(barcode_obj.correction.upper(), "15%")  # Default to M (15%)
+            qrcode_style.set("eccLevel", ecc_level)
+
+            # Set the cell size based on our standardized value
+            if 'standardized_cell_size' in locals():
+                qrcode_style.set("cellSize", standardized_cell_size)
+            else:
+                # Use the cell_size property as fallback
+                qrcode_style.set("cellSize", barcode_obj.cell_size)
+
+            qrcode_style.set("mbcs", "auto")
+            qrcode_style.set("joint", "1")
+
+            # Handle version (auto or specific number)
+            qrcode_style.set("version", str(barcode_obj.version))
+            if barcode_obj.version != "auto":
+                qrcode_style.set("changeVersionDrag", "true")
+
+        # For RSS/GS1 DataBar barcodes
+        elif barcode_type == "rss":
+            rss_style = etree.SubElement(barcode_elem, "{http://schemas.brother.info/ptouch/2007/lbx/barcode}rssStyle")
+            rss_style.set("model", str(barcode_obj.rssModel))
+            rss_style.set("margin", "true" if barcode_obj.margin else "false")
+            rss_style.set("autoLengths", "true" if barcode_obj.autoLengths else "false")
+            rss_style.set("lengths", str(barcode_obj.lengths))
+            rss_style.set("barWidth", str(barcode_obj.barWidth))
+            rss_style.set("column", str(barcode_obj.column))
+            rss_style.set("humanReadable", "true" if barcode_obj.humanReadable else "false")
+            rss_style.set("humanReadableAlignment", str(barcode_obj.humanReadableAlignment))
+            rss_style.set("autoAdd01", "true" if barcode_obj.autoAdd01 else "false")
+
+        # For PDF417 barcodes
+        elif barcode_type == "pdf417":
+            pdf417_style = etree.SubElement(barcode_elem, "{http://schemas.brother.info/ptouch/2007/lbx/barcode}pdf417Style")
+            pdf417_style.set("model", str(barcode_obj.pdf417Model))
+            pdf417_style.set("width", str(barcode_obj.barWidth))
+            pdf417_style.set("aspect", str(barcode_obj.aspect))
+            pdf417_style.set("row", str(barcode_obj.row))
+            pdf417_style.set("column", str(barcode_obj.column))
+            pdf417_style.set("eccLevel", str(barcode_obj.eccLevel))
+            pdf417_style.set("joint", str(barcode_obj.joint))
+
+        # For DataMatrix barcodes
+        elif barcode_type == "datamatrix":
+            datamatrix_style = etree.SubElement(barcode_elem, "{http://schemas.brother.info/ptouch/2007/lbx/barcode}datamatrixStyle")
+            datamatrix_style.set("model", str(barcode_obj.dataMatrixModel))
+            datamatrix_style.set("cellSize", str(barcode_obj.cellSize))
+            datamatrix_style.set("macro", str(barcode_obj.macro))
+            datamatrix_style.set("fnc01", "true" if barcode_obj.fnc01 else "false")
+            datamatrix_style.set("joint", str(barcode_obj.joint))
+
+        # For MaxiCode barcodes
+        elif barcode_type == "maxicode":
+            maxicode_style = etree.SubElement(barcode_elem, "{http://schemas.brother.info/ptouch/2007/lbx/barcode}maxicodeStyle")
+            maxicode_style.set("model", str(barcode_obj.maxiCodeModel))
+            maxicode_style.set("joint", str(barcode_obj.joint))
+
+        # Add data element
+        data = etree.SubElement(barcode_elem, "{http://schemas.brother.info/ptouch/2007/lbx/main}data")
+        # Use attrib["_text_content"] instead of .text to avoid linter error
+        data.attrib["_text_content"] = str(barcode_obj.data)
+
+        return barcode_elem
 
     def create_prop_xml(self):
         """Create the prop.xml file with metadata."""

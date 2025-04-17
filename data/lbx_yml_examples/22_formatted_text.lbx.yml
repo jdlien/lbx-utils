@@ -1,32 +1,25 @@
-# Label with formatted text
 size: 24mm
 width: auto
 orientation: landscape
-
 objects:
-  - type: text
-    content: "Bold Text"
-    x: 10
-    y: 12
-    font: Helsinki
-    size: 14
-    bold: true
-    align: left
-
-  - type: text
-    content: "Italic Text"
-    x: 10
-    y: 30
-    font: Helsinki
-    size: 14
-    italic: true
-    align: center
-
-  - type: text
-    content: "Underlined Text"
-    x: 10
-    y: 48
-    font: Helsinki
-    size: 14
-    underline: true
-    align: right
+- x: 10
+  y: 12
+  font: Helsinki
+  size: 14
+  bold: true
+  align: left
+  text: Bold Text
+- x: 10
+  y: 30
+  font: Helsinki
+  size: 14
+  italic: true
+  align: center
+  text: Italic Text
+- x: 10
+  y: 48
+  font: Helsinki
+  size: 14
+  underline: true
+  align: right
+  text: Underlined Text

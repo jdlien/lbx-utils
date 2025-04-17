@@ -1,0 +1,28 @@
+size: 24mm
+width: 100mm
+orientation: landscape
+align: center
+objects:
+- font: Helsinki
+  size: 14
+  bold: true
+  width: 30mm
+  height: 10mm
+  x: 5mm
+  y: -8mm
+  text: LOGO
+- font: Helsinki
+  size: 12
+  bold: true
+  width: 30mm
+  height: 7mm
+  x: 40mm
+  y: 0mm
+  text: PRODUCT NAME
+- font: Helsinki
+  size: 8
+  width: 30mm
+  height: 6mm
+  x: 40mm
+  y: 8mm
+  text: 'Part#: 12345'

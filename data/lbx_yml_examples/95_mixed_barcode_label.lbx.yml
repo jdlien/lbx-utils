@@ -1,0 +1,75 @@
+# 95_mixed_barcode_label.lbx.yml
+# Practical product label with multiple barcode types
+
+size: 24mm
+width: 100mm
+orientation: landscape
+margin: 2mm
+
+objects:
+  # Product title
+  - text: "Premium Widget XL5000"
+    x: 50
+    y: 5
+    size: 12
+    bold: true
+    align: center
+
+  # Product details
+  - text: "Model: XL5000-B | Serial: WDG20240501-1234"
+    x: 50
+    y: 17
+    size: 8
+    align: center
+
+  # EAN-13 barcode for retail scanning
+  - type: barcode
+    barcodeType: ean13
+    data: "5901234123457"
+    x: 10
+    y: 25
+    width: 80
+    height: 25
+    humanReadable: true
+
+  # QR code with product information and URL
+  - qr: "https://example.com/products/widget-xl5000?serial=WDG20240501-1234"
+    x: 10
+    y: 50
+    size: 3 # Medium size
+    correction: "M"
+
+  # CODE128 for inventory management
+  - type: barcode
+    barcodeType: code128
+    data: "WDG20240501-1234"
+    x: 50
+    y: 55
+    width: 70
+    height: 20
+    humanReadable: true
+
+  # Additional product information
+  - text: "Manufactured: 05/2024\nRated: 240V/50Hz\nCertification: ISO9001, CE, RoHS"
+    x: 50
+    y: 80
+    size: 7
+    align: center
+
+  # Manufacturer information
+  - text: "© 2024 Example Corp. Made in USA"
+    x: 50
+    y: 95
+    size: 6
+    align: center
+
+  # Small DataMatrix for additional tracking (service/repair tracking)
+  - type: barcode
+    barcodeType: datamatrix
+    data: "XL5000-B:WDG20240501-1234:05/2024"
+    x: 95
+    y: 80
+    width: 25
+    height: 25
+    dataMatrixModel: "square"
+    cellSize: "1.2pt"

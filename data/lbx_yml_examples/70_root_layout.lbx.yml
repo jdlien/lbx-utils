@@ -1,0 +1,25 @@
+# 70_root_layout.lbx.yml
+# Example of labels with root-level layout attributes
+
+size: 24mm
+width: 90mm
+orientation: landscape
+
+# Root layout properties
+direction: column
+align: center
+gap: 10
+
+objects:
+  # These elements will be laid out in a column
+  - text: "First Item"
+    size: 18
+    bold: true
+
+  - text: "Second Item"
+    size: 14
+    italic: true
+
+  - text: "Third Item"
+    size: 12
+    underline: true

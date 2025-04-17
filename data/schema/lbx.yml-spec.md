@@ -34,7 +34,96 @@ objects:
 
 In this structure, label properties are at the root level, and all objects are within the `objects` array. The `objects` key is required, and all visual elements must be defined within this array.
 
-### 2.3 Units
+### 2.3 Object Shortcut Syntax
+
+For improved readability and cleaner YAML, object types can be specified using a shortcut syntax:
+
+#### 2.3.1 Content Objects (text, image, barcode, qr)
+
+For object types that primarily define content, you can use the object type as a key with its value as the content:
+
+```yaml
+objects:
+  # Long form (traditional)
+  - type: text
+    content: "Hello World"
+    x: 10
+    y: 20
+
+  # Shortcut syntax
+  - text: "Hello World"
+    x: 10
+    y: 20
+
+  # Image shortcut
+  - image: "logo.png"
+    width: 30
+    height: 30
+
+  # Barcode shortcut
+  - barcode: "12345"
+    barcodeType: "code128"
+
+  # QR code shortcut
+  - qr: "https://example.com"
+    errorCorrection: "H"
+```
+
+In these examples:
+
+- `text: "Hello World"` is equivalent to `type: text, content: "Hello World"`
+- `image: "logo.png"` is equivalent to `type: image, source: "logo.png"`
+- `barcode: "12345"` is equivalent to `type: barcode, data: "12345"`
+- `qr: "https://example.com"` is equivalent to `type: barcode, barcodeType: "qr", data: "https://example.com"`
+
+#### 2.3.2 Container Objects (line, rect, container, group)
+
+For organizational object types, you can use the object type as a key with its value as the name:
+
+```yaml
+objects:
+  # Long form (traditional)
+  - type: group
+    name: "header_section"
+    x: 0
+    y: 0
+    objects: [...]
+
+  # Shortcut syntax
+  - group: "header_section"
+    x: 0
+    y: 0
+    objects: [...]
+
+  # Container shortcut
+  - container: "content_area"
+    direction: column
+    objects: [...]
+
+  # Line and rectangle shortcuts
+  - line: "divider"
+    x1: 0
+    y1: 50
+    x2: 100
+    y2: 50
+
+  - rect: "background"
+    x: 10
+    y: 10
+    width: 80
+    height: 30
+```
+
+In these examples:
+
+- `group: "header_section"` is equivalent to `type: group, name: "header_section"`
+- `container: "content_area"` is equivalent to `type: container, name: "content_area"`
+- `line: "divider"` is equivalent to `type: line, name: "divider"`
+- `rect: "background"` is equivalent to `type: rect, name: "background"`
+
+All other attributes are interpreted normally, so you can still specify positioning, styling, and other properties with either syntax.
+
+### 2.4 Units
 
 All measurements can be specified in either points (pt) or millimeters (mm). If no unit is specified, points (pt) are used by default. The unit suffix should be included in the YAML file (e.g., `10pt` or `5mm`).
 
@@ -113,19 +202,19 @@ color: "#000000" # Color of the label ink. Only affects preview.
 
 ### 3.1 Required Properties
 
-| Property      | Description       | Values                                        |
-| ------------- | ----------------- | --------------------------------------------- |
-| `size`        | Tape width        | `3.5mm`, `6mm`, `9mm`, `12mm`, `18mm`, `24mm` |
-| `orientation` | Label orientation | `landscape`, `portrait`                       |
+| Property | Description | Values                                        |
+| -------- | ----------- | --------------------------------------------- |
+| `size`   | Tape width  | `3.5mm`, `6mm`, `9mm`, `12mm`, `18mm`, `24mm` |
 
 ### 3.2 Optional Properties
 
-| Property     | Description            | Default   |
-| ------------ | ---------------------- | --------- |
-| `width`      | Label width (in mm)    | "auto"    |
-| `margin`     | Additional margin      | 0         |
-| `background` | Label background color | "#FFFFFF" |
-| `color`      | Label text color       | "#000000" |
+| Property      | Description            | Default     |
+| ------------- | ---------------------- | ----------- |
+| `width`       | Label width (in mm)    | "auto"      |
+| `orientation` | Label orientation      | "landscape" |
+| `margin`      | Additional margin      | 0           |
+| `background`  | Label background color | "#FFFFFF"   |
+| `color`       | Label text color       | "#000000"   |
 
 Note: `width` is technically the length when `orientation` is `landscape`. When `orientation` is `portrait`, `width` is the height.
 
@@ -134,10 +223,12 @@ Note: `width` is technically the length when `orientation` is `landscape`. When 
 The root level can include layout properties that apply to all objects within the `objects` array, effectively making the label itself act as an implicit group container. This eliminates the need for a wrapper group when aligning all objects.
 
 ```yaml
-# Label with root layout properties
+# Label properties
 size: 24mm
 width: 100mm
 orientation: landscape
+
+# Layout properties at root level (acts as an implicit group)
 direction: column # Applied to all objects in the objects array
 align: center # Center align all objects
 gap: 10 # 10pt spacing between objects
@@ -152,6 +243,15 @@ objects:
     # Automatically positioned below the title with 10pt gap
 ```
 
+When using root-level layout properties, any `x` and `y` values specified on individual objects will act as offsets from their calculated positions. For example:
+
+- In `direction: column` layout, adding `y: 4mm` to an element will move that element (and consequently all elements below it) down by 4mm from their calculated positions.
+- In `direction: row` layout, adding `x: 5pt` to an element will move that element (and consequently all elements after it) to the right by 5pt from their calculated positions.
+
+This allows for fine-tuning positioning while still maintaining the benefits of automatic layout.
+
+The root level supports the same container layout properties as groups:
+
 | Property    | Description                     | Values                                                  | Default |
 | ----------- | ------------------------------- | ------------------------------------------------------- | ------- |
 | `direction` | Main axis direction             | `row`, `column`, `row-reverse`, `column-reverse`        | `row`   |
@@ -161,7 +261,9 @@ objects:
 | `padding`   | Internal padding within label   | Number or object with top/right/bottom/left             | 0       |
 | `wrap`      | Whether items wrap to next line | `true`, `false`                                         | `false` |
 
-These properties function identically to those available for group objects, except they apply to all objects within the `objects` array.
+When these properties are present at the root level, the layout engine creates an implicit group container that wraps all objects, which allows for automatic positioning and alignment without having to create an explicit wrapper group.
+
+Individual objects within the root level can still use item properties (`align`, `grow`, `shrink`, `basis`, `order`) to override the root-level settings, just as they would within an explicit group.
 
 ## 4. Objects
 
@@ -180,13 +282,13 @@ All objects support these common properties:
   # Style properties vary by object type and are direct members of the object
 ```
 
-| Property | Description                                                        | Default  |
-| -------- | ------------------------------------------------------------------ | -------- |
-| `type`   | Required: The type of object (text, image, barcode, group)         | Required |
-| `id`     | Optional: Unique identifier for reference                          | None     |
-| `name`   | Optional: Name for the object, maps to objectName attribute in XML | None     |
-| `x`      | X-coordinate from left edge                                        | 0        |
-| `y`      | Y-coordinate from top edge                                         | 0        |
+| Property | Description                                                           | Default  |
+| -------- | --------------------------------------------------------------------- | -------- |
+| `type`   | Required: The type of object (text, image, barcode, group, container) | Required |
+| `id`     | Optional: Unique identifier for reference                             | None     |
+| `name`   | Optional: Name for the object, maps to objectName attribute in XML    | None     |
+| `x`      | X-coordinate from left edge                                           | 0        |
+| `y`      | Y-coordinate from top edge                                            | 0        |
 
 ### 4.2 Text Objects
 
@@ -292,7 +394,7 @@ For text that requires mixed formatting (like having some words bold or italic w
 The most flexible approach is to use an array of text fragments, each with its own formatting:
 
 ```yaml
-- type: richtext
+- type: text
   x: 10
   y: 20
   align: left # Common properties apply to all fragments
@@ -374,18 +476,53 @@ Barcode objects render various barcode formats.
 
 #### 4.4.1 Barcode-Specific Properties
 
-| Property          | Description                     | Values                                           | Default |
-| ----------------- | ------------------------------- | ------------------------------------------------ | ------- |
-| `size`            | Barcode size                    | Number                                           | 30      |
-| `errorCorrection` | QR error correction level       | `L`, `M`, `Q`, `H`                               | `M`     |
-| `model`           | QR code model                   | `1`, `2`                                         | `2`     |
-| `cellSize`        | Size of each QR code cell       | Number                                           | auto    |
-| `margin`          | Include quiet zone/margin       | `true`, `false`                                  | `true`  |
-| `version`         | QR code version (size/capacity) | `auto`, `1`-`40`                                 | `auto`  |
-| `protocol`        | Barcode type                    | `qr`, `code39`, `code128`, `ean13`, `ean8`, etc. | `qr`    |
-| `humanReadable`   | Show human-readable text        | `true`, `false`                                  | `false` |
+| Property     | Description                     | Values                                           | Default                 |
+| ------------ | ------------------------------- | ------------------------------------------------ | ----------------------- |
+| `size`       | For QR codes: cell size         | Numbers, strings (see QR Code Size Options)      | `4` (Medium Large, 2pt) |
+| `correction` | QR error correction level       | `L`, `M`, `Q`, `H`                               | `M`                     |
+| `model`      | QR code model                   | `1`, `2`                                         | `2`                     |
+| `margin`     | Include quiet zone/margin       | `true`, `false`                                  | `true`                  |
+| `version`    | QR code version (size/capacity) | `auto`, `1`-`40`                                 | `auto`                  |
+| `protocol`   | Barcode type                    | `qr`, `code39`, `code128`, `ean13`, `ean8`, etc. | `code128`               |
+| `text`       | Show human-readable text        | `true`, `false`                                  | `false`                 |
 
-#### 4.4.2 QR Code Error Correction Levels
+#### 4.4.2 QR Code Cell Sizes
+
+For QR codes, the `cellSize` parameter controls the size of each cell (module) in the QR code, affecting the overall resolution and scan quality:
+
+| Size Value | Point Size | Description  | Readability                               |
+| ---------- | ---------- | ------------ | ----------------------------------------- |
+| `1`        | `0.8pt`    | Small        | Higher density, may be harder to scan     |
+| `2`        | `1.2pt`    | Medium Small | Good balance of size and data capacity    |
+| `3`        | `1.6pt`    | Medium       | Standard size for most applications       |
+| `4`        | `2pt`      | Medium Large | Default size, good readability            |
+| `5`        | `2.4pt`    | Large        | Best readability but larger physical size |
+
+The `cellSize` can be specified either as a numeric size category (1-5) or as a specific point size with units:
+
+```yaml
+# Using size category (1-5)
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com"
+  size: 40
+  cellSize: 3 # Medium (1.6pt)
+
+# Using specific point size
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com"
+  size: 40
+  cellSize: "1.6pt" # Same as cellSize: 3
+```
+
+When choosing a cell size, consider:
+
+- Smaller sizes allow more data in the same space but may be harder to scan
+- Larger sizes are more reliable to scan but take up more space
+- The higher the error correction level, the larger the cell size should be
+
+#### 4.4.3 QR Code Error Correction Levels
 
 QR codes support different error correction levels that affect their ability to be read when damaged:
 
@@ -400,21 +537,147 @@ The higher the error correction level, the larger the QR code will be for the sa
 
 #### 4.4.3 Barcode Types
 
-The LBX format supports various barcode types:
+The LBX format supports various barcode types (case-insensitive), each with specific attributes:
 
-| Type         | Description              | Additional Properties |
-| ------------ | ------------------------ | --------------------- |
-| `qr`         | QR Code (default)        | `errorCorrection`     |
-| `code39`     | Code 39                  | `humanReadable`       |
-| `code128`    | Code 128                 | `humanReadable`       |
-| `ean13`      | EAN-13                   | n/a                   |
-| `ean8`       | EAN-8                    | n/a                   |
-| `upc-a`      | UPC-A                    | n/a                   |
-| `upc-e`      | UPC-E                    | n/a                   |
-| `codabar`    | Codabar                  | `humanReadable`       |
-| `itf`        | ITF (Interleaved 2 of 5) | `humanReadable`       |
-| `pdf417`     | PDF417 (2D barcode)      | n/a                   |
-| `datamatrix` | Data Matrix (2D barcode) | n/a                   |
+| Type           | Description              | Notes                                                                |
+| -------------- | ------------------------ | -------------------------------------------------------------------- |
+| `qr`           | QR Code                  | 2D barcode, can encode large amounts of data                         |
+| `code39`       | Code 39                  | Linear barcode, supports uppercase letters, numbers and some symbols |
+| `code128`      | Code 128                 | Linear barcode, supports all ASCII characters                        |
+| `ean128`       | EAN-128 (GS1-128)        | Application identifier linear barcode used in supply chains          |
+| `itf25`        | ITF (Interleaved 2 of 5) | Fixed-length numeric-only barcode                                    |
+| `codabar`      | Codabar (NW-7)           | Used in libraries, blood banks, and air parcels                      |
+| `upca`         | UPC-A                    | 12-digit numeric barcode used in North America                       |
+| `upce`         | UPC-E                    | Compressed 6-digit numeric barcode derived from UPC-A                |
+| `ean13`        | EAN-13                   | 13-digit numeric barcode, international version of UPC-A             |
+| `ean8`         | EAN-8                    | 8-digit numeric barcode for small packages                           |
+| `isbn2`        | ISBN+2 (EAN-13 AddOn2)   | ISBN barcode with 2-digit add-on                                     |
+| `isbn5`        | ISBN+5 (EAN-13 AddOn5)   | ISBN barcode with 5-digit add-on                                     |
+| `postnet`      | POSTNET                  | Postal barcode used by the US Postal Service                         |
+| `imb`          | Intelligent Mail Barcode | Used by the US Postal Service for mail tracking                      |
+| `laserbarcode` | Laser Barcode            | Proprietary Brother format                                           |
+| `datamatrix`   | Data Matrix              | 2D barcode that can encode large amounts of data in a small space    |
+| `pdf417`       | PDF417                   | 2D barcode used for various applications including ID cards          |
+| `rss`          | GS1 DataBar (RSS)        | Used for marking small items in retail environments                  |
+| `maxicode`     | MaxiCode                 | 2D barcode used by UPS for package tracking                          |
+
+#### 4.4.4 Common Barcode Properties
+
+These properties apply to most barcode types:
+
+| Property                 | Description                             | Values                              | Default                            |
+| ------------------------ | --------------------------------------- | ----------------------------------- | ---------------------------------- |
+| `data`                   | Content to encode in the barcode        | String                              | Required                           |
+| `lengths`                | Number of characters for the barcode    | Number                              | Varies by barcode type             |
+| `zeroFill`               | Fill with zeros to complete digit count | `true`, `false`                     | `false`                            |
+| `barWidth`               | Width of the narrowest bar              | String with units (e.g., "0.8pt")   | `0.8pt`                            |
+| `barRatio`               | Ratio between narrow and wide bars      | `1:2`, `1:3`, `2:1`, `2.5:1`, `3:1` | Varies by barcode type             |
+| `humanReadable`          | Show human-readable text below barcode  | `true`, `false`                     | `false` for 2D, `true` for most 1D |
+| `humanReadableAlignment` | Alignment of human-readable text        | `left`, `center`, `right`           | `left`                             |
+| `checkDigit`             | Include check digit in barcode          | `true`, `false`                     | Varies by barcode type             |
+| `autoLengths`            | Automatically determine lengths         | `true`, `false`                     | `true`                             |
+| `margin`                 | Include quiet zone/margin               | `true`, `false`                     | `true`                             |
+| `sameLengthBar`          | Equalize bar lengths                    | `true`, `false`                     | Varies by barcode type             |
+| `bearerBar`              | Include bearer bar                      | `true`, `false`                     | `false`                            |
+
+Example usage:
+
+```yaml
+- type: barcode
+  barcodeType: code128
+  data: "12345ABC"
+  barWidth: 0.8pt
+  barRatio: 1:3
+  humanReadable: true
+  margin: true
+```
+
+#### 4.4.5 Type-Specific Barcode Properties
+
+##### QR Code Specific Properties
+
+| Property          | Description                     | Values                                    | Default   |
+| ----------------- | ------------------------------- | ----------------------------------------- | --------- |
+| `cellSize`        | Size of each cell (module)      | `1`-`5` or specific point size            | `4` (2pt) |
+| `errorCorrection` | Error correction level          | `L` (7%), `M` (15%), `Q` (25%), `H` (30%) | `M`       |
+| `model`           | QR code model                   | `1`, `2`                                  | `2`       |
+| `version`         | QR code version (size/capacity) | `auto`, `1`-`40`                          | `auto`    |
+
+##### CODABAR Specific Properties
+
+| Property        | Description          | Values             | Default |
+| --------------- | -------------------- | ------------------ | ------- |
+| `startstopCode` | Start/stop character | `A`, `B`, `C`, `D` | `A`     |
+
+##### GS1 DataBar (RSS) Specific Properties
+
+| Property    | Description                 | Values                  | Default         |
+| ----------- | --------------------------- | ----------------------- | --------------- |
+| `model`     | RSS model type              | `RSS14Standard`, others | `RSS14Standard` |
+| `column`    | Number of columns           | Number                  | `4`             |
+| `autoAdd01` | Automatically add 01 prefix | `true`, `false`         | `true`          |
+
+##### PDF417 Specific Properties
+
+| Property   | Description            | Values                          | Default    |
+| ---------- | ---------------------- | ------------------------------- | ---------- |
+| `model`    | PDF417 model type      | `standard`, `truncate`, `micro` | `standard` |
+| `width`    | Width of each module   | String with units               | `0.8pt`    |
+| `aspect`   | Width to height ratio  | Number                          | `3`        |
+| `row`      | Number of rows         | `auto` or Number                | `auto`     |
+| `column`   | Number of columns      | `auto` or Number                | `auto`     |
+| `eccLevel` | Error correction level | `auto`, `0`-`8`                 | `auto`     |
+| `joint`    | Joint characters       | Number                          | `1`        |
+
+##### DataMatrix Specific Properties
+
+| Property   | Description       | Values                | Default  |
+| ---------- | ----------------- | --------------------- | -------- |
+| `model`    | DataMatrix model  | `square`, `rectangle` | `square` |
+| `cellSize` | Size of each cell | String with units     | `1.6pt`  |
+| `macro`    | Macro type        | `none`, `05`, `06`    | `none`   |
+| `fnc01`    | Include FNC1      | `true`, `false`       | `false`  |
+| `joint`    | Joint characters  | Number                | `1`      |
+
+##### MaxiCode Specific Properties
+
+| Property | Description      | Values             | Default |
+| -------- | ---------------- | ------------------ | ------- |
+| `model`  | MaxiCode model   | `2`, `3`, `4`, `5` | `4`     |
+| `joint`  | Joint characters | Number             | `1`     |
+
+Example of a QR code with specific properties:
+
+```yaml
+- type: barcode
+  barcodeType: qr
+  data: "https://example.com"
+  cellSize: 3 # Medium (1.6pt)
+  errorCorrection: H
+  model: 2
+  version: auto
+```
+
+Example of a CODE128 barcode:
+
+```yaml
+- type: barcode
+  barcodeType: code128
+  data: "ABC12345"
+  barWidth: 0.8pt
+  humanReadable: true
+  checkDigit: true
+```
+
+Example of a DataMatrix barcode:
+
+```yaml
+- type: barcode
+  barcodeType: datamatrix
+  data: "Product ID: 12345"
+  cellSize: 1.6pt
+  model: square
+```
 
 ### 4.5 Group Objects
 
@@ -426,14 +689,17 @@ Group objects contain other objects and establish a flexible layout system for t
   name: header_container # Optional: Name for the group, maps to objectName attribute
   x: 10
   y: 5
+  width: auto # Optional: auto (default) or fixed width in points
+  height: auto # Optional: auto (default) or fixed height in points
+
+  # Container layout properties (only applicable to groups)
   direction: row # row, column, row-reverse, column-reverse
   justify: between # start, end, center, between, around, evenly
   align: center # start, end, center, stretch
   gap: 10 # spacing between items
   padding: 5 # internal padding within the group
   wrap: false # whether items wrap to next line/column
-  width: auto # auto or fixed width in points
-  height: auto # auto or fixed height in points
+
   objects: # Children of this group
     - type: text
       content: "Title"
@@ -448,41 +714,135 @@ Group objects contain other objects and establish a flexible layout system for t
       height: 20
 ```
 
-#### 4.5.1 Group Layout Properties
+#### 4.5.1 Container Layout Properties
 
-| Property    | Description                     | Values                                                  | Default |
-| ----------- | ------------------------------- | ------------------------------------------------------- | ------- |
-| `direction` | Main axis direction             | `row`, `column`, `row-reverse`, `column-reverse`        | `row`   |
-| `justify`   | Alignment along main axis       | `start`, `end`, `center`, `between`, `around`, `evenly` | `start` |
-| `align`     | Alignment along cross axis      | `start`, `end`, `center`, `stretch`                     | `start` |
-| `gap`       | Spacing between items           | Number                                                  | 0       |
-| `padding`   | Internal padding within group   | Number or object with top/right/bottom/left             | 0       |
-| `wrap`      | Whether items wrap to next line | `true`, `false`                                         | `false` |
-| `width`     | Group width                     | Number or "auto"                                        | "auto"  |
-| `height`    | Group height                    | Number or "auto"                                        | "auto"  |
+These properties apply only to groups and define how their child elements are arranged:
 
-#### 4.5.2 Item-Specific Flex Properties
+| Property    | Description                      | Values                                                  | Default | Applies to  |
+| ----------- | -------------------------------- | ------------------------------------------------------- | ------- | ----------- |
+| `direction` | Main axis direction              | `row`, `column`, `row-reverse`, `column-reverse`        | `row`   | Groups only |
+| `justify`   | Alignment along main axis        | `start`, `end`, `center`, `between`, `around`, `evenly` | `start` | Groups only |
+| `align`     | Default alignment for cross axis | `start`, `end`, `center`, `stretch`                     | `start` | Groups only |
+| `gap`       | Spacing between items            | Number                                                  | 0       | Groups only |
+| `padding`   | Internal padding within group    | Number or object with top/right/bottom/left             | 0       | Groups only |
+| `wrap`      | Whether items wrap to next line  | `true`, `false`                                         | `false` | Groups only |
 
-Individual items in a group can override layout properties:
+These properties establish the layout container's behavior, similar to CSS flexbox's container properties.
+
+#### 4.5.2 Item Layout Properties
+
+These properties can be applied to any object (text, image, barcode, or group) to control how it behaves within its parent group's layout:
 
 ```yaml
 - type: text
-  content: "Override group alignment"
-  flex:
-    align: end # Override alignment just for this item
-    grow: 1 # Take up available space (like flex-grow)
-    shrink: 1 # Shrink if needed (like flex-shrink)
-    basis: auto # Base size before growing/shrinking
-    order: 2 # Ordering within the flex container
+  content: "Override parent's alignment"
+  # Item layout properties - can be used on any object
+  align: end # Override parent's cross-axis alignment for just this item
+  grow: 1 # Take up available space (like flex-grow)
+  shrink: 1 # Shrink if needed (like flex-shrink)
+  basis: auto # Base size before growing/shrinking
+  order: 2 # Ordering within the flex container
 ```
 
-| Property | Description                        | Values                              | Default        |
-| -------- | ---------------------------------- | ----------------------------------- | -------------- |
-| `align`  | Override cross-axis alignment      | `start`, `end`, `center`, `stretch` | parent's align |
-| `grow`   | How much item can grow             | Number                              | 0              |
-| `shrink` | How much item can shrink           | Number                              | 1              |
-| `basis`  | Base size before growing/shrinking | Number or `auto`                    | `auto`         |
-| `order`  | Ordering within flex container     | Number                              | 0              |
+| Property | Description                        | Values                              | Default        | Applies to |
+| -------- | ---------------------------------- | ----------------------------------- | -------------- | ---------- |
+| `align`  | Override cross-axis alignment      | `start`, `end`, `center`, `stretch` | parent's align | Any object |
+| `grow`   | How much item can grow             | Number                              | 0              | Any object |
+| `shrink` | How much item can shrink           | Number                              | 1              | Any object |
+| `basis`  | Base size before growing/shrinking | Number or `auto`                    | `auto`         | Any object |
+| `order`  | Ordering within flex container     | Number                              | 0              | Any object |
+
+These properties allow individual items to override or adjust how they participate in their parent container's layout, similar to CSS flexbox's item properties.
+
+#### 4.5.3 How Container and Item Properties Work Together
+
+The flex layout system works on two levels:
+
+1. **Container Level** (groups): Define the overall layout direction and rules
+
+   - `direction` determines if items are arranged horizontally or vertically
+   - `align` sets the default cross-axis alignment for all children
+   - `justify` determines spacing along the main axis
+   - `gap` controls spacing between items
+
+2. **Item Level** (any object): Controls how an individual item behaves
+   - `align` can override the parent's default cross-axis alignment
+   - `grow`/`shrink`/`basis` control how an item sizes relative to siblings
+   - `order` changes where an item appears visually regardless of code order
+
+For example, if a group has `align: center`, all its children will be centered vertically (in row direction). But any child can override this with its own `align` property.
+
+### 4.6 Container Objects
+
+Container objects are a special type of organization element that behave similarly to groups but with one key distinction: they don't create a group element in the output XML.
+
+```yaml
+- type: container
+  id: header_section
+  # Container layout properties (same as groups)
+  direction: row
+  justify: between
+  align: center
+  gap: 10
+
+  objects: # Children of this container
+    - type: text
+      content: "Title"
+      font: Helsinki
+      size: 14
+    - type: image
+      source: "logo.png"
+      width: 20
+      height: 20
+```
+
+#### 4.6.1 Container vs. Group
+
+The key differences between containers and groups:
+
+| Feature                   | Container | Group |
+| ------------------------- | --------- | ----- |
+| Creates XML element       | No        | Yes   |
+| Adds visual box in output | No        | Yes   |
+| Adds border options       | No        | Yes   |
+| Can have background color | No        | Yes   |
+| Layout functionality      | Yes       | Yes   |
+| Positioning children      | Yes       | Yes   |
+
+Containers are "virtual" elements that exist only in the YAML file, not in the final LBX output. They serve as organizational tools to:
+
+1. Group related elements for easier YAML organization
+2. Apply layout properties (direction, justify, align) to a set of elements
+3. Avoid creating unnecessary group elements in the output XML
+
+#### 4.6.2 When to Use Containers vs. Groups
+
+Use a **container** when:
+
+- You want to organize and lay out elements in your YAML
+- You don't need a visible box or background in the final label
+- You want to minimize the XML output size and complexity
+
+Use a **group** when:
+
+- You need a visible containing box with borders in the final label
+- You want to set a background color for a set of elements
+- You need to treat multiple elements as a single entity in the final label
+
+#### 4.6.3 Container Properties
+
+Containers support the same layout properties as groups:
+
+| Property    | Description                      | Values                                                  | Default |
+| ----------- | -------------------------------- | ------------------------------------------------------- | ------- |
+| `direction` | Main axis direction              | `row`, `column`, `row-reverse`, `column-reverse`        | `row`   |
+| `justify`   | Alignment along main axis        | `start`, `end`, `center`, `between`, `around`, `evenly` | `start` |
+| `align`     | Default alignment for cross axis | `start`, `end`, `center`, `stretch`                     | `start` |
+| `gap`       | Spacing between items            | Number                                                  | 0       |
+| `padding`   | Layout padding (not visual)      | Number or object with top/right/bottom/left             | 0       |
+| `wrap`      | Whether items wrap to next line  | `true`, `false`                                         | `false` |
+
+The padding in containers is used only for layout calculations and doesn't create visual padding in the output.
 
 ## 5. Positioning System
 
@@ -521,12 +881,19 @@ Groups can use a flexbox-inspired layout system to automatically position and al
     - type: text
       name: center_text
       content: "Center"
+      grow: 1 # This item will grow to take up available space
+      align: start # Override: aligns to top instead of center
     - type: text
       name: right_text
       content: "Right"
 ```
 
-This creates a row with three evenly spaced text elements, centered vertically.
+In this example:
+
+- The group defines a row direction with items spaced evenly between them
+- All items are vertically centered by default (group's `align: center`)
+- The middle "Center" text overrides the alignment with its own `align: start`
+- The middle text also takes up any extra space with `grow: 1`
 
 #### 5.2.2 Column Layout (Vertical)
 
@@ -545,32 +912,16 @@ This creates a row with three evenly spaced text elements, centered vertically.
       source: "middle.png"
       width: 20
       height: 20
+      align: start # Left align this image, overriding the center alignment
     - type: text
       content: "Bottom"
 ```
 
-This creates a column with items centered horizontally, with 8pt spacing between them.
+In this example:
 
-#### 5.2.3 Individual Item Overrides
-
-```yaml
-- type: group
-  direction: row
-  align: center
-  justify: start
-  objects:
-    - type: text
-      content: "Regular"
-    - type: text
-      content: "Grows to fill space"
-      flex:
-        grow: 1
-        align: start # Aligns to top
-    - type: text
-      content: "Last but shown first"
-      flex:
-        order: -1 # Changes display order
-```
+- The group defines a column layout with items starting at the top
+- All items are horizontally centered by default
+- The middle image overrides this with `align: start` to left-align itself
 
 ### 5.3 Auto-Sizing and Content Adaptation
 
@@ -611,15 +962,17 @@ Groups can dynamically adjust their dimensions based on their content:
   x: 10
   y: 5
   direction: column
-  height: auto # Automatically size height to content
-  width: 120 # Keep fixed width
+  height: auto # Automatically size height to content (default if omitted)
+  width: auto # Automatically size width to content (default if omitted)
   objects:
     - type: text
       content: "First line"
     - type: text
       content: "Second line"
-    # Group height will adjust to fit all content
+    # Group dimensions will adjust to fit all content
 ```
+
+When `width` and/or `height` are set to `auto` or omitted, the group will automatically calculate its dimensions based on the positions and sizes of its child elements, ensuring it properly contains all children with appropriate padding.
 
 ## 6. Style Inheritance
 
@@ -695,63 +1048,46 @@ objects:
 ### 7.3 Product Label with Flat Structure and Flexbox Layout
 
 ```yaml
-# Label properties at root level
+# Label properties
 size: 24mm
 width: 100mm
 orientation: landscape
 
-# Main container group that uses flex layout
-- type: group
-  x: 5
-  y: 5
-  direction: column
-  justify: between
-  gap: 10
-  padding: 5
-  objects:
-    # Header section
-    - type: group
-      direction: column
-      align: center
-      gap: 5
-      objects:
-        - type: text
-          content: "PRODUCT LABEL"
-          font: Helsinki
-          size: 16
-          bold: true
+# Root level layout properties (container properties)
+direction: column
+align: center
+gap: 10
 
-        - type: text
-          content: "Serial Number"
-          size: 10
-          italic: true
+objects:
+  # Header with centered content
+  - type: text
+    content: "PRODUCT LABEL"
+    font: Helsinki
+    size: 16
+    bold: true
 
-    # Middle section with logo and barcode side by side
-    - type: group
-      direction: row
-      justify: center
-      gap: 15
-      align: center
-      objects:
-        - type: image
-          source: "logo.png"
-          width: 25
-          height: 25
-          monochrome: true
+  # Middle section with item-specific alignment override
+  - type: text
+    content: "Serial Number"
+    size: 10
+    italic: true
+    align: end # Item property: overrides the root container's center alignment
 
-        - type: barcode
-          barcodeType: qr
-          data: "https://example.com/product"
-          size: 30
-
-    # Footer with additional info
-    - type: text
-      content: "Scan for details"
-      size: 8
-      align: center
+  # Bottom QR code that appears first in order
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com/product"
+    size: 30
+    order: -1 # Item property: makes this appear before other elements
 ```
 
-### 7.4 Label with Mixed Positioning Systems
+This example demonstrates:
+
+1. Root level container properties for overall layout
+2. An individual text element with its own alignment that overrides the container's alignment
+3. A barcode that uses the `order` property to change its visual position
+
+### 7.4 Mixed Positioning Systems
 
 ```yaml
 size: 24mm
@@ -770,17 +1106,16 @@ objects:
   - type: group
     x: 10
     y: 20
-    direction: row
-    justify: between
-    align: center
+    direction: row # Container property
+    justify: between # Container property
+    align: center # Container property
     objects:
       - type: text
         content: "Left"
       - type: text
         content: "Center"
-        flex:
-          grow: 1
-          align: center
+        grow: 1 # Item property: grows to fill available space
+        align: center # Item property: maintains center alignment
       - type: text
         content: "Right"
 ```
@@ -823,42 +1158,75 @@ objects:
 
 ### 7.6 QR Code Examples
 
+#### QR Code Size Options
+
+The `size` parameter for QR codes controls the cell size (or module size) and can be specified in multiple ways:
+
+**Point sizes** (exact sizes):
+
+- `"0.8pt"` - Small
+- `"1.2pt"` - Medium Small
+- `"1.6pt"` - Medium
+- `"2pt"` - Medium Large
+- `"2.4pt"` - Large
+
+**Numeric indexes** (1-5):
+
+- `1` - Small (0.8pt)
+- `2` - Medium Small (1.2pt)
+- `3` - Medium (1.6pt)
+- `4` - Medium Large (2pt) - Default
+- `5` - Large (2.4pt)
+
+**String aliases** (case insensitive):
+
+- `"small"` or `"sm"` - Small (0.8pt)
+- `"medium small"`, `"mediumsmall"`, `"smallmedium"`, `"mdsm"`, or `"smmd"` - Medium Small (1.2pt)
+- `"medium"` or `"md"` - Medium (1.6pt)
+- `"medium large"`, `"mediumlarge"`, `"largemedium"`, `"mdlg"`, or `"lgmd"` - Medium Large (2pt)
+- `"large"` or `"lg"` - Large (2.4pt)
+
+The default is Medium Large (2pt) which provides good readability for most QR codes.
+
+#### QR Code Examples
+
 ```yaml
-# Basic QR code with default settings
-- type: barcode
-  barcodeType: qr
-  data: "https://example.com"
+# Basic QR code with default settings (Medium Large cell size - 2pt)
+- type: qr
+  data: https://example.com
   x: 10
   y: 10
-  size: 40
+  size: 40 # Overall size of the QR code area
 
-# QR code with high error correction
-- type: barcode
-  barcodeType: qr
-  data: "https://example.com"
-  x: 60
+# QR code with small cell size
+- type: qr
+  data: https://example.com
+  x: 10
   y: 10
-  size: 50
-  errorCorrection: H
+  size: sm # Small (0.8pt)
 
-# QR code with specific cell size
-- type: barcode
-  barcodeType: qr
-  data: "https://example.com"
-  x: 120
+# QR code with medium cell size and high error correction
+- type: qr
+  data: https://example.com
+  x: 10
   y: 10
-  size: 60
-  errorCorrection: M
-  cellSize: 2
+  size: md # Medium (1.6pt)
+  correction: H
+
+# QR code with explicit point size
+- type: qr
+  data: https://example.com
+  x: 10
+  y: 10
+  size: "2.4pt" # Large (same as size: 5)
+  correction: M
 
 # QR code with fixed version
-- type: barcode
-  barcodeType: qr
-  data: "https://example.com"
-  x: 190
-  y: 10
-  size: 80
-  errorCorrection: Q
+- type: qr
+  data: https://example.com
+  x: 10
+  y: 20
+  size: 3 # Medium (1.6pt)
   version: 5
 ```
 
@@ -870,11 +1238,11 @@ size: 12mm
 width: 90mm
 orientation: landscape
 
-# Layout properties at root level (acts as an implicit group)
-direction: column
-align: center
-justify: center
-gap: 10
+# Layout properties at root level (container properties)
+direction: column # Main axis is vertical
+align: center # Center items horizontally
+justify: center # Center vertically within available space
+gap: 10 # 10pt spacing between items
 
 # Objects directly at root level, arranged by the layout
 - type: text
@@ -886,16 +1254,25 @@ gap: 10
   content: "Subtitle"
   size: 12
   italic: true
+  align: start # Item property: override to left-align this item
 
 - type: barcode
   barcodeType: qr
   data: "https://example.com"
   size: 40
+  grow: 1 # Item property: this element will take extra space
 
 - type: text
   content: "Scan for more info"
   size: 10
 ```
+
+This example shows:
+
+1. Root-level container properties creating an implicit group
+2. Automatic vertical arrangement with centered alignment
+3. Individual items overriding specific aspects of the layout
+4. Mixed content types (text and barcode) sharing the same layout rules
 
 ### 7.8 Complex Example with All Features/Properties
 
@@ -931,8 +1308,7 @@ padding: 10
       width: 35
       height: 35
       monochrome: true
-      transparency: true
-      transparency_color: "#FFFFFF"
+      transparency: true # Uses white by default, but can specify a different color here to enable transparency for a specific color
 
     # Title with multiple formatting options
     - type: text
@@ -1059,8 +1435,7 @@ padding: 10
       content: "Rev. A"
       size: 10
       align: center
-      flex:
-        grow: 1
+      grow: 1
 
     - type: barcode
       barcodeType: code128

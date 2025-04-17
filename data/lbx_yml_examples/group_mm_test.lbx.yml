@@ -1,0 +1,16 @@
+size: 24mm
+width: 100mm
+orientation: landscape
+objects:
+- x: 10mm
+  y: 10mm
+  width: 60mm
+  height: 20mm
+  background_color: '#F0F0F0'
+  border_style: INSIDEFRAME
+  objects:
+  - align: center
+    font: Helsinki
+    size: 10
+    text: Group with mm coordinates
+  group: mm_group

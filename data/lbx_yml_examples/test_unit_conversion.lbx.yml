@@ -1,0 +1,22 @@
+# Test unit conversion
+# Testing different unit specifications
+
+size: 24mm
+width: 90mm
+orientation: landscape
+align: center
+gap: 5mm # Using mm with unit suffix
+
+objects:
+  - qr: "https://example.com"
+    x: 10pt # Using point units
+    y: 10mm # Using mm units
+    size: 30
+    correction: M
+
+  - qr: "https://example.com/product"
+    x: 100mm # Using mm units
+    y: 10pt # Using point units
+    size: 40
+    correction: H
+    cellSize: 2

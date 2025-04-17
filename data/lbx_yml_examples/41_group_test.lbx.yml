@@ -4,26 +4,20 @@ width: 100mm
 orientation: landscape
 
 objects:
-  - type: group
-    id: main_container
-    name: Group_main_container
-    x: 10
-    y: 10
-    width: 80mm
-    height: 40mm
-    direction: column
+  - group: "Group_main_container"
+    x: 10mm
+    y: 10mm
+    direction: row
     align: center
     gap: 5
     objects:
-      - type: text
-        content: "Group Example"
+      - text: "Group Example"
         font: Helsinki
         size: 14
         bold: true
         name: Header_Text
 
-      - type: text
-        content: "This is a simple test of group layout"
+      - text: "This is a simple test of group layout"
         font: Helsinki
         size: 10
         name: Description_Text

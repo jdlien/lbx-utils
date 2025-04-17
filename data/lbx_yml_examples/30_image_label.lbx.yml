@@ -7,8 +7,7 @@ orientation: landscape
 
 objects:
   # Company logo
-  - type: image
-    source: "logo.png"
+  - image: "logo.png"
     x: 10
     y: 10
     width: 30
@@ -18,8 +17,7 @@ objects:
     transparency_color: "#FFFFFF"
 
   # Product image
-  - type: image
-    source: "product.png"
+  - image: "product.png"
     x: 50
     y: 10
     width: 30
@@ -27,16 +25,14 @@ objects:
     monochrome: false
 
   # Company name
-  - type: text
-    content: "ACME Corporation"
+  - text: "ACME Corporation"
     x: 10
     y: 45
     size: 14
     bold: true
 
   # Product name
-  - type: text
-    content: "Premium Widget"
+  - text: "Premium Widget"
     x: 50
     y: 45
     size: 12

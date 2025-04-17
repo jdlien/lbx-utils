@@ -21,6 +21,8 @@ import matplotlib
 import warnings
 from scipy import stats
 import matplotlib.patches as mpatches
+from collections import defaultdict
+import argparse
 
 # Suppress the specific matplotlib deprecation warning about 'labels' parameter
 warnings.filterwarnings("ignore", message="The 'labels' parameter of boxplot")
@@ -50,6 +52,12 @@ TECHNIQUES = [
 # Add Core Text technique if on macOS
 if platform.system() == "Darwin" and hasattr(CalculationMethod, "CORE_TEXT"):
     TECHNIQUES.insert(1, CalculationMethod.CORE_TEXT)  # Add as second priority after Skia
+
+# Constants for inter-character spacing analysis
+SPACING_MIN = 0.0
+SPACING_MAX = 3.0
+SPACING_STEP = 0.1
+DEFAULT_SPACING = 0.1  # Current default value
 
 def format_technique_name(technique: str) -> str:
     """Format technique name for display in reports and plots."""
@@ -549,43 +557,422 @@ def generate_regression_report(regression_models: Dict[str, Dict[str, Any]], ava
 
     return "\n".join(md)
 
-def main():
+def analyze_character_spacing(calculator, technique, reference_data=None):
     """
-    Main function to run the comparison script.
+    Analyze different inter-character spacing values to find the optimal value.
+
+    Args:
+        calculator: TextDimensionCalculator instance
+        technique: The calculation method to use
+        reference_data: Optional list of reference data points (uses PTOUCH_REFERENCE_DATA if None)
+
+    Returns:
+        Dictionary with statistics about optimal spacing values
     """
-    # Create calculator without adjustments - we want to compare the raw calculations
-    # and calculate our own adjustment factors
-    calculator = TextDimensionCalculator(
-        debug=False,
-        allow_fallbacks=True,
-        allow_font_substitution=True,
-        allow_approximation=True,
-        apply_ptouch_adjustments=False,  # No adjustments
-        apply_technique_adjustments=False,  # No adjustments
-        use_linear_adjustments=True
-    )
+    if reference_data is None:
+        reference_data = PTOUCH_REFERENCE_DATA
 
-    # Run the comparison with raw calculations
-    run_comparison_and_create_reports(calculator)
+    # Create spacing values to test
+    spacing_values = [round(SPACING_MIN + i * SPACING_STEP, 1) for i in range(int((SPACING_MAX - SPACING_MIN) / SPACING_STEP) + 1)]
 
-    # Also run a comparison with linear adjustments to analyze how well they work
-    print("\n\n================================================================================")
-    print("COMPARISON WITH LINEAR ADJUSTMENTS APPLIED")
-    print("================================================================================")
+    # Data structures to store results
+    spacing_errors = {spacing: {'widths': [], 'width_error': 0, 'abs_width_error': 0} for spacing in spacing_values}
 
-    # Create calculator with linear adjustments
-    calculator_with_adjustments = TextDimensionCalculator(
-        debug=False,
-        allow_fallbacks=True,
-        allow_font_substitution=True,
-        allow_approximation=True,
-        apply_ptouch_adjustments=False,
-        apply_technique_adjustments=True,  # Apply adjustments
-        use_linear_adjustments=True
-    )
+    # Test each reference data point with each spacing value
+    for ref_data in reference_data:
+        text = ref_data["text"]
+        font_name = ref_data["font_name"]
+        size = ref_data["size"]
+        weight = ref_data["weight"]
+        italic = ref_data["italic"]
+        ref_width = ref_data["width"]
 
-    # Run a separate comparison with adjustments applied
-    run_comparison_with_adjustments(calculator_with_adjustments)
+        # Only process text with more than one character (inter-character spacing doesn't affect single chars)
+        if len(text) <= 1:
+            continue
+
+        for spacing in spacing_values:
+            try:
+                # Calculate with specified spacing value but without other adjustments
+                # This lets us isolate the effect of just the inter-character spacing
+                calc_width, _ = calculator.calculate_text_dimensions(
+                    text=text,
+                    font_name=font_name,
+                    size=size,
+                    weight=weight,
+                    italic=italic,
+                    method=technique,
+                    apply_adjustments=False,
+                    inter_character_spacing=spacing
+                )
+
+                # Calculate percentage error
+                diff_pct = ((calc_width - ref_width) / ref_width) * 100
+
+                # Store the results
+                spacing_errors[spacing]['widths'].append(diff_pct)
+
+            except Exception as e:
+                # Skip if calculation fails
+                continue
+
+    # Calculate average error for each spacing value
+    for spacing, data in spacing_errors.items():
+        if data['widths']:
+            data['width_error'] = sum(data['widths']) / len(data['widths'])
+            data['abs_width_error'] = sum(abs(d) for d in data['widths']) / len(data['widths'])
+
+    # Find the spacing value with the lowest absolute error
+    best_spacing = min(spacing_values, key=lambda s: spacing_errors[s]['abs_width_error']
+                       if spacing_errors[s]['widths'] else float('inf'))
+
+    # Group by font and find best spacing for each font
+    font_specific = {}
+    for ref_data in reference_data:
+        if len(ref_data["text"]) <= 1:
+            continue
+
+        font_name = ref_data["font_name"]
+        if font_name not in font_specific:
+            font_specific[font_name] = {spacing: {'widths': [], 'width_error': 0, 'abs_width_error': 0}
+                                       for spacing in spacing_values}
+
+    for ref_data in reference_data:
+        if len(ref_data["text"]) <= 1:
+            continue
+
+        text = ref_data["text"]
+        font_name = ref_data["font_name"]
+        size = ref_data["size"]
+        weight = ref_data["weight"]
+        italic = ref_data["italic"]
+        ref_width = ref_data["width"]
+
+        for spacing in spacing_values:
+            try:
+                calc_width, _ = calculator.calculate_text_dimensions(
+                    text=text,
+                    font_name=font_name,
+                    size=size,
+                    weight=weight,
+                    italic=italic,
+                    method=technique,
+                    apply_adjustments=False,
+                    inter_character_spacing=spacing
+                )
+
+                diff_pct = ((calc_width - ref_width) / ref_width) * 100
+                font_specific[font_name][spacing]['widths'].append(diff_pct)
+
+            except Exception:
+                continue
+
+    # Calculate average errors for each font
+    font_best_spacing = {}
+    for font_name, spacing_data in font_specific.items():
+        for spacing, data in spacing_data.items():
+            if data['widths']:
+                data['width_error'] = sum(data['widths']) / len(data['widths'])
+                data['abs_width_error'] = sum(abs(d) for d in data['widths']) / len(data['widths'])
+
+        # Find best spacing for this font
+        best_font_spacing = min(spacing_values, key=lambda s: font_specific[font_name][s]['abs_width_error']
+                               if font_specific[font_name][s]['widths'] else float('inf'))
+
+        font_best_spacing[font_name] = {
+            'best_spacing': best_font_spacing,
+            'error': font_specific[font_name][best_font_spacing]['width_error'],
+            'abs_error': font_specific[font_name][best_font_spacing]['abs_width_error']
+        }
+
+    # Check if spacing should scale with font size
+    # Group by font size and find best spacing for each size
+    size_specific = {}
+    for ref_data in reference_data:
+        if len(ref_data["text"]) <= 1:
+            continue
+
+        size = ref_data["size"]
+        if size not in size_specific:
+            size_specific[size] = {spacing: {'widths': [], 'width_error': 0, 'abs_width_error': 0}
+                                  for spacing in spacing_values}
+
+    for ref_data in reference_data:
+        if len(ref_data["text"]) <= 1:
+            continue
+
+        text = ref_data["text"]
+        font_name = ref_data["font_name"]
+        size = ref_data["size"]
+        weight = ref_data["weight"]
+        italic = ref_data["italic"]
+        ref_width = ref_data["width"]
+
+        for spacing in spacing_values:
+            try:
+                calc_width, _ = calculator.calculate_text_dimensions(
+                    text=text,
+                    font_name=font_name,
+                    size=size,
+                    weight=weight,
+                    italic=italic,
+                    method=technique,
+                    apply_adjustments=False,
+                    inter_character_spacing=spacing
+                )
+
+                diff_pct = ((calc_width - ref_width) / ref_width) * 100
+                size_specific[size][spacing]['widths'].append(diff_pct)
+
+            except Exception:
+                continue
+
+    # Calculate average errors for each size
+    size_best_spacing = {}
+    for size, spacing_data in size_specific.items():
+        for spacing, data in spacing_data.items():
+            if data['widths']:
+                data['width_error'] = sum(data['widths']) / len(data['widths'])
+                data['abs_width_error'] = sum(abs(d) for d in data['widths']) / len(data['widths'])
+
+        # Find best spacing for this size
+        best_size_spacing = min(spacing_values, key=lambda s: size_specific[size][s]['abs_width_error']
+                               if size_specific[size][s]['widths'] else float('inf'))
+
+        size_best_spacing[size] = {
+            'best_spacing': best_size_spacing,
+            'error': size_specific[size][best_size_spacing]['width_error'],
+            'abs_error': size_specific[size][best_size_spacing]['abs_width_error']
+        }
+
+    # Analyze if spacing scales with font size
+    sizes = sorted(size_best_spacing.keys())
+    spacings = [size_best_spacing[size]['best_spacing'] for size in sizes]
+
+    # Check if there's a correlation between size and spacing
+    # If spacings increase with size, it might indicate scaling is needed
+    correlation = None
+    slope = None
+    if len(sizes) > 1:
+        try:
+            from scipy import stats
+            correlation, p_value = stats.pearsonr(sizes, spacings)
+            # Calculate linear regression to find the scaling formula
+            slope, intercept, r_value, p_value, std_err = stats.linregress(sizes, spacings)
+        except Exception:
+            # If scipy isn't available, don't calculate correlation
+            pass
+
+    return {
+        'best_spacing': best_spacing,
+        'error': spacing_errors[best_spacing]['width_error'],
+        'abs_error': spacing_errors[best_spacing]['abs_width_error'],
+        'font_specific': font_best_spacing,
+        'size_specific': size_best_spacing,
+        'size_correlation': correlation,
+        'size_slope': slope,
+        'spacing_values': spacing_values,
+        'spacing_errors': spacing_errors
+    }
+
+def plot_spacing_analysis(spacing_analysis, technique_name):
+    """
+    Create plots for inter-character spacing analysis.
+
+    Args:
+        spacing_analysis: Results from analyze_character_spacing()
+        technique_name: Name of the technique used
+    """
+    import matplotlib.pyplot as plt
+
+    # Create a plots directory if it doesn't exist
+    os.makedirs("plots", exist_ok=True)
+
+    # Plot spacing vs error
+    plt.figure(figsize=(12, 8))
+
+    spacing_values = spacing_analysis['spacing_values']
+    errors = [spacing_analysis['spacing_errors'][s]['width_error'] for s in spacing_values]
+    abs_errors = [spacing_analysis['spacing_errors'][s]['abs_width_error'] for s in spacing_values]
+
+    plt.plot(spacing_values, errors, 'b-', label='Average Error (%)')
+    plt.plot(spacing_values, abs_errors, 'r-', label='Mean Absolute Error (%)')
+
+    # Mark the best spacing
+    best_spacing = spacing_analysis['best_spacing']
+    plt.axvline(x=best_spacing, color='g', linestyle='--', label=f'Best Value: {best_spacing}')
+
+    # Mark the current default spacing
+    plt.axvline(x=DEFAULT_SPACING, color='m', linestyle='--', label=f'Current Default: {DEFAULT_SPACING}')
+
+    plt.xlabel('Inter-Character Spacing (points)')
+    plt.ylabel('Width Error (%)')
+    plt.title(f'Inter-Character Spacing Analysis - {technique_name}')
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.savefig(f"plots/spacing_analysis_{technique_name.lower().replace(' ', '_')}.png")
+
+    # Plot spacing by font
+    plt.figure(figsize=(12, 8))
+
+    fonts = list(spacing_analysis['font_specific'].keys())
+    font_spacings = [spacing_analysis['font_specific'][f]['best_spacing'] for f in fonts]
+
+    plt.bar(range(len(fonts)), font_spacings)
+    plt.xticks(range(len(fonts)), fonts, rotation=45, ha='right')
+    plt.axhline(y=best_spacing, color='g', linestyle='--', label=f'Overall Best: {best_spacing}')
+    plt.axhline(y=DEFAULT_SPACING, color='m', linestyle='--', label=f'Current Default: {DEFAULT_SPACING}')
+
+    plt.xlabel('Font')
+    plt.ylabel('Optimal Spacing (points)')
+    plt.title(f'Optimal Spacing by Font - {technique_name}')
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"plots/font_spacing_{technique_name.lower().replace(' ', '_')}.png")
+
+    # Plot spacing by font size if we have size-specific data
+    if spacing_analysis['size_specific']:
+        plt.figure(figsize=(12, 8))
+
+        sizes = sorted(spacing_analysis['size_specific'].keys())
+        size_spacings = [spacing_analysis['size_specific'][s]['best_spacing'] for s in sizes]
+
+        plt.plot(sizes, size_spacings, 'bo-')
+
+        # Add regression line if correlation was calculated
+        if spacing_analysis['size_slope'] is not None:
+            slope = spacing_analysis['size_slope']
+            intercept = size_spacings[0] - slope * sizes[0]  # Calculate intercept
+
+            # Plot regression line
+            x_line = [min(sizes), max(sizes)]
+            y_line = [slope * x + intercept for x in x_line]
+            plt.plot(x_line, y_line, 'r-', label=f'y = {slope:.4f}x + {intercept:.4f}')
+
+            # Add correlation info
+            corr = spacing_analysis['size_correlation']
+            if corr is not None:
+                plt.text(0.05, 0.95, f'Correlation: {corr:.4f}', transform=plt.gca().transAxes,
+                         bbox=dict(facecolor='white', alpha=0.7))
+
+        plt.axhline(y=best_spacing, color='g', linestyle='--', label=f'Overall Best: {best_spacing}')
+        plt.axhline(y=DEFAULT_SPACING, color='m', linestyle='--', label=f'Current Default: {DEFAULT_SPACING}')
+
+        plt.xlabel('Font Size (points)')
+        plt.ylabel('Optimal Spacing (points)')
+        plt.title(f'Optimal Spacing by Font Size - {technique_name}')
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.savefig(f"plots/size_spacing_{technique_name.lower().replace(' ', '_')}.png")
+
+def generate_spacing_report(spacing_analysis, technique_name):
+    """
+    Generate a markdown report for inter-character spacing analysis.
+
+    Args:
+        spacing_analysis: Results from analyze_character_spacing()
+        technique_name: Name of the technique used
+
+    Returns:
+        Markdown formatted report as a string
+    """
+    md = []
+
+    # Title and introduction
+    md.append(f"# Inter-Character Spacing Analysis - {technique_name}")
+    md.append("\nThis report analyzes the optimal inter-character spacing values to match P-touch Editor reference dimensions.")
+
+    # Overall best spacing
+    best_spacing = spacing_analysis['best_spacing']
+    error = spacing_analysis['error']
+    abs_error = spacing_analysis['abs_error']
+
+    md.append("\n## Overall Best Spacing")
+    md.append(f"\n- **Optimal spacing**: {best_spacing:.1f} points")
+    md.append(f"- **Average error**: {error:.2f}%")
+    md.append(f"- **Mean absolute error**: {abs_error:.2f}%")
+    md.append(f"- **Current default**: {DEFAULT_SPACING} points")
+
+    # Font-specific spacing values
+    md.append("\n## Font-Specific Optimal Spacing")
+    md.append("\n| Font | Optimal Spacing | Error (%) | Abs Error (%) |")
+    md.append("| --- | --- | --- | --- |")
+
+    for font, data in sorted(spacing_analysis['font_specific'].items()):
+        md.append(f"| {font} | {data['best_spacing']:.1f} | {data['error']:.2f}% | {data['abs_error']:.2f}% |")
+
+    # Size-specific spacing values
+    md.append("\n## Size-Specific Optimal Spacing")
+    md.append("\n| Font Size | Optimal Spacing | Error (%) | Abs Error (%) |")
+    md.append("| --- | --- | --- | --- |")
+
+    for size, data in sorted(spacing_analysis['size_specific'].items()):
+        md.append(f"| {size:.1f} | {data['best_spacing']:.1f} | {data['error']:.2f}% | {data['abs_error']:.2f}% |")
+
+    # Correlation with font size
+    md.append("\n## Relationship with Font Size")
+
+    if spacing_analysis['size_correlation'] is not None:
+        correlation = spacing_analysis['size_correlation']
+        slope = spacing_analysis['size_slope']
+
+        md.append(f"\n- **Correlation coefficient**: {correlation:.4f}")
+
+        if abs(correlation) > 0.7:
+            md.append("- **Interpretation**: Strong correlation between font size and optimal spacing")
+            md.append("\n### Scaling Formula")
+
+            if slope is not None:
+                # Calculate intercept
+                sizes = sorted(spacing_analysis['size_specific'].keys())
+                size_spacings = [spacing_analysis['size_specific'][s]['best_spacing'] for s in sizes]
+                intercept = size_spacings[0] - slope * sizes[0]
+
+                md.append(f"\n```python")
+                md.append(f"inter_character_spacing = {slope:.6f} * font_size + {intercept:.6f}")
+                md.append(f"```")
+
+                md.append("\nThis formula can be used to automatically adjust inter-character spacing based on font size.")
+        elif abs(correlation) > 0.3:
+            md.append("- **Interpretation**: Moderate correlation between font size and optimal spacing")
+        else:
+            md.append("- **Interpretation**: Weak or no correlation between font size and optimal spacing")
+            md.append("\nA fixed spacing value is likely sufficient for all font sizes.")
+    else:
+        md.append("\nCorrelation analysis not available.")
+
+    # Recommendations
+    md.append("\n## Recommendations")
+
+    if abs(spacing_analysis.get('size_correlation', 0) or 0) > 0.7:
+        md.append("\nBased on the analysis, we recommend implementing a dynamic inter-character spacing that scales with font size:")
+
+        sizes = sorted(spacing_analysis['size_specific'].keys())
+        size_spacings = [spacing_analysis['size_specific'][s]['best_spacing'] for s in sizes]
+        slope = spacing_analysis['size_slope']
+        intercept = size_spacings[0] - slope * sizes[0]
+
+        md.append(f"\n```python")
+        md.append(f"inter_character_spacing = {slope:.6f} * font_size + {intercept:.6f}")
+        md.append(f"```")
+    else:
+        if abs(best_spacing - DEFAULT_SPACING) < 0.2:
+            md.append(f"\nThe current default spacing of {DEFAULT_SPACING} points is very close to the optimal value of {best_spacing:.1f} points.")
+            md.append("\nNo change is recommended at this time.")
+        else:
+            md.append(f"\nBased on the analysis, we recommend changing the default inter-character spacing from {DEFAULT_SPACING} to {best_spacing:.1f} points.")
+            md.append("\nThis should improve text width accuracy by reducing the average error.")
+
+    # Add references to plots
+    md.append("\n## Visualizations")
+    md.append(f"\n![Spacing Analysis](plots/spacing_analysis_{technique_name.lower().replace(' ', '_')}.png)")
+    md.append(f"\n![Font-Specific Spacing](plots/font_spacing_{technique_name.lower().replace(' ', '_')}.png)")
+
+    if spacing_analysis['size_specific']:
+        md.append(f"\n![Size-Specific Spacing](plots/size_spacing_{technique_name.lower().replace(' ', '_')}.png)")
+
+    return "\n".join(md)
 
 def run_comparison_with_adjustments(calculator):
     """
@@ -698,6 +1085,520 @@ def run_comparison_with_adjustments(calculator):
     print("SUMMARY STATISTICS WITH LINEAR ADJUSTMENTS APPLIED")
     print("=" * 80)
     print(tabulate(summary_stats, headers="keys", tablefmt="grid"))
+
+    return summary_stats
+
+def compare_spacing_values_directly(technique=CalculationMethod.SKIA):
+    """
+    Directly compare different inter-character spacing values against reference data.
+    """
+    print("\n================================================================================")
+    print("DIRECT COMPARISON OF INTER-CHARACTER SPACING VALUES")
+    print("================================================================================")
+
+    # Spacing values to test
+    spacing_values = [0.0, 0.5, 1.0, 1.3, 1.5, 2.0, 2.5, 3.0]
+
+    # Create calculators with different spacing values
+    calculators = {
+        spacing: TextDimensionCalculator(
+            debug=False,
+            allow_fallbacks=True,
+            allow_font_substitution=True,
+            allow_approximation=True,
+            apply_ptouch_adjustments=False,
+            apply_technique_adjustments=False,
+            inter_character_spacing=spacing
+        ) for spacing in spacing_values
+    }
+
+    # Data structure to store results
+    results = []
+
+    # Process each reference data point
+    for ref_data in PTOUCH_REFERENCE_DATA:
+        text = ref_data["text"]
+        font_name = ref_data["font_name"]
+        size = ref_data["size"]
+        weight = ref_data["weight"]
+        italic = ref_data["italic"]
+        ref_width = ref_data["width"]
+        ref_height = ref_data["height"]
+
+        # Skip single characters as spacing doesn't affect them
+        if len(text) <= 1:
+            continue
+
+        row_data = {
+            "text": text,
+            "font_name": font_name,
+            "size": size,
+            "weight": weight,
+            "p-touch_width": ref_width,
+        }
+
+        # Calculate with each spacing value
+        for spacing in spacing_values:
+            try:
+                calc_width, _ = calculators[spacing].calculate_text_dimensions(
+                    text=text,
+                    font_name=font_name,
+                    size=size,
+                    weight=weight,
+                    italic=italic,
+                    method=technique
+                )
+
+                # Calculate difference
+                width_diff = calc_width - ref_width
+                width_diff_pct = (width_diff / ref_width) * 100
+
+                # Store results
+                row_data[f"spacing_{spacing}_width"] = calc_width
+                row_data[f"spacing_{spacing}_diff"] = width_diff
+                row_data[f"spacing_{spacing}_diff_pct"] = width_diff_pct
+
+            except Exception as e:
+                row_data[f"spacing_{spacing}_width"] = None
+                row_data[f"spacing_{spacing}_diff"] = None
+                row_data[f"spacing_{spacing}_diff_pct"] = None
+
+        results.append(row_data)
+
+    # Convert to DataFrame
+    df = pd.DataFrame(results)
+
+    # Print summary statistics for each spacing value
+    summary_stats = []
+    for spacing in spacing_values:
+        diff_col = f"spacing_{spacing}_diff_pct"
+        if diff_col in df.columns:
+            diff_values = df[diff_col].dropna().values
+
+            if len(diff_values) > 0:
+                avg_diff = float(np.mean(diff_values))
+                median_diff = float(np.median(diff_values))
+                abs_diff = float(np.mean(np.abs(diff_values)))
+                std_diff = float(np.std(diff_values))
+
+                summary_stats.append({
+                    "Spacing": f"{spacing:.1f}pt",
+                    "Avg Width Diff (%)": f"{avg_diff:+.1f}%",
+                    "Median Width Diff (%)": f"{median_diff:+.1f}%",
+                    "MAPE Width (%)": f"{abs_diff:.1f}%",
+                    "Std Width Diff (%)": f"{std_diff:.1f}%",
+                })
+
+    print("\n" + "=" * 80)
+    print("COMPARISON OF INTER-CHARACTER SPACING VALUES")
+    print("=" * 80)
+    print(tabulate(summary_stats, headers="keys", tablefmt="grid"))
+
+    # Generate visualization
+    try:
+        import matplotlib.pyplot as plt
+
+        # Create a directory for plots if it doesn't exist
+        os.makedirs("plots", exist_ok=True)
+
+        # Extract data for plotting
+        plot_data = {
+            spacing: df[f"spacing_{spacing}_diff_pct"].dropna().values
+            for spacing in spacing_values
+            if f"spacing_{spacing}_diff_pct" in df.columns and len(df[f"spacing_{spacing}_diff_pct"].dropna()) > 0
+        }
+
+        # Create boxplot
+        plt.figure(figsize=(12, 6))
+        plt.boxplot(list(plot_data.values()), labels=[f"{s:.1f}pt" for s in plot_data.keys()])
+
+        plt.axhline(y=0, color='k', linestyle='--', alpha=0.3)
+        plt.title("Width Difference by Inter-Character Spacing")
+        plt.xlabel("Inter-Character Spacing")
+        plt.ylabel("Width Difference (%)")
+        plt.grid(axis="y", alpha=0.3)
+        plt.savefig("plots/spacing_comparison_boxplot.png")
+
+        # Create scatter plot of actual vs calculated widths for each spacing
+        plt.figure(figsize=(14, 10))
+
+        for i, spacing in enumerate(spacing_values):
+            width_col = f"spacing_{spacing}_width"
+            if width_col in df.columns:
+                valid_data = df[~df[width_col].isna()]
+                if len(valid_data) > 0:
+                    plt.subplot(2, 4, i+1)
+                    plt.scatter(valid_data["p-touch_width"], valid_data[width_col], alpha=0.7)
+
+                    # Add diagonal reference line
+                    max_val = max(valid_data["p-touch_width"].max(), valid_data[width_col].max())
+                    plt.plot([0, max_val], [0, max_val], 'k--', alpha=0.3)
+
+                    plt.title(f"Spacing: {spacing:.1f}pt")
+                    plt.xlabel("P-touch Width (pt)")
+                    plt.ylabel("Calculated Width (pt)")
+                    plt.grid(alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig("plots/spacing_scatter_comparison.png")
+
+        print("Created spacing comparison visualizations.")
+    except Exception as e:
+        print(f"Error creating plots: {str(e)}")
+
+    # Save detailed results
+    csv_path = "spacing_comparison_results.csv"
+    df.to_csv(csv_path, index=False)
+    print(f"Detailed results saved to: {csv_path}")
+
+    return df, summary_stats
+
+def compare_dynamic_vs_fixed_spacing(technique=CalculationMethod.SKIA):
+    """
+    Compare the accuracy of dynamic spacing vs fixed spacing against reference data.
+    """
+    print("\n================================================================================")
+    print("COMPARISON OF DYNAMIC VS FIXED SPACING")
+    print("================================================================================")
+
+    # Create calculator
+    calculator = TextDimensionCalculator(
+        debug=False,
+        allow_fallbacks=True,
+        allow_font_substitution=True,
+        allow_approximation=True,
+        apply_ptouch_adjustments=False,
+        apply_technique_adjustments=False,
+        inter_character_spacing=0.1  # default spacing
+    )
+
+    # Initialize data structures
+    fixed_errors = []
+    dynamic_errors = []
+    size_groups = defaultdict(lambda: {'fixed': [], 'dynamic': []})
+    font_groups = defaultdict(lambda: {'fixed': [], 'dynamic': []})
+
+    # Process each reference data point
+    for ref_data in PTOUCH_REFERENCE_DATA:
+        text = ref_data["text"]
+        font_name = ref_data["font_name"]
+        size = ref_data["size"]
+        weight = ref_data["weight"]
+        italic = ref_data["italic"]
+        ref_width = ref_data["width"]
+
+        # Skip single characters
+        if len(text) <= 1:
+            continue
+
+        try:
+            # Calculate with fixed spacing
+            fixed_width, _ = calculator.calculate_text_dimensions(
+                text=text,
+                font_name=font_name,
+                size=size,
+                weight=weight,
+                italic=italic,
+                method=technique,
+                apply_adjustments=False,
+                inter_character_spacing=DEFAULT_SPACING,
+                use_dynamic_spacing=False
+            )
+
+            # Calculate with dynamic spacing
+            dynamic_width, _ = calculator.calculate_text_dimensions(
+                text=text,
+                font_name=font_name,
+                size=size,
+                weight=weight,
+                italic=italic,
+                method=technique,
+                apply_adjustments=False,
+                use_dynamic_spacing=True
+            )
+
+            # Calculate percentage errors
+            fixed_error = ((fixed_width - ref_width) / ref_width) * 100
+            dynamic_error = ((dynamic_width - ref_width) / ref_width) * 100
+
+            # Store results
+            fixed_errors.append(fixed_error)
+            dynamic_errors.append(dynamic_error)
+
+            # Group by font size
+            size_groups[size]['fixed'].append(fixed_error)
+            size_groups[size]['dynamic'].append(dynamic_error)
+
+            # Group by font
+            font_groups[font_name]['fixed'].append(fixed_error)
+            font_groups[font_name]['dynamic'].append(dynamic_error)
+
+        except Exception as e:
+            if DEBUG:
+                print(f"Error calculating dimensions: {str(e)}")
+            continue
+
+    # Calculate overall statistics
+    fixed_abs_errors = [abs(e) for e in fixed_errors]
+    dynamic_abs_errors = [abs(e) for e in dynamic_errors]
+
+    fixed_mean = sum(fixed_errors) / len(fixed_errors) if fixed_errors else 0
+    dynamic_mean = sum(dynamic_errors) / len(dynamic_errors) if dynamic_errors else 0
+
+    fixed_mape = sum(fixed_abs_errors) / len(fixed_abs_errors) if fixed_abs_errors else 0
+    dynamic_mape = sum(dynamic_abs_errors) / len(dynamic_abs_errors) if dynamic_abs_errors else 0
+
+    fixed_median = sorted(fixed_errors)[len(fixed_errors)//2] if fixed_errors else 0
+    dynamic_median = sorted(dynamic_errors)[len(dynamic_errors)//2] if dynamic_errors else 0
+
+    fixed_std = (sum((e - fixed_mean)**2 for e in fixed_errors) / len(fixed_errors))**0.5 if fixed_errors else 0
+    dynamic_std = (sum((e - dynamic_mean)**2 for e in dynamic_errors) / len(dynamic_errors))**0.5 if dynamic_errors else 0
+
+    # Print overall results
+    print("\nOVERALL RESULTS:")
+    print(f"{'Metric':<24} {'Fixed Spacing':<16} {'Dynamic Spacing':<16} {'Improvement':<16}")
+    print(f"{'-'*24} {'-'*16} {'-'*16} {'-'*16}")
+    print(f"{'Average Error':<24} {fixed_mean:+.2f}% {dynamic_mean:+.2f}% {abs(fixed_mean) - abs(dynamic_mean):+.2f}%")
+    print(f"{'Median Error':<24} {fixed_median:+.2f}% {dynamic_median:+.2f}% {abs(fixed_median) - abs(dynamic_median):+.2f}%")
+    print(f"{'Mean Absolute Error':<24} {fixed_mape:.2f}% {dynamic_mape:.2f}% {fixed_mape - dynamic_mape:+.2f}%")
+    print(f"{'Standard Deviation':<24} {fixed_std:.2f}% {dynamic_std:.2f}% {fixed_std - dynamic_std:+.2f}%")
+
+    # Print results by font size
+    print("\nRESULTS BY FONT SIZE:")
+    print(f"{'Font Size':<12} {'Fixed MAPE':<16} {'Dynamic MAPE':<16} {'Improvement':<16}")
+    print(f"{'-'*12} {'-'*16} {'-'*16} {'-'*16}")
+
+    for size in sorted(size_groups.keys()):
+        fixed_size_mape = sum(abs(e) for e in size_groups[size]['fixed']) / len(size_groups[size]['fixed']) if size_groups[size]['fixed'] else 0
+        dynamic_size_mape = sum(abs(e) for e in size_groups[size]['dynamic']) / len(size_groups[size]['dynamic']) if size_groups[size]['dynamic'] else 0
+        improvement = fixed_size_mape - dynamic_size_mape
+
+        print(f"{size:<12.1f} {fixed_size_mape:<16.2f}% {dynamic_size_mape:<16.2f}% {improvement:+16.2f}%")
+
+    # Print results by font
+    print("\nRESULTS BY FONT:")
+    print(f"{'Font':<16} {'Fixed MAPE':<16} {'Dynamic MAPE':<16} {'Improvement':<16}")
+    print(f"{'-'*16} {'-'*16} {'-'*16} {'-'*16}")
+
+    for font in sorted(font_groups.keys()):
+        fixed_font_mape = sum(abs(e) for e in font_groups[font]['fixed']) / len(font_groups[font]['fixed']) if font_groups[font]['fixed'] else 0
+        dynamic_font_mape = sum(abs(e) for e in font_groups[font]['dynamic']) / len(font_groups[font]['dynamic']) if font_groups[font]['dynamic'] else 0
+        improvement = fixed_font_mape - dynamic_font_mape
+
+        print(f"{font:<16} {fixed_font_mape:<16.2f}% {dynamic_font_mape:<16.2f}% {improvement:+16.2f}%")
+
+    # Create visualization
+    try:
+        plt.figure(figsize=(12, 8))
+
+        # Create grouped bar chart
+        sizes = sorted(size_groups.keys())
+        x = np.arange(len(sizes))
+        width = 0.35
+
+        fixed_means = [sum(abs(e) for e in size_groups[size]['fixed']) / len(size_groups[size]['fixed']) if size_groups[size]['fixed'] else 0 for size in sizes]
+        dynamic_means = [sum(abs(e) for e in size_groups[size]['dynamic']) / len(size_groups[size]['dynamic']) if size_groups[size]['dynamic'] else 0 for size in sizes]
+
+        plt.bar(x - width/2, fixed_means, width, label='Fixed Spacing', color='blue', alpha=0.7)
+        plt.bar(x + width/2, dynamic_means, width, label='Dynamic Spacing', color='green', alpha=0.7)
+
+        plt.xlabel('Font Size (points)')
+        plt.ylabel('Mean Absolute Error (%)')
+        plt.title('Fixed vs Dynamic Spacing by Font Size')
+        plt.xticks(x, [f"{size:.1f}pt" for size in sizes])
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig("plots/dynamic_vs_fixed_spacing.png")
+
+        # Show overall comparison
+        plt.figure(figsize=(10, 6))
+        labels = ['Average Error', 'Median Error', 'Mean Absolute Error', 'Standard Deviation']
+        fixed_values = [abs(fixed_mean), abs(fixed_median), fixed_mape, fixed_std]
+        dynamic_values = [abs(dynamic_mean), abs(dynamic_median), dynamic_mape, dynamic_std]
+
+        x = np.arange(len(labels))
+        width = 0.35
+
+        plt.bar(x - width/2, fixed_values, width, label='Fixed Spacing', color='blue', alpha=0.7)
+        plt.bar(x + width/2, dynamic_values, width, label='Dynamic Spacing', color='green', alpha=0.7)
+
+        plt.xlabel('Metric')
+        plt.ylabel('Error (%)')
+        plt.title('Fixed vs Dynamic Spacing - Overall Comparison')
+        plt.xticks(x, labels)
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig("plots/dynamic_vs_fixed_overall.png")
+
+        print("\nVisualizations saved to plots directory.")
+
+    except Exception as e:
+        print(f"Error creating visualization: {str(e)}")
+
+    # Return overall comparison
+    return {
+        'fixed': {
+            'mean': fixed_mean,
+            'median': fixed_median,
+            'mape': fixed_mape,
+            'std': fixed_std
+        },
+        'dynamic': {
+            'mean': dynamic_mean,
+            'median': dynamic_median,
+            'mape': dynamic_mape,
+            'std': dynamic_std
+        },
+        'improvement': {
+            'mean': abs(fixed_mean) - abs(dynamic_mean),
+            'median': abs(fixed_median) - abs(dynamic_median),
+            'mape': fixed_mape - dynamic_mape,
+            'std': fixed_std - dynamic_std
+        }
+    }
+
+def main():
+    """
+    Main function to run the comparison script.
+    """
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Compare text dimension calculation techniques')
+    parser.add_argument('--debug', action='store_true', help='Enable debug output')
+    parser.add_argument('--no-spacing-analysis', action='store_true', help='Skip spacing analysis')
+    parser.add_argument('--no-report', action='store_true', help='Skip report generation')
+    parser.add_argument('--no-plots', action='store_true', help='Skip plot generation')
+    parser.add_argument('--dynamic-spacing', action='store_true', help='Compare dynamic vs fixed spacing')
+
+    args = parser.parse_args()
+
+    # Enable DEBUG output
+    global DEBUG
+    DEBUG = args.debug
+
+    # Create calculator without adjustments - we want to compare the raw calculations
+    # and calculate our own adjustment factors
+    calculator = TextDimensionCalculator(
+        debug=DEBUG,
+        allow_fallbacks=True,
+        allow_font_substitution=True,
+        allow_approximation=True,
+        apply_ptouch_adjustments=False,  # No adjustments
+        apply_technique_adjustments=False,  # No adjustments
+        use_linear_adjustments=True,
+        inter_character_spacing=0.0  # Start with no spacing to analyze the effect
+    )
+
+    # If dynamic spacing comparison requested, run that first
+    if args.dynamic_spacing:
+        print("\nComparing dynamic vs fixed spacing...")
+        compare_dynamic_vs_fixed_spacing(CalculationMethod.SKIA)
+
+    # Run the comparison with raw calculations
+    if not args.no_report:
+        run_comparison_and_create_reports(calculator)
+
+    # Analyze optimal inter-character spacing
+    if not args.no_spacing_analysis:
+        print("\n\n================================================================================")
+        print("ANALYZING OPTIMAL INTER-CHARACTER SPACING")
+        print("================================================================================")
+
+        # Use the best technique available for this analysis (Skia if available)
+        technique = CalculationMethod.SKIA
+
+        # Check if Skia is available, otherwise try other techniques
+        if not calculator._techniques[technique].is_available():
+            for alt_technique in TECHNIQUES:
+                if calculator._techniques[alt_technique].is_available():
+                    technique = alt_technique
+                    break
+
+        technique_name = format_technique_name(technique)
+        print(f"Using {technique_name} for inter-character spacing analysis...")
+
+        # Run the spacing analysis
+        spacing_analysis = analyze_character_spacing(calculator, technique)
+
+        # Create visualization
+        if not args.no_plots:
+            try:
+                plot_spacing_analysis(spacing_analysis, technique_name)
+                print("Created spacing analysis visualizations.")
+            except Exception as e:
+                print(f"Error creating plots: {str(e)}")
+
+        # Generate report
+        if not args.no_report:
+            spacing_report = generate_spacing_report(spacing_analysis, technique_name)
+
+            # Save report
+            spacing_report_path = "spacing_analysis.md"
+            with open(spacing_report_path, "w") as f:
+                f.write(spacing_report)
+
+            print(f"Spacing analysis report saved to: {spacing_report_path}")
+
+        # Run direct comparison of spacing values
+        print("\n\n================================================================================")
+        print("DIRECT COMPARISON OF INTER-CHARACTER SPACING VALUES")
+        print("================================================================================")
+
+        # Compare different spacing values
+        compare_spacing_values_directly(technique)
+
+        # Print summary of findings
+        best_spacing = spacing_analysis['best_spacing']
+        abs_error = spacing_analysis['abs_error']
+
+        print(f"\nBest inter-character spacing: {best_spacing:.1f} points")
+        print(f"Mean absolute error with this spacing: {abs_error:.2f}%")
+        print(f"Current default is: {DEFAULT_SPACING} points")
+
+        # Also run a comparison with linear adjustments to analyze how well they work
+        print("\n\n================================================================================")
+        print("COMPARISON WITH LINEAR ADJUSTMENTS APPLIED")
+        print("================================================================================")
+
+        # Create calculator with linear adjustments
+        calculator_with_adjustments = TextDimensionCalculator(
+            debug=DEBUG,
+            allow_fallbacks=True,
+            allow_font_substitution=True,
+            allow_approximation=True,
+            apply_ptouch_adjustments=False,
+            apply_technique_adjustments=True,  # Apply adjustments
+            use_linear_adjustments=True,
+            inter_character_spacing=best_spacing  # Use the optimal spacing value we found
+        )
+
+        # Run a separate comparison with adjustments applied
+        run_comparison_with_adjustments(calculator_with_adjustments)
+
+        # Finally, test with both the optimal spacing and technique adjustments
+        print("\n\n================================================================================")
+        print(f"COMPARISON WITH OPTIMAL SPACING ({best_spacing:.1f}pt) AND LINEAR ADJUSTMENTS")
+        print("================================================================================")
+
+        # Create calculator with both optimal spacing and linear adjustments
+        calculator_optimal = TextDimensionCalculator(
+            debug=DEBUG,
+            allow_fallbacks=True,
+            allow_font_substitution=True,
+            allow_approximation=True,
+            apply_ptouch_adjustments=False,
+            apply_technique_adjustments=True,  # Apply adjustments
+            use_linear_adjustments=True,
+            inter_character_spacing=best_spacing  # Use the optimal spacing value
+        )
+
+        # Run comparison
+        run_comparison_with_adjustments(calculator_optimal)
+
+        print(f"\nAnalysis complete. Use {best_spacing:.1f}pt for optimal inter-character spacing.")
 
 def run_comparison_and_create_reports(calculator):
     """
@@ -919,6 +1820,7 @@ def run_comparison_and_create_reports(calculator):
         if data:
             plt.boxplot(data, labels=labels)
             plt.title("Width Difference Percentages by Technique")
+            plt.xlabel("Technique")
             plt.ylabel("Width Difference (%)")
             plt.grid(axis="y", alpha=0.3)
             plt.savefig("plots/width_diff_boxplot.png")
@@ -944,6 +1846,7 @@ def run_comparison_and_create_reports(calculator):
         if data:
             plt.boxplot(data, labels=labels)
             plt.title("Height Difference Percentages by Technique")
+            plt.xlabel("Technique")
             plt.ylabel("Height Difference (%)")
             plt.grid(axis="y", alpha=0.3)
             plt.savefig("plots/height_diff_boxplot.png")

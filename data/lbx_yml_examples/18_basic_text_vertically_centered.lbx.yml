@@ -1,0 +1,8 @@
+size: 24mm
+width: auto
+orientation: portrait
+align: center
+objects:
+- font: Helsinki
+  size: 14
+  text: Hello World

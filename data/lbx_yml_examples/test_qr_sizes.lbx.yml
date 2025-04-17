@@ -1,0 +1,142 @@
+# test_qr_sizes.lbx.yml
+# Test QR code size standardization
+# Tests all formats to make sure they get standardized to numeric values 1-5
+
+size: 24mm
+width: 200mm
+orientation: landscape
+
+objects:
+  # Test numeric values 1-5
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 10
+    y: 10
+    size: 1 # Small (1)
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 40
+    y: 10
+    size: 2 # Medium Small (2)
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 80
+    y: 10
+    size: 3 # Medium (3)
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 130
+    y: 10
+    size: 4 # Medium Large (4)
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 190
+    y: 10
+    size: 5 # Large (5)
+
+  # Test point sizes
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 10
+    y: 50
+    size: "0.8pt" # Should standardize to 1
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 40
+    y: 50
+    size: "1.2pt" # Should standardize to 2
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 80
+    y: 50
+    size: "1.6pt" # Should standardize to 3
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 130
+    y: 50
+    size: "2pt" # Should standardize to 4
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 190
+    y: 50
+    size: "2.4pt" # Should standardize to 5
+
+  # Test string aliases
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 10
+    y: 90
+    size: "small" # Should standardize to 1
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 40
+    y: 90
+    size: "medium small" # Should standardize to 2
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 80
+    y: 90
+    size: "medium" # Should standardize to 3
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 130
+    y: 90
+    size: "medium large" # Should standardize to 4
+
+  - type: barcode
+    barcodeType: qr
+    data: "https://example.com"
+    x: 190
+    y: 90
+    size: "large" # Should standardize to 5
+
+  # Using shortcut syntax
+  - qr: "https://example.com"
+    x: 10
+    y: 130
+    size: "sm" # Should standardize to 1
+
+  - qr: "https://example.com"
+    x: 40
+    y: 130
+    size: "mdsm" # Should standardize to 2
+
+  - qr: "https://example.com"
+    x: 80
+    y: 130
+    size: "md" # Should standardize to 3
+
+  - qr: "https://example.com"
+    x: 130
+    y: 130
+    size: "mdlg" # Should standardize to 4
+
+  - qr: "https://example.com"
+    x: 190
+    y: 130
+    size: "lg" # Should standardize to 5

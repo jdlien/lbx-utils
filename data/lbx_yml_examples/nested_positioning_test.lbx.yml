@@ -1,0 +1,28 @@
+size: 24mm
+width: 100mm
+orientation: landscape
+objects:
+- x: 10
+  y: 10
+  width: 80
+  background_color: '#F0F0F0'
+  border_style: INSIDEFRAME
+  objects:
+  - font: Helsinki
+    size: 10
+    x: 5
+    y: 5
+    text: Text in outer group
+  - x: 5
+    y: 20
+    width: 60
+    background_color: '#E0E0E0'
+    border_style: INSIDEFRAME
+    objects:
+    - font: Helsinki
+      size: 10
+      x: 5
+      y: 5
+      text: Text in inner group
+    group: inner_group
+  group: outer_group

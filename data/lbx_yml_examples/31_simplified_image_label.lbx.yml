@@ -1,13 +1,10 @@
-# Label with an image
 size: 24mm
 width: auto
 orientation: landscape
-
 objects:
-  - type: image
-    source: "tests/test_image.png"
-    x: 20
-    y: 12
-    width: 50
-    height: 40
-    monochrome: true
+- x: 20
+  y: 12
+  width: 50
+  height: 40
+  monochrome: true
+  image: tests/test_image.png

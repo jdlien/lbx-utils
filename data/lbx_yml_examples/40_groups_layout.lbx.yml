@@ -7,8 +7,7 @@ orientation: landscape
 
 objects:
   # Header group - row layout
-  - type: group
-    id: header
+  - group: "header"
     x: 10
     y: 5
     direction: row
@@ -17,42 +16,35 @@ objects:
     gap: 5
     objects:
       # Logo
-      - type: text
-        content: "ACME"
+      - text: "ACME"
         font: Helsinki
         size: 16
         bold: true
 
       # Date
-      - type: text
-        content: "2023-04-15"
+      - text: "2023-04-15"
         size: 10
         align: right
 
   # Content group - column layout
-  - type: group
-    id: content
+  - group: "content"
     x: 10
     y: 25
     direction: column
     align: start
     gap: 8
     objects:
-      - type: text
-        content: "Product: Widget XL"
+      - text: "Product: Widget XL"
         size: 12
 
-      - type: text
-        content: "SKU: 123-456-789"
+      - text: "SKU: 123-456-789"
         size: 10
 
-      - type: text
-        content: "Quantity: 5 units"
+      - text: "Quantity: 5 units"
         size: 10
 
   # Footer group - row layout with multiple items
-  - type: group
-    id: footer
+  - group: "footer"
     x: 10
     y: 60
     direction: row
@@ -61,25 +53,20 @@ objects:
     gap: 15
     objects:
       # QR code
-      - type: barcode
-        barcodeType: qr
-        data: "https://example.com/track"
+      - qr: "https://example.com/track"
         size: 25
 
       # Info column
-      - type: group
+      - group: "info"
         direction: column
         gap: 3
         objects:
-          - type: text
-            content: "Scan to track"
+          - text: "Scan to track"
             size: 8
             bold: true
 
-          - type: text
-            content: "Order #: ABC123"
+          - text: "Order #: ABC123"
             size: 7
 
-          - type: text
-            content: "Pack date: 2023-04-15"
+          - text: "Pack date: 2023-04-15"
             size: 7

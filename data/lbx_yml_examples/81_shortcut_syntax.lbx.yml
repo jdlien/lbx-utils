@@ -1,0 +1,76 @@
+# 81_shortcut_syntax.lbx.yml
+# Example showing shortcut syntax for comparison
+# This example uses the new shortcut syntax for all object types
+
+size: 24mm
+width: 90mm
+orientation: landscape
+
+objects:
+  # Text object with shortcut syntax
+  - text: "Shortcut Syntax Example"
+    x: 45
+    y: 10
+    font: Helsinki
+    size: 14
+    bold: true
+    align: center
+
+  # Image object with shortcut syntax
+  - image: "example.png"
+    x: 10
+    y: 30
+    width: 30
+    height: 30
+    monochrome: true
+    transparency: true
+    transparency_color: "#FFFFFF"
+
+  # QR code with shortcut syntax
+  - qr: "https://example.com/product/1234"
+    x: 50
+    y: 30
+    size: 30
+    errorCorrection: M
+
+  # Code128 barcode with shortcut syntax
+  - barcode: "123456789012"
+    x: 10
+    y: 70
+    width: 70
+    height: 20
+    type: code128
+    humanReadable: true
+
+  # Group with shortcut syntax
+  - group: "main_container"
+    x: 10
+    y: 100
+    width: 80
+    height: auto
+    direction: row
+    justify: between
+    align: center
+    gap: 5
+    objects:
+      - text: "Left"
+        font: Helsinki
+        size: 10
+        bold: true
+
+      - text: "Right"
+        font: Helsinki
+        size: 10
+        italic: true
+
+  # Container with shortcut syntax
+  - container: "footer_container"
+    x: 10
+    y: 120
+    direction: row
+    justify: center
+    objects:
+      - text: "© 2024 Example Company"
+        font: Helsinki
+        size: 8
+        align: center

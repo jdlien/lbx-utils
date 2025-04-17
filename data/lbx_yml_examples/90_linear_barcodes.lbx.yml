@@ -1,0 +1,163 @@
+# 90_linear_barcodes.lbx.yml
+# Comprehensive test of linear barcode types
+
+size: 24mm
+width: 200mm
+orientation: landscape
+margin: 2mm
+
+objects:
+  # CODE39 barcode
+  - type: barcode
+    barcodeType: CODE39
+    data: "ABC-123456"
+    x: 5
+    y: 5
+    width: 60
+    height: 20
+    humanReadable: true
+    checkDigit: false
+    barWidth: "0.6pt"
+    barRatio: "1:3"
+    margin: true
+
+  - text: "CODE39"
+    x: 35
+    y: 30
+    size: 8
+    align: center
+
+  # CODE128 barcode
+  - type: barcode
+    barcodeType: code128
+    data: "ABC-123456"
+    x: 75
+    y: 5
+    width: 60
+    height: 20
+    humanReadable: true
+    checkDigit: true
+    barWidth: "0.8pt"
+    barRatio: "1:2"
+
+  - text: "CODE128"
+    x: 105
+    y: 30
+    size: 8
+    align: center
+
+  # EAN128 barcode
+  - type: barcode
+    barcodeType: ean128
+    data: "123456789012"
+    x: 145
+    y: 5
+    width: 60
+    height: 20
+    humanReadable: true
+    removeParentheses: true
+
+  - text: "EAN128"
+    x: 175
+    y: 30
+    size: 8
+    align: center
+
+  # ITF25 barcode (Interleaved 2 of 5)
+  - type: barcode
+    barcodeType: itf25
+    data: "1234567890"
+    x: 5
+    y: 40
+    width: 60
+    height: 20
+    humanReadable: true
+    bearerBar: true
+
+  - text: "ITF25"
+    x: 35
+    y: 65
+    size: 8
+    align: center
+
+  # CODABAR barcode
+  - type: barcode
+    barcodeType: codabar
+    data: "A12345B"
+    x: 75
+    y: 40
+    width: 60
+    height: 20
+    humanReadable: true
+    startstopCode: "A"
+
+  - text: "CODABAR"
+    x: 105
+    y: 65
+    size: 8
+    align: center
+
+  # UPCA barcode
+  - type: barcode
+    barcodeType: upca
+    data: "123456789012"
+    x: 145
+    y: 40
+    width: 60
+    height: 20
+    humanReadable: true
+    zeroFill: true
+
+  - text: "UPCA"
+    x: 175
+    y: 65
+    size: 8
+    align: center
+
+  # UPCE barcode
+  - type: barcode
+    barcodeType: upce
+    data: "01234565"
+    x: 5
+    y: 75
+    width: 60
+    height: 20
+    humanReadable: true
+
+  - text: "UPCE"
+    x: 35
+    y: 100
+    size: 8
+    align: center
+
+  # EAN13 barcode
+  - type: barcode
+    barcodeType: ean13
+    data: "5901234123457"
+    x: 75
+    y: 75
+    width: 60
+    height: 20
+    humanReadable: true
+
+  - text: "EAN13"
+    x: 105
+    y: 100
+    size: 8
+    align: center
+
+  # EAN8 barcode
+  - type: barcode
+    barcodeType: ean8
+    data: "12345670"
+    x: 145
+    y: 75
+    width: 60
+    height: 20
+    humanReadable: true
+
+  - text: "EAN8"
+    x: 175
+    y: 100
+    size: 8
+    align: center

@@ -1,17 +1,11 @@
-# 02_flat_format.lbx.yml
-# A simple label with basic text using flat format
----
 size: 12mm
 width: 90mm
 orientation: landscape
-
-# Objects directly at root level (flat format)
 objects:
-  - type: text
-    content: "Flat Format Test"
-    x: 10
-    y: 12
-    font: Helsinki
-    size: 14
-    bold: true
-    align: center
+- x: 10
+  y: 12
+  font: Helsinki
+  size: 14
+  bold: true
+  align: center
+  text: Flat Format Test

@@ -240,9 +240,35 @@
       <xs:attribute name="cellSize" type="xs:string" use="required">
         <xs:annotation>
           <xs:documentation>
-            Size of each QR code cell in points. Examples: "1.6pt", "2pt", "2.4pt".
+            Size of each QR code cell in points. Can be specified in multiple formats:
+
+            Point sizes:
+            - Small: 0.8pt
+            - Medium Small: 1.2pt
+            - Medium: 1.6pt
+            - Medium Large: 2pt (default)
+            - Large: 2.4pt
+
+            Also accepts case-insensitive aliases:
+            - "small", "sm" (Small)
+            - "medium small", "mdsm", "smmd" (Medium Small)
+            - "medium", "md" (Medium)
+            - "medium large", "mdlg", "lgmd" (Medium Large)
+            - "large", "lg" (Large)
+
+            Or numeric indexes (1-5):
+            - 1: Small (0.8pt)
+            - 2: Medium Small (1.2pt)
+            - 3: Medium (1.6pt)
+            - 4: Medium Large (2pt)
+            - 5: Large (2.4pt)
           </xs:documentation>
         </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:pattern value="[0-9]*\.?[0-9]+pt|0\.8pt|1\.2pt|1\.6pt|2pt|2\.4pt"/>
+          </xs:restriction>
+        </xs:simpleType>
       </xs:attribute>
       <xs:attribute name="mbcs" type="xs:string" use="required">
         <xs:annotation>

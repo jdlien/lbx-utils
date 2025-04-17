@@ -23,6 +23,7 @@ Key features:
 - Adjustment factors to improve accuracy
 - Linear regression models (y = mx + b) for superior dimension adjustments
 - Font-specific considerations
+- Inter-character spacing adjustments to fine-tune width calculations
 """
 
 import os
@@ -118,7 +119,8 @@ class TextDimensionCalculator:
         apply_ptouch_adjustments: bool = False,
         apply_technique_adjustments: bool = False,
         default_method: Optional[CalculationMethod] = None,
-        use_linear_adjustments: bool = True
+        use_linear_adjustments: bool = True,
+        inter_character_spacing: float = 0.1
     ):
         """
         Initialize the calculator.
@@ -134,6 +136,9 @@ class TextDimensionCalculator:
             default_method: Default calculation method to use (None for auto-selection)
             use_linear_adjustments: Whether to use linear regression models for adjustments
                                    (more accurate than simple multiplicative factors)
+            inter_character_spacing: Additional spacing to add between characters (in points)
+                                    to adjust width calculations. Default 0.1pt based on
+                                    extensive testing to match P-touch Editor dimensions.
         """
         # Look for a fonts/ directory in the repository root if font_dir is not specified
         if font_dir is None:
@@ -154,6 +159,7 @@ class TextDimensionCalculator:
         self.apply_ptouch_adjustments = apply_ptouch_adjustments
         self.apply_technique_adjustments = apply_technique_adjustments
         self.use_linear_adjustments = use_linear_adjustments
+        self.inter_character_spacing = inter_character_spacing
 
         # Set default method - use Skia on all platforms as it's the most accurate
         if default_method is None:
@@ -298,6 +304,61 @@ class TextDimensionCalculator:
 
         return technique
 
+    def _calculate_dynamic_spacing(self, font_size: float, font_name: Optional[str] = None) -> float:
+        """
+        Calculate the optimal inter-character spacing based on font size.
+
+        This uses a dynamic formula derived from analysis of optimal spacing values
+        at different font sizes. The formula applies a negative correlation between
+        font size and spacing, meaning larger fonts generally need less extra spacing.
+
+        Args:
+            font_size: The font size in points
+            font_name: Optional font name for font-specific adjustments
+
+        Returns:
+            The calculated optimal inter-character spacing in points
+        """
+        # Font-specific base spacing values (derived from testing)
+        font_specific_base = {
+            'Arial': 0.3,
+            'Comic Sans MS': 0.4,
+            'Helsinki': 0.0,
+            'Helsinki Narrow': 0.0,
+            # Add more fonts as needed
+        }
+
+        # Use the font-specific base if available, otherwise use default
+        if font_name is not None and font_name in font_specific_base:
+            base_spacing = font_specific_base[font_name]
+        else:
+            base_spacing = self.inter_character_spacing
+
+        # Dynamic scaling based on font size (derived from correlation analysis)
+        # Formula: spacing = base_spacing * scaling_factor
+        # Where scaling_factor decreases as font size increases
+
+        # These parameters were derived from data analysis showing a negative
+        # correlation between font size and optimal spacing
+        min_scaling = 0.5  # At very large sizes
+        max_scaling = 1.2  # At very small sizes
+        pivot_size = 12.0  # Reference size
+
+        # Calculate scaling factor that decreases as font size increases
+        if font_size <= pivot_size:
+            # For smaller fonts, increase spacing slightly
+            scaling_factor = 1.0 + ((pivot_size - font_size) / pivot_size) * (max_scaling - 1.0)
+        else:
+            # For larger fonts, decrease spacing
+            size_factor = min(3.0, font_size / pivot_size)  # Cap at 3x reduction
+            scaling_factor = 1.0 - ((size_factor - 1.0) / 2.0) * (1.0 - min_scaling)
+
+        # Calculate final spacing
+        dynamic_spacing = base_spacing * scaling_factor
+
+        # Ensure spacing stays within reasonable bounds
+        return max(0.0, min(2.0, dynamic_spacing))
+
     def _apply_ptouch_editor_adjustments(self, width: float, height: float, font_name: str) -> Tuple[float, float]:
         """
         Apply P-touch Editor specific adjustments to dimensions.
@@ -361,7 +422,9 @@ class TextDimensionCalculator:
         italic: bool = False,
         method: Optional[CalculationMethod] = None,
         apply_adjustments: Optional[bool] = None,
-        use_linear_adjustments: Optional[bool] = None
+        use_linear_adjustments: Optional[bool] = None,
+        inter_character_spacing: Optional[float] = None,
+        use_dynamic_spacing: bool = False
     ) -> Tuple[float, float]:
         """
         Calculate the dimensions of a text string.
@@ -378,6 +441,10 @@ class TextDimensionCalculator:
                                    When True, uses linear regression models (y = mx + b) which are
                                    more accurate than simple multiplicative factors, especially for
                                    matching P-Touch Editor dimensions
+            inter_character_spacing: Additional spacing to add between characters (in points)
+                                    to adjust width calculations (None to use instance default)
+            use_dynamic_spacing: Whether to use dynamic spacing calculation based on font size
+                               (overrides inter_character_spacing if True)
 
         Returns:
             Tuple of (width, height) in points
@@ -389,6 +456,14 @@ class TextDimensionCalculator:
         # Use instance default if use_linear_adjustments is not specified
         if use_linear_adjustments is None:
             use_linear_adjustments = self.use_linear_adjustments
+
+        # Use dynamic spacing or instance default if inter_character_spacing is not specified
+        if use_dynamic_spacing:
+            inter_character_spacing = self._calculate_dynamic_spacing(size, font_name)
+            if self.debug:
+                logger.debug(f"Using dynamic spacing for font size {size}pt: {inter_character_spacing:.2f}pt")
+        elif inter_character_spacing is None:
+            inter_character_spacing = self.inter_character_spacing
 
         if not text:
             # Empty string has zero width but still has line height
@@ -416,6 +491,15 @@ class TextDimensionCalculator:
 
             if self.debug:
                 logger.debug(f"Calculated '{text}' using {technique_name}: {width:.2f}pt × {height:.2f}pt")
+
+            # Apply inter-character spacing if specified
+            if inter_character_spacing != 0 and len(text) > 1:
+                # Add spacing between each character (n-1 spaces for n characters)
+                additional_width = inter_character_spacing * (len(text) - 1)
+                original_width = width
+                width += additional_width
+                if self.debug:
+                    logger.debug(f"Applied inter-character spacing ({inter_character_spacing:.2f}pt): {original_width:.2f}pt → {width:.2f}pt")
 
             # Apply technique-specific adjustments if requested
             if apply_adjustments:
@@ -456,7 +540,8 @@ class TextDimensionCalculator:
                     italic=italic,
                     method=CalculationMethod.AUTO,
                     apply_adjustments=apply_adjustments,
-                    use_linear_adjustments=use_linear_adjustments
+                    use_linear_adjustments=use_linear_adjustments,
+                    inter_character_spacing=inter_character_spacing
                 )
 
             # If we still can't calculate, use approximation if allowed
@@ -547,6 +632,10 @@ def main():
                                help="Use linear regression models (y = mx + b) for adjustments - more accurate")
     adjustment_group.add_argument("--simple-adjustments", action="store_false", dest="linear_adjustments",
                                help="Use simple multiplicative factors for adjustments instead of linear models")
+    adjustment_group.add_argument("--char-spacing", type=float, default=0.1, dest="inter_character_spacing",
+                               help="Additional spacing between characters in points (default: 0.1)")
+    adjustment_group.add_argument("--dynamic-spacing", action="store_true",
+                               help="Dynamically adjust character spacing based on font size and font name")
 
     # Method selection
     method_choices = ["auto", "freetype", "pil", "harfbuzz", "pango", "skia", "approximation"]
@@ -570,7 +659,8 @@ def main():
         apply_ptouch_adjustments=args.ptouch_adjustments,
         apply_technique_adjustments=args.technique_adjustments,
         default_method=method_enum,
-        use_linear_adjustments=args.linear_adjustments
+        use_linear_adjustments=args.linear_adjustments,
+        inter_character_spacing=args.inter_character_spacing
     )
 
     try:
@@ -582,7 +672,9 @@ def main():
             weight=args.weight,
             italic=args.italic,
             method=method_enum,
-            use_linear_adjustments=args.linear_adjustments
+            use_linear_adjustments=args.linear_adjustments,
+            inter_character_spacing=None if args.dynamic_spacing else args.inter_character_spacing,
+            use_dynamic_spacing=args.dynamic_spacing
         )
 
         used_method = args.method if args.method else (
@@ -596,6 +688,11 @@ def main():
         if args.technique_adjustments:
             adjustment_type = "linear" if args.linear_adjustments else "simple multiplicative"
             print(f"Adjustment: {adjustment_type}")
+        if args.dynamic_spacing:
+            dynamic_spacing = calculator._calculate_dynamic_spacing(args.size, args.font)
+            print(f"Dynamic character spacing: {dynamic_spacing:.2f}pt (based on font size {args.size}pt)")
+        elif args.inter_character_spacing != 0:
+            print(f"Character spacing: {args.inter_character_spacing:.2f}pt")
         print(f"Dimensions: {width:.2f}pt × {height:.2f}pt")
 
         # Try each available method for comparison if debug is enabled
@@ -618,7 +715,9 @@ def main():
                             italic=args.italic,
                             method=method,
                             apply_adjustments=True,
-                            use_linear_adjustments=args.linear_adjustments
+                            use_linear_adjustments=args.linear_adjustments,
+                            inter_character_spacing=None if args.dynamic_spacing else args.inter_character_spacing,
+                            use_dynamic_spacing=args.dynamic_spacing
                         )
 
                         # Without adjustments
@@ -629,7 +728,9 @@ def main():
                             weight=args.weight,
                             italic=args.italic,
                             method=method,
-                            apply_adjustments=False
+                            apply_adjustments=False,
+                            inter_character_spacing=None if args.dynamic_spacing else args.inter_character_spacing,
+                            use_dynamic_spacing=args.dynamic_spacing
                         )
 
                         print(f"{method_str.capitalize()} (raw): {raw_width:.2f}pt × {raw_height:.2f}pt")

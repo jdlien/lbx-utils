@@ -38,6 +38,13 @@ class GroupObject:
     id: Optional[str] = None
     name: Optional[str] = None  # Optional name for the object, maps to objectName in XML
 
+    # Whether the object has an explicitly set position
+    _positioned: bool = False
+
+    # Store original coordinates
+    _original_x: str = ""
+    _original_y: str = ""
+
     def add_object(self, obj: Any) -> None:
         """Add an object to the group."""
         self.objects.append(obj)

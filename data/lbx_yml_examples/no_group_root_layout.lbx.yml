@@ -1,0 +1,23 @@
+size: 24mm
+width: 100mm
+orientation: landscape
+direction: row
+align: center
+justify: space-between
+gap: 10
+objects:
+- font: Helsinki
+  size: 12
+  bold: true
+  width: 30mm
+  height: 10mm
+  y: -5mm
+  text: Left Text
+- font: Helsinki
+  size: 12
+  bold: true
+  width: 30mm
+  height: 10mm
+  align: start
+  y: 0mm
+  text: Right Text

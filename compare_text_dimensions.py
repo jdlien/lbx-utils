@@ -382,6 +382,77 @@ class SkiaFontSpecificMethod(DimensionCalculationMethod):
 
         return width * width_factor, height * height_factor
 
+class SkiaHeightTechniques(DimensionCalculationMethod):
+    """Skia-based calculation with various height calculation techniques."""
+
+    def __init__(self, technique="default", padding_factor=0.0):
+        name_suffix = technique
+        if technique == "ascent_descent_padding" and padding_factor != 0.0:
+            name_suffix += f"_{padding_factor:.2f}"
+
+        super().__init__(
+            f"Skia(height={name_suffix})",
+            f"Skia with {technique} height calculation" +
+            (f" and padding factor {padding_factor}" if padding_factor != 0.0 else "")
+        )
+        self.calculator = TextDimensionCalculator(debug=False, allow_fallbacks=True)
+        self.skia_method = CalculationMethod.SKIA
+        self.technique = technique
+        self.padding_factor = padding_factor
+
+    def calculate(self, text, font_name, size, weight, italic, **kwargs):
+        """Calculate text dimensions using Skia with different height calculation techniques."""
+        # Get the Skia technique instance directly
+        technique = self.calculator._techniques[self.skia_method]
+        if not technique.is_available():
+            raise ImportError("Skia technique is not available")
+
+        # Calculate width using standard method
+        width, height = technique.calculate_dimensions(
+            text=text,
+            font_name=font_name,
+            size=size,
+            weight=weight,
+            italic=italic
+        )
+
+        # Get font metrics to calculate height differently
+        try:
+            # Access _create_font safely through the SkiaTechnique class
+            if hasattr(technique, '_create_font'):
+                font = technique._create_font(font_name, size, weight, italic)
+                metrics = font.getMetrics()
+
+                # Extract metrics
+                ascent = abs(metrics.fAscent)  # Ascent is negative in Skia
+                descent = metrics.fDescent
+                leading = metrics.fLeading
+
+                # Calculate height based on the selected technique
+                if self.technique == "ascent_only":
+                    calculated_height = ascent
+                elif self.technique == "descent_only":
+                    calculated_height = descent
+                elif self.technique == "ascent_descent":
+                    calculated_height = ascent + descent
+                elif self.technique == "ascent_descent_leading":
+                    calculated_height = ascent + descent + leading
+                elif self.technique == "ascent_descent_padding":
+                    # Add a percentage of the font size as padding
+                    calculated_height = ascent + descent + (size * self.padding_factor)
+                else:
+                    # Default - use the standard height calculation
+                    calculated_height = height
+
+                return width, calculated_height
+            else:
+                # Fall back to standard calculation if method not available
+                return width, height
+
+        except Exception as e:
+            # Fall back to standard calculation if metrics extraction fails
+            return width, height
+
 def compare_methods(reference_data):
     """Compare different calculation methods against reference data."""
     methods = [
@@ -399,6 +470,16 @@ def compare_methods(reference_data):
         SkiaMethod(width_factor=1.0, height_factor=0.38),
         SkiaAdjustedMethod(),
         SkiaFontSpecificMethod(),
+
+        # New height calculation techniques
+        SkiaHeightTechniques(technique="ascent_only"),
+        SkiaHeightTechniques(technique="descent_only"),
+        SkiaHeightTechniques(technique="ascent_descent"),
+        SkiaHeightTechniques(technique="ascent_descent_leading"),
+        SkiaHeightTechniques(technique="ascent_descent_padding", padding_factor=0.05),
+        SkiaHeightTechniques(technique="ascent_descent_padding", padding_factor=0.10),
+        SkiaHeightTechniques(technique="ascent_descent_padding", padding_factor=0.15),
+        SkiaHeightTechniques(technique="ascent_descent_padding", padding_factor=0.20),
 
         # orgSize method
         OrgSizeMethod(org_size_ratio=3.6, fixed_height_factor=0.38),
@@ -475,89 +556,135 @@ def analyze_results(results):
         'height_ratio': ['mean', 'std']
     })
 
+    # Calculate overall height score (lower is better)
+    summary['height_score'] = abs(summary[('height_diff_pct', 'mean')]) + summary[('height_diff_pct', 'std')]
+
     # Calculate consistency score (lower is better)
     summary['consistency_score'] = summary[('mape', 'std')] + summary[('mape', 'mean')]
 
+    # Sort by height score first
+    height_summary = summary.sort_values('height_score')
+
     # Sort by consistency score
-    summary = summary.sort_values('consistency_score')
+    consistency_summary = summary.sort_values('consistency_score')
 
-    return df, summary
+    return df, height_summary, consistency_summary
 
-def visualize_results(df, summary):
+def visualize_results(df, height_summary, consistency_summary):
     """Create visualization of the results."""
     # Create a figure with multiple subplots
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
     fig.suptitle('Text Dimension Calculation Method Comparison', fontsize=16)
 
-    # Plot 1: Mean Absolute Percentage Error by method
-    methods = summary.index.tolist()
-    mape_means = summary[('mape', 'mean')].values
-    mape_stds = summary[('mape', 'std')].values
+    # Plot 1: Height error by method (top methods only)
+    top_height_methods = height_summary.index[:10]  # Top 10 methods by height accuracy
+    height_means = height_summary.loc[top_height_methods, ('height_diff_pct', 'mean')].values
+    height_stds = height_summary.loc[top_height_methods, ('height_diff_pct', 'std')].values
 
-    axes[0, 0].barh(methods, mape_means, xerr=mape_stds, alpha=0.7)
-    axes[0, 0].set_title('Mean Absolute Percentage Error by Method')
-    axes[0, 0].set_xlabel('MAPE (%)')
+    axes[0, 0].barh(top_height_methods, height_means, xerr=height_stds, alpha=0.7)
+    axes[0, 0].axvline(x=0, color='r', linestyle='--', alpha=0.5)
+    axes[0, 0].set_title('Height Error % by Method (Lower is Better)')
+    axes[0, 0].set_xlabel('Height Error %')
     axes[0, 0].grid(axis='x', linestyle='--', alpha=0.7)
 
-    # Plot 2: Width and Height ratio distributions
-    for i, method in enumerate(methods):
+    # Plot 2: Height ratio distributions
+    top_methods = list(consistency_summary.index[:8])
+    for method in top_methods:
         method_df = df[df['method'] == method]
-        axes[0, 1].scatter(method_df['width_ratio'], method_df['height_ratio'],
+        axes[0, 1].scatter(method_df['expected_height'], method_df['calc_height'],
                           label=method, alpha=0.7)
 
-    axes[0, 1].axhline(y=1, color='r', linestyle='--', alpha=0.5)
-    axes[0, 1].axvline(x=1, color='r', linestyle='--', alpha=0.5)
-    axes[0, 1].set_title('Width vs Height Ratios (calc/expected)')
-    axes[0, 1].set_xlabel('Width Ratio')
-    axes[0, 1].set_ylabel('Height Ratio')
+    # Plot ideal 1:1 line
+    max_height = max(df['expected_height'].max(), df['calc_height'].max())
+    axes[0, 1].plot([0, max_height], [0, max_height], 'k--', alpha=0.5)
+
+    axes[0, 1].set_title('Calculated vs Expected Height')
+    axes[0, 1].set_xlabel('Expected Height (pt)')
+    axes[0, 1].set_ylabel('Calculated Height (pt)')
     axes[0, 1].grid(True, linestyle='--', alpha=0.7)
-    axes[0, 1].legend()
+    axes[0, 1].legend(loc='upper left', bbox_to_anchor=(1, 1))
 
-    # Plot 3: Width percentage difference by font and method
-    pivot_width = df.pivot_table(
-        values='width_diff_pct',
-        index='method',
-        columns='font',
-        aggfunc='mean'
-    )
+    # Plot 3: Height error by font size for top methods
+    sizes = sorted(df['size'].unique())
+    for method in top_methods[:4]:  # Top 4 methods for clarity
+        method_df = df[df['method'] == method]
+        size_errors = []
+        for size in sizes:
+            size_df = method_df[method_df['size'] == size]
+            if not size_df.empty:
+                size_errors.append(size_df['height_diff_pct'].mean())
+            else:
+                size_errors.append(float('nan'))
 
-    pivot_width.plot(kind='bar', ax=axes[1, 0], alpha=0.7)
-    axes[1, 0].set_title('Width Difference % by Font and Method')
-    axes[1, 0].set_ylabel('Width Difference %')
-    axes[1, 0].grid(axis='y', linestyle='--', alpha=0.7)
+        axes[1, 0].plot(sizes, size_errors, marker='o', label=method)
 
-    # Plot 4: Height percentage difference by font and method
-    pivot_height = df.pivot_table(
-        values='height_diff_pct',
-        index='method',
-        columns='font',
-        aggfunc='mean'
-    )
+    axes[1, 0].axhline(y=0, color='r', linestyle='--', alpha=0.5)
+    axes[1, 0].set_title('Height Error % by Font Size')
+    axes[1, 0].set_xlabel('Font Size (pt)')
+    axes[1, 0].set_ylabel('Height Error %')
+    axes[1, 0].grid(True, linestyle='--', alpha=0.7)
+    axes[1, 0].legend()
 
-    pivot_height.plot(kind='bar', ax=axes[1, 1], alpha=0.7)
-    axes[1, 1].set_title('Height Difference % by Font and Method')
-    axes[1, 1].set_ylabel('Height Difference %')
-    axes[1, 1].grid(axis='y', linestyle='--', alpha=0.7)
+    # Plot 4: Height error by font for top methods
+    fonts = sorted(df['font'].unique())
+    font_indices = range(len(fonts))
+
+    for method in top_methods[:4]:  # Top 4 methods for clarity
+        method_df = df[df['method'] == method]
+        font_errors = []
+        for font in fonts:
+            font_df = method_df[method_df['font'] == font]
+            if not font_df.empty:
+                font_errors.append(font_df['height_diff_pct'].mean())
+            else:
+                font_errors.append(float('nan'))
+
+        axes[1, 1].plot(font_indices, font_errors, marker='o', label=method)
+
+    axes[1, 1].axhline(y=0, color='r', linestyle='--', alpha=0.5)
+    axes[1, 1].set_title('Height Error % by Font')
+    axes[1, 1].set_xlabel('Font')
+    axes[1, 1].set_xticks(font_indices)
+    axes[1, 1].set_xticklabels(fonts, rotation=45, ha='right')
+    axes[1, 1].set_ylabel('Height Error %')
+    axes[1, 1].grid(True, linestyle='--', alpha=0.7)
+    axes[1, 1].legend()
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.savefig('text_dimension_comparison.png', dpi=300)
-    print(f"Visualization saved as 'text_dimension_comparison.png'")
+    plt.savefig('text_height_comparison.png', dpi=300, bbox_inches='tight')
+    print(f"Height comparison visualization saved as 'text_height_comparison.png'")
 
-def print_detailed_report(df, summary):
+def print_detailed_report(df, height_summary, consistency_summary):
     """Print a detailed report of the results."""
     # Print overall summary
     print("\n" + "="*80)
     print("TEXT DIMENSION CALCULATION METHOD COMPARISON")
     print("="*80)
 
-    print("\nSUMMARY OF METHODS (SORTED BY CONSISTENCY SCORE - LOWER IS BETTER):")
+    # Print height-focused summary
+    print("\nMETHODS SORTED BY HEIGHT ACCURACY (LOWER SCORE IS BETTER):")
     print("-"*80)
-    for method in summary.index:
-        mape_mean = summary.loc[method, ('mape', 'mean')]
-        mape_std = summary.loc[method, ('mape', 'std')]
-        width_ratio = summary.loc[method, ('width_ratio', 'mean')]
-        height_ratio = summary.loc[method, ('height_ratio', 'mean')]
-        score = float(summary.loc[method, 'consistency_score'])
+    for method in height_summary.index[:8]:  # Show top 8 methods
+        height_mean = height_summary.loc[method, ('height_diff_pct', 'mean')]
+        height_std = height_summary.loc[method, ('height_diff_pct', 'std')]
+        height_ratio = height_summary.loc[method, ('height_ratio', 'mean')]
+        height_score = float(height_summary.loc[method, 'height_score'])
+
+        print(f"Method: {method}")
+        print(f"  Mean Height Error: {height_mean:.2f}% ± {height_std:.2f}%")
+        print(f"  Avg Height Ratio (calc/expected): {height_ratio:.4f}")
+        print(f"  Height Score: {height_score:.4f}")
+        print("-"*80)
+
+    # Print consistency-focused summary
+    print("\nMETHODS SORTED BY OVERALL CONSISTENCY (LOWER SCORE IS BETTER):")
+    print("-"*80)
+    for method in consistency_summary.index[:8]:  # Show top 8 methods
+        mape_mean = consistency_summary.loc[method, ('mape', 'mean')]
+        mape_std = consistency_summary.loc[method, ('mape', 'std')]
+        width_ratio = consistency_summary.loc[method, ('width_ratio', 'mean')]
+        height_ratio = consistency_summary.loc[method, ('height_ratio', 'mean')]
+        score = float(consistency_summary.loc[method, 'consistency_score'])
 
         print(f"Method: {method}")
         print(f"  Mean Error: {mape_mean:.2f}% ± {mape_std:.2f}%")
@@ -567,67 +694,64 @@ def print_detailed_report(df, summary):
         print("-"*80)
 
     # Print detailed method performance by font
-    print("\nDETAILED PERFORMANCE BY FONT:")
+    print("\nDETAILED HEIGHT PERFORMANCE BY FONT:")
     print("-"*80)
 
     fonts = df['font'].unique()
     for font in fonts:
         print(f"\nFont: {font}")
         font_df = df[df['font'] == font]
-        for method in summary.index:
+
+        # Get top 5 methods by height for this font
+        methods_by_height = font_df.groupby('method')['height_diff_pct'].apply(
+            lambda x: (abs(x.mean()), x.std())).sort_values().head(5).index
+
+        for method in methods_by_height:
             method_df = font_df[font_df['method'] == method]
             if not method_df.empty:
-                mape_mean = method_df['mape'].mean()
-                width_ratio = method_df['width_ratio'].mean()
+                height_mean = method_df['height_diff_pct'].mean()
+                height_std = method_df['height_diff_pct'].std()
                 height_ratio = method_df['height_ratio'].mean()
 
                 print(f"  {method}:")
-                print(f"    Mean Error: {mape_mean:.2f}%")
-                print(f"    Width Ratio: {width_ratio:.4f}")
+                print(f"    Mean Height Error: {height_mean:.2f}% ± {height_std:.2f}%")
                 print(f"    Height Ratio: {height_ratio:.4f}")
 
-    # Print recommended method and factors
-    best_method = summary.index[0]
+    # Print the best method for height calculation
+    best_height_method = height_summary.index[0]
     print("\n" + "="*80)
-    print(f"RECOMMENDATION: {best_method}")
+    print(f"RECOMMENDATION FOR HEIGHT CALCULATION: {best_height_method}")
     print("="*80)
-
-    # If the best method is FreeType, print the adjustment factors
-    if "FreeType" in best_method:
-        width_factor = best_method.split('=')[1].split(',')[0]
-        height_factor = best_method.split('=')[2].split(')')[0]
-        print(f"Recommended adjustment factors:")
-        print(f"  width_factor = {width_factor}")
-        print(f"  height_factor = {height_factor}")
-
-    # Extract best method's results for each font
-    print("\nRecommended font-specific adjustment factors:")
-    font_factors = {}
-    for font in fonts:
-        font_df = df[(df['font'] == font) & (df['method'] == best_method)]
-        if not font_df.empty:
-            width_ratio = font_df['width_ratio'].mean()
-            height_ratio = font_df['height_ratio'].mean()
-            print(f"  '{font}': ({1/width_ratio:.4f}, {1/height_ratio:.4f}),")
-            font_factors[font] = (1/width_ratio, 1/height_ratio)
 
     # Provide code snippet for implementation
     print("\n" + "="*80)
-    print("IMPLEMENTATION CODE SNIPPET:")
+    print("IMPLEMENTATION RECOMMENDATIONS FOR HEIGHT CALCULATION:")
     print("="*80)
-    print("# Font-specific adjustment factors:")
-    print("font_factors = {")
-    for font, (w, h) in font_factors.items():
-        print(f"    '{font}': ({w:.4f}, {h:.4f}),")
-    print("    'default': (1.21, 0.57)  # Default for other fonts")
-    print("}")
-    print("\n# Function to get adjustment factors for a specific font")
-    print("def get_adjustment_factors(font_name):")
-    print("    return font_factors.get(font_name, font_factors['default'])")
-    print("\n# Usage in calculate_text_dimensions:")
-    print("width, height = raw_calculate_dimensions(...)")
-    print("width_factor, height_factor = get_adjustment_factors(font_name)")
-    print("return width * width_factor, height * height_factor")
+
+    # Extract information from the method name
+    method_name = str(best_height_method)
+    if "ascent_only" in method_name:
+        print("# Use ascent only for height calculation")
+        print("height = abs(metrics.fAscent)")
+    elif "descent_only" in method_name:
+        print("# Use descent only for height calculation")
+        print("height = metrics.fDescent")
+    elif "ascent_descent_leading" in method_name:
+        print("# Use ascent + descent + leading for height calculation")
+        print("height = abs(metrics.fAscent) + metrics.fDescent + metrics.fLeading")
+    elif "ascent_descent_padding" in method_name:
+        padding = float(method_name.split("_")[-1]) if "_" in method_name.split("padding")[1] else 0.0
+        print(f"# Use ascent + descent + padding ({padding:.2f} of font size) for height calculation")
+        print(f"height = abs(metrics.fAscent) + metrics.fDescent + (font_size * {padding:.2f})")
+    elif "ascent_descent" in method_name:
+        print("# Use ascent + descent for height calculation")
+        print("height = abs(metrics.fAscent) + metrics.fDescent")
+    else:
+        # If it's a standard method with a height factor
+        if "height=" in method_name:
+            factor = method_name.split("height=")[1].split(")")[0]
+            print(f"# Apply height factor of {factor}")
+            print(f"height = original_height * {factor}")
 
 def main():
     """Main function to run the comparison."""
@@ -657,13 +781,13 @@ def main():
     results = compare_methods(reference_data)
 
     print("Analyzing results...")
-    df, summary = analyze_results(results)
+    df, height_summary, consistency_summary = analyze_results(results)
 
-    print_detailed_report(df, summary)
+    print_detailed_report(df, height_summary, consistency_summary)
 
     print("Generating visualization...")
     try:
-        visualize_results(df, summary)
+        visualize_results(df, height_summary, consistency_summary)
     except Exception as e:
         print(f"Error generating visualization: {str(e)}")
 

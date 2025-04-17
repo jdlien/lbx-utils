@@ -1,0 +1,85 @@
+# 82_canonical_syntax.lbx.yml
+# Example showing canonical syntax for comparison
+# This example uses the original type-based syntax for all object types
+
+size: 24mm
+width: 90mm
+orientation: landscape
+
+objects:
+  # Text object with canonical syntax
+  - type: text
+    content: "Canonical Syntax Example"
+    x: 45
+    y: 10
+    font: Helsinki
+    size: 14
+    bold: true
+    align: center
+
+  # Image object with canonical syntax
+  - type: image
+    content: "example.png"
+    x: 10
+    y: 30
+    width: 30
+    height: 30
+    monochrome: true
+    transparency: true
+    transparency_color: "#FFFFFF"
+
+  # QR code with canonical syntax
+  - type: qr
+    content: "https://example.com/product/1234"
+    x: 50
+    y: 30
+    size: 30
+    errorCorrection: M
+
+  # Code128 barcode with canonical syntax
+  - type: barcode
+    content: "123456789012"
+    x: 10
+    y: 70
+    width: 70
+    height: 20
+    barcodeType: code128
+    humanReadable: true
+
+  # Group with canonical syntax
+  - type: group
+    name: "main_container"
+    x: 10
+    y: 100
+    width: 80
+    height: auto
+    direction: row
+    justify: between
+    align: center
+    gap: 5
+    objects:
+      - type: text
+        content: "Left"
+        font: Helsinki
+        size: 10
+        bold: true
+
+      - type: text
+        content: "Right"
+        font: Helsinki
+        size: 10
+        italic: true
+
+  # Container with canonical syntax
+  - type: container
+    name: "footer_container"
+    x: 10
+    y: 120
+    direction: row
+    justify: center
+    objects:
+      - type: text
+        content: "© 2024 Example Company"
+        font: Helsinki
+        size: 8
+        align: center

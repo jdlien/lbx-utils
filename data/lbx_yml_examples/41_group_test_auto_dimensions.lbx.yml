@@ -1,0 +1,20 @@
+size: 24mm
+width: 100mm
+orientation: landscape
+objects:
+- x: 10
+  y: 10
+  direction: column
+  align: center
+  gap: 5
+  objects:
+  - font: Helsinki
+    size: 14
+    bold: true
+    name: Header_Text
+    text: Group Example
+  - font: Helsinki
+    size: 10
+    name: Description_Text
+    text: This is a simple test of group layout
+  group: Group_main_container

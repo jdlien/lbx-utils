@@ -7,8 +7,7 @@ orientation: landscape
 
 objects:
   # Absolutely positioned header
-  - type: text
-    content: "SHIPPING LABEL"
+  - text: "SHIPPING LABEL"
     x: 50
     y: 8
     size: 16
@@ -16,8 +15,7 @@ objects:
     align: center
 
   # Absolutely positioned logo
-  - type: image
-    source: "logo.png"
+  - image: "logo.png"
     x: 5
     y: 5
     width: 20
@@ -25,7 +23,7 @@ objects:
     monochrome: true
 
   # Flexbox layout for address information
-  - type: group
+  - group: "address_group"
     x: 10
     y: 30
     direction: row
@@ -34,54 +32,45 @@ objects:
     gap: 20
     objects:
       # From address column
-      - type: group
+      - group: "from_address"
         direction: column
         gap: 3
         objects:
-          - type: text
-            content: "FROM:"
+          - text: "FROM:"
             size: 8
             bold: true
 
-          - type: text
-            content: "ACME Corporation"
+          - text: "ACME Corporation"
             size: 10
 
-          - type: text
-            content: "123 Main Street"
+          - text: "123 Main Street"
             size: 8
 
-          - type: text
-            content: "Anytown, CA 12345"
+          - text: "Anytown, CA 12345"
             size: 8
 
       # To address column
-      - type: group
+      - group: "to_address"
         direction: column
         gap: 3
         objects:
-          - type: text
-            content: "TO:"
+          - text: "TO:"
             size: 8
             bold: true
 
-          - type: text
-            content: "John Smith"
+          - text: "John Smith"
             size: 10
 
-          - type: text
-            content: "456 Oak Avenue"
+          - text: "456 Oak Avenue"
             size: 8
 
-          - type: text
-            content: "Somewhere, NY 67890"
+          - text: "Somewhere, NY 67890"
             size: 8
 
   # Absolutely positioned barcode at bottom
-  - type: barcode
-    barcodeType: code128
-    data: "SHIP123456789"
+  - barcode: "SHIP123456789"
     x: 25
     y: 65
     size: 40
+    type: code128
     humanReadable: true
