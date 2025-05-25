@@ -47,15 +47,28 @@ except ImportError:
     print("Warning: Pillow library not found. Basic image optimization will be disabled.")
     print("Install with: pip install pillow")
 
-# Check if ImageMagick is available
+# Check if ImageMagick is available and determine which command to use
 def check_imagemagick():
+    """Check for ImageMagick availability and return (available, command_name)"""
+    # Try the new unified 'magick' command first (ImageMagick 7+)
     try:
         result = subprocess.run(["magick", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return result.returncode == 0
+        if result.returncode == 0:
+            return True, "magick"
     except FileNotFoundError:
-        return False
+        pass
 
-IMAGEMAGICK_AVAILABLE = check_imagemagick()
+    # Fall back to legacy 'convert' command (ImageMagick 6.x and earlier)
+    try:
+        result = subprocess.run(["convert", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode == 0:
+            return True, "convert"
+    except FileNotFoundError:
+        pass
+
+    return False, None
+
+IMAGEMAGICK_AVAILABLE, IMAGEMAGICK_COMMAND = check_imagemagick()
 if not IMAGEMAGICK_AVAILABLE:
     print("Warning: ImageMagick not found. Advanced image conversion will be disabled.")
     print("Install ImageMagick for optimal BMP to transparent PNG conversion.")
@@ -323,9 +336,9 @@ def modify_label_xml(lbx_file_path, bmp_to_png_conversions, verbose=False):
 
                 if os.path.exists(orig_file) and IMAGEMAGICK_AVAILABLE:
                     try:
-                        # Use magick to convert BMP to PNG with white as transparent
+                        # Use ImageMagick to convert BMP to PNG with white as transparent
                         cmd = [
-                            "magick",
+                            IMAGEMAGICK_COMMAND,
                             orig_file,
                             "-transparent", "white",
                             new_file
@@ -476,9 +489,9 @@ def save_images_to_folder(lbx_file_path, images_info, use_db=False, verbose=Fals
                         # Define output path for PNG
                         output_path = os.path.join(output_folder, f"{enhanced_name}.png")
 
-                        # Use magick to convert BMP to PNG with white as transparent
+                        # Use ImageMagick to convert BMP to PNG with white as transparent
                         cmd = [
-                            "magick",
+                            IMAGEMAGICK_COMMAND,
                             temp_bmp_path,
                             "-transparent", "white",
                             output_path
@@ -670,9 +683,9 @@ def main():
                             print(f"Converting {bmp_file} to {png_file}...")
 
                         try:
-                            # Use magick to convert BMP to PNG with white as transparent
+                            # Use ImageMagick to convert BMP to PNG with white as transparent
                             cmd = [
-                                "magick",
+                                IMAGEMAGICK_COMMAND,
                                 bmp_path,
                                 "-transparent", "white",
                                 png_path
